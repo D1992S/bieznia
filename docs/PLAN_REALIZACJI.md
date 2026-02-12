@@ -1,32 +1,53 @@
 # Plan realizacji projektu (AI-first)
 
-> Cel: mieć **jedno, trwałe źródło prawdy** dla rozwoju aplikacji krok po kroku, z naciskiem na łatwą edycję przez różne modele AI (np. Claude Opus, GPT).
+> Cel: zbudować **analityczną maszynę** — desktop app dla content creatorów (YouTube), która zbiera dane, prognozuje trendy, wykrywa anomalie, ocenia jakość contentu i daje konkretne rekomendacje oparte na evidence. Jedno, trwałe źródło prawdy dla rozwoju krok po kroku.
+
+---
 
 ## 1. Zasady prowadzenia projektu
 
 1. **Kontrakt przed implementacją**
-   - Najpierw definiujemy: DTO, eventy, IPC contract, schema DB i walidacje.
-   - Dopiero później implementujemy logikę i UI.
+   - Najpierw: DTO, eventy, IPC contract, schema DB, walidacje (Zod).
+   - Później: logika i UI.
+   - Każdy kontrakt ma wersję (`v1`, `v2`) — nigdy nie łamiemy istniejącego API, dodajemy nowy endpoint.
 
 2. **Jedno źródło prawdy dla danych**
-   - SQLite + migracje.
-   - Brak stanu biznesowego „tylko w UI”.
+   - SQLite + migracje (forward-only, brak rollback migracji w produkcji).
+   - Brak stanu biznesowego „tylko w UI" — UI jest projekcją stanu DB.
+   - Każda zmiana stanu przechodzi przez dedykowany mutation layer, nie raw SQL.
 
 3. **Ścisłe granice modułów**
-   - UI nie dotyka DB i systemu.
+   - UI nie dotyka DB i systemu plików.
    - Komunikacja wyłącznie przez IPC + DTO.
+   - Dependency rule: `shared` ← `core` ← `sync/reports/llm/ml` ← `apps`.
+   - Zakaz circular dependencies — wymuszane przez lint rule.
 
 4. **Deterministyczność**
-   - Jawne sortowanie, seed RNG, fixtures, checkpointy.
-   - Te same wejścia = te same wyniki.
+   - Jawne sortowanie, seeded RNG, fixtures, checkpointy.
+   - Te same wejścia = te same wyniki (krytyczne dla reprodukowalności ML).
+   - Każdy model ML ma snapshot konfiguracji + wersję danych treningowych.
 
 5. **Tryby pracy danych**
-   - Fake mode i Record mode jako podstawa szybkiego developmentu.
-   - Każdy moduł premium (LLM/ML/competitor) ma fallback stub/fixture.
+   - **Fake mode**: fixtures (instant, offline, testy).
+   - **Record mode**: nagrywanie real API → fixture (budowa golden datasets).
+   - **Real mode**: produkcja.
+   - Każdy moduł premium (LLM/ML/sync/competitor) ma LocalStub fallback.
 
 6. **Jasna obsługa błędów**
-   - Wspólny standard `AppError`.
-   - Brak cichych fallbacków.
+   - Wspólny standard `AppError` z kodami, severity, kontekstem i stack trace.
+   - Brak cichych fallbacków — każdy error logowany i widoczny w diagnostyce.
+   - Graceful degradation: gdy moduł padnie, reszta działa (circuit breaker pattern).
+
+7. **Performance budgets** *(nowe)*
+   - IPC response: < 100ms (p95) dla queries, < 500ms dla mutacji.
+   - Dashboard render: < 200ms po otrzymaniu danych.
+   - ML inference: < 2s per model. Training: background worker, nie blokuje UI.
+   - Sync: progress events co 1s minimum (UX responsiveness).
+
+8. **Data quality first** *(nowe)*
+   - Każdy import/sync przechodzi walidację schema + range check + freshness check.
+   - Brakujące dane: explicite oznaczane (NULL z reason), nie interpolowane cicho.
+   - Data lineage: każdy rekord wie skąd pochodzi (source, timestamp, sync_run_id).
 
 ---
 
@@ -34,23 +55,33 @@
 
 ```text
 /apps
-  /desktop        # Electron main + preload
-  /ui             # Renderer (React)
+  /desktop          # Electron main + preload
+  /ui               # Renderer (React + Zustand + TanStack Query)
 /packages
-  /shared         # DTO, zod schema, IPC contracts, event names
-  /core           # DB schema, migracje, query layer
-  /sync           # Orchestrator sync + providers + cache/rate limit
-  /reports        # KPI, timeseries, raporty HTML/PDF
-  /llm            # provider registry + planner/executor/summarizer
-  /ml             # training, forecasting, nowcast, backtesting
-  /plugins        # plugin runtime (insights/alerts)
-  /diagnostics    # integrity checks + recovery
+  /shared           # DTO, Zod schema, IPC contracts, event names, AppError
+  /core             # DB schema, migracje, query layer, mutation layer
+  /data-pipeline    # ETL, preprocessing, normalizacja, feature engineering  ← NOWE
+  /sync             # Orchestrator sync + providers + cache/rate limit
+  /reports          # KPI, timeseries, raporty HTML/PDF
+  /llm              # provider registry + planner/executor/summarizer
+  /ml               # training, forecasting, nowcast, anomaly, backtesting
+  /analytics        # quality scoring, competitor intel, topic intel  ← NOWE (wydzielone)
+  /plugins          # plugin runtime (insights/alerts)
+  /diagnostics      # integrity checks + recovery + perf monitoring
 /docs
   /architecture
   /contracts
   /runbooks
   /prompts
+/ADR                # Architectural Decision Records
+/fixtures           # Golden datasets dla testów i fake mode  ← NOWE
 ```
+
+### Zmiany vs. oryginalny plan:
+- **`/packages/data-pipeline`** — wydzielony ETL i feature engineering (wcześniej implicite w `core`).
+- **`/packages/analytics`** — quality scoring + competitor + topic intel wydzielone z `reports` (inne odpowiedzialności).
+- **`/fixtures`** — top-level golden datasets, nie rozrzucone po pakietach.
+- **UI stack**: React + **Zustand** (state) + **TanStack Query** (async state / IPC queries) — brakowało strategii state management.
 
 ---
 
@@ -58,40 +89,44 @@
 
 ### 3.1 Pliki obowiązkowe
 
-- `AGENTS.md` (root): zasady modyfikacji kodu.
-- `docs/architecture/overview.md`: mapa modułów i przepływ danych.
-- `docs/contracts/*.md`: kontrakty IPC, eventy, DB, błędy.
-- `docs/runbooks/*.md`: jak dodać feature bez łamania architektury.
-- `docs/prompts/*.md`: gotowe prompty do prac typowych.
-- `ADR/*.md`: decyzje architektoniczne.
-- `CHANGELOG_AI.md`: dziennik zmian wykonanych przez AI.
+| Plik | Cel |
+|------|-----|
+| `AGENTS.md` (root) | Zasady modyfikacji kodu |
+| `docs/architecture/overview.md` | Mapa modułów i przepływ danych |
+| `docs/architecture/data-flow.md` | Pipeline danych: ingestion → storage → processing → ML → UI |
+| `docs/contracts/*.md` | Kontrakty IPC, eventy, DB, błędy |
+| `docs/runbooks/*.md` | Jak dodać feature bez łamania architektury |
+| `docs/prompts/*.md` | Gotowe prompty do typowych zadań |
+| `ADR/*.md` | Decyzje architektoniczne |
+| `CHANGELOG_AI.md` | Dziennik zmian AI |
 
 ### 3.2 Standard opisu modułu
 
-Każdy pakiet powinien mieć `README.md` zawierające:
+Każdy pakiet **musi** mieć `README.md` zawierające:
 
-- odpowiedzialność modułu,
-- wejścia/wyjścia,
-- zależności,
-- listę publicznych API,
-- przykładowe użycie.
+- **Odpowiedzialność** (1-2 zdania, co robi i czego NIE robi).
+- **Wejścia/wyjścia** (typy, przykłady).
+- **Zależności** (od jakich pakietów zależy).
+- **Public API** (lista eksportowanych funkcji/typów).
+- **Przykładowe użycie** (kod).
+- **Performance characteristics** (oczekiwane czasy, limity danych).
 
-
-## 3.3 Obowiązkowe logowanie zmian (PR/commit) — krytyczne dla współpracy wielu LLM
+### 3.3 Obowiązkowe logowanie zmian (PR/commit)
 
 Aby inny model mógł bezpiecznie kontynuować pracę, **każda ingerencja w repo musi zostawić jawny ślad zmian**.
 
-### Reguły obowiązkowe
+#### Reguły obowiązkowe
 
-1. **Każdy PR musi zawierać sekcję „Co zmieniono”** (lista plików + krótki opis decyzji).
-2. **Każdy PR musi zawierać sekcję „Wpływ i ryzyko”** (co może się wysypać).
-3. **Każdy PR musi zawierać sekcję „Jak zweryfikowano”** (komendy testów/checków i wynik).
+1. **Każdy PR musi zawierać sekcję „Co zmieniono"** (lista plików + krótki opis decyzji).
+2. **Każdy PR musi zawierać sekcję „Wpływ i ryzyko"** (co może się wysypać).
+3. **Każdy PR musi zawierać sekcję „Jak zweryfikowano"** (komendy testów/checków i wynik).
 4. **Każda zmiana AI musi dopisać wpis do `CHANGELOG_AI.md`**.
 5. **Przy zmianie architektury wymagany jest ADR** (linkowany w PR).
 6. **Brak tych sekcji = PR nie jest gotowy do merge**.
 
-### Minimalny template wpisu do `CHANGELOG_AI.md`
+#### Template wpisu do `CHANGELOG_AI.md`
 
+```
 - Data:
 - Autor (model):
 - Zakres plików:
@@ -100,396 +135,700 @@ Aby inny model mógł bezpiecznie kontynuować pracę, **każda ingerencja w rep
 - Ryzyko/regresja:
 - Jak zweryfikowano:
 - Następny krok:
-
-
----
-
-## 4. Fazy realizacji (krok po kroku)
-
-## Faza 0 — Foundation
-
-**Cel:** szybki i bezpieczny development.
-
-**Zakres:**
-- Monorepo (pnpm workspaces).
-- TypeScript strict + ESLint + Prettier.
-- Podstawowe testy (Vitest).
-- `shared` z DTO i eventami.
-- Logger + `AppError`.
-
-**Definition of Done:**
-- Aplikacja startuje.
-- CI uruchamia lint + typecheck + unit.
-- Jest podstawowy szkielet pakietów.
+```
 
 ---
 
-## Faza 1 — Data Core
+## 4. Architektura danych (nowa sekcja — krytyczna dla "potwora analitycznego")
 
-**Cel:** stabilny fundament danych.
+### 4.1 Model danych — warstwy
+
+```
+┌─────────────────────────────────────────────┐
+│  RAW LAYER (surowe dane z API/importu)      │
+│  raw_api_responses, raw_csv_imports         │
+├─────────────────────────────────────────────┤
+│  STAGING LAYER (wystandaryzowane)           │
+│  stg_videos, stg_channels, stg_metrics     │
+├─────────────────────────────────────────────┤
+│  DIMENSION TABLES                           │
+│  dim_channel, dim_video, dim_topic          │
+├─────────────────────────────────────────────┤
+│  FACT TABLES (metryki dzienne)              │
+│  fact_channel_day, fact_video_day           │
+├─────────────────────────────────────────────┤
+│  ANALYTICS LAYER (przetworzone)             │
+│  agg_kpi_daily, agg_trends, agg_forecasts  │
+│  agg_quality_scores, agg_topic_clusters     │
+├─────────────────────────────────────────────┤
+│  ML LAYER (modele i predykcje)              │
+│  ml_models, ml_predictions, ml_backtests    │
+│  ml_features, ml_anomalies                  │
+└─────────────────────────────────────────────┘
+```
+
+### 4.2 Pipeline danych (ETL)
+
+```
+Ingestion → Validation → Staging → Transform → Analytics → ML → Presentation
+    │            │           │          │           │        │        │
+    ▼            ▼           ▼          ▼           ▼        ▼        ▼
+  API/CSV    Schema+Range  Normalize  Features   KPIs    Predict   UI/PDF
+  Import     Freshness     Dedupe     Engineer   Trends  Anomaly   Export
+             NullReason    Upsert     Aggregate  Score   Forecast
+```
+
+Każdy krok pipeline'u:
+- Ma **input/output schema** (Zod).
+- Loguje **czas wykonania** i **liczbę rekordów**.
+- Przy błędzie: **retry z backoff** (ingestion) lub **skip + log** (transform).
+- Zapisuje **data lineage** (source → transform → output).
+
+### 4.3 Feature Engineering (dla ML)
+
+Cechy generowane automatycznie z fact tables:
+
+| Kategoria | Przykładowe features |
+|-----------|---------------------|
+| **Velocity** | views_7d, views_30d, views_acceleration, publish_frequency |
+| **Engagement** | like_rate, comment_rate, avg_watch_time, retention_curve_slope |
+| **Growth** | subscriber_delta_7d, subscriber_acceleration, growth_consistency |
+| **Temporal** | day_of_week, hour_of_publish, days_since_last_video, seasonal_index |
+| **Content** | title_length, tag_count, description_length, thumbnail_score_proxy |
+| **Competitive** | relative_velocity_vs_niche, market_share_delta |
+
+Features przechowywane w `ml_features` z wersjonowaniem (feature_set_version).
+
+### 4.4 Strategia obsługi brakujących danych
+
+| Sytuacja | Strategia |
+|----------|-----------|
+| Brak metryk za dany dzień | `NULL` + `missing_reason: 'no_sync'` — NIE interpolujemy |
+| API zwraca 0 | Zapisujemy 0 — to jest valid data point |
+| Za mało danych do ML (< 30 dni) | Graceful degradation: pokazuj raw trends, ukryj forecast |
+| Za mało danych do quality score | Partial score z flagą `confidence: 'low'` |
+| Outlier detection | Z-score > 3σ: flagujemy, NIE usuwamy. Użytkownik decyduje |
+
+---
+
+## 5. Fazy realizacji (zoptymalizowana kolejność)
+
+### Zmiana kolejności vs. oryginalny plan
+
+**Problem w oryginalnym planie:** ML i analytics dopiero w fazach 10-14, co oznacza że przez 60% developmentu app nie robi tego, do czego jest przeznaczona.
+
+**Nowa strategia:** Wcześniejsze wprowadzenie data pipeline i bazowego ML, żeby każda kolejna faza budowała na działającej analityce.
+
+---
+
+### Faza 0 — Foundation
+
+**Cel:** Działający szkielet monorepo ze wszystkimi narzędziami dev.
 
 **Zakres:**
-- SQLite + migracje.
-- Tabele: `dim_channel`, `dim_video`, `fact_channel_day`, `fact_video_day`.
-- Tabele operacyjne: `profiles`, `app_meta`, `sync_runs`, `perf_events`.
-- Repozytoria i query layer: `getKpis`, `getTimeseries`, upserty.
+- Monorepo (pnpm workspaces) z pełną strukturą katalogów.
+- TypeScript strict + ESLint (flat config) + Prettier.
+- Vitest setup (unit + integration configs).
+- `shared`: DTO, Zod schemas, IPC contracts, event names, `AppError`, `Result<T,E>` type.
+- Logger (structured JSON, severity levels, context).
+- Zustand store skeleton w `ui`.
+- Electron minimal shell (main + preload + renderer z React).
 
 **Definition of Done:**
-- Testy integracyjne DB przechodzą.
+- `pnpm install` → `pnpm build` → `pnpm test` → `pnpm lint` — wszystko przechodzi.
+- Electron startuje i pokazuje "Hello" z React.
+- Shared types importowalne z każdego pakietu.
+- CI pipeline: lint + typecheck + test (GitHub Actions).
+
+**Krytyczne pliki do stworzenia:**
+```
+pnpm-workspace.yaml
+tsconfig.base.json
+eslint.config.js
+prettier.config.js
+vitest.config.ts
+packages/shared/src/index.ts
+packages/shared/src/dto/index.ts
+packages/shared/src/errors/AppError.ts
+packages/shared/src/events/index.ts
+packages/shared/src/ipc/contracts.ts
+apps/desktop/src/main.ts
+apps/desktop/src/preload.ts
+apps/ui/src/main.tsx
+apps/ui/src/App.tsx
+apps/ui/src/store/index.ts
+```
+
+---
+
+### Faza 1 — Data Core
+
+**Cel:** Stabilny fundament danych z warstwowym modelem.
+
+**Zakres:**
+- SQLite setup (better-sqlite3, synchronous w main process).
+- System migracji (forward-only, numbered, idempotent checks).
+- **Raw layer**: `raw_api_responses` (JSON blob + metadata).
+- **Dimension tables**: `dim_channel`, `dim_video`.
+- **Fact tables**: `fact_channel_day`, `fact_video_day`.
+- **Operational tables**: `profiles`, `app_meta`, `sync_runs`, `perf_events`.
+- Mutation layer: typed repository pattern (nie raw SQL w logice biznesowej).
+- Query layer: `getKpis()`, `getTimeseries()`, typed upserts.
+- Seed fixtures: realistyczne dane 90-dniowe dla 1 kanału + 50 filmów.
+
+**Definition of Done:**
+- Testy integracyjne DB przechodzą (in-memory SQLite).
 - Fixture zapisuje się i odczytuje poprawnie.
-- Zapytania są deterministyczne.
+- Migracje są idempotentne (podwójne uruchomienie = brak błędu).
+- Query results są deterministyczne (jawne ORDER BY wszędzie).
 
 ---
 
-## Faza 2 — Desktop Backend + IPC
+### Faza 2 — Desktop Backend + IPC
 
-**Cel:** bezpieczny most UI ↔ backend.
+**Cel:** Bezpieczny, typowany most UI ↔ backend.
 
 **Zakres:**
-- Rozdzielenie Electron: main/preload/renderer.
+- Electron security: contextIsolation, sandbox, no nodeIntegration w renderer.
 - Single instance lock.
-- Router IPC: komendy + eventy progress.
-- Walidacja zod po obu stronach.
-- Mapowanie `AppError` przez IPC.
+- IPC Router pattern: typed handler registration.
+- Zod walidacja po obu stronach IPC.
+- `AppError` serializacja/deserializacja przez IPC.
+- TanStack Query hooks w UI do konsumpcji IPC (react-query adapter).
+- Progress event streaming (IPC → renderer).
 
-**Minimalne komendy IPC:**
-- `app:getStatus`
-- `db:getKpis`
-- `db:getTimeseries`
+**Minimalne komendy IPC (Faza 2):**
+
+| Komenda | Input | Output |
+|---------|-------|--------|
+| `app:getStatus` | `void` | `AppStatusDTO` |
+| `db:getKpis` | `KpiQueryDTO` | `KpiResultDTO` |
+| `db:getTimeseries` | `TimeseriesQueryDTO` | `TimeseriesResultDTO` |
+| `db:getChannelInfo` | `ChannelIdDTO` | `ChannelInfoDTO` |
 
 **Definition of Done:**
 - UI pobiera KPI/timeseries wyłącznie przez IPC.
+- Invalid input → AppError z czytelnym komunikatem (nie crash).
+- E2E test: UI renderuje dane z DB przez IPC.
 
 ---
 
-## Faza 3 — Data Modes (Fake/Real/Record)
+### Faza 3 — Data Modes + Fixtures
 
-**Cel:** maksymalna szybkość iteracji i repeatability.
+**Cel:** Szybka iteracja i powtarzalność.
 
 **Zakres:**
-- Fake mode (fixtures).
-- Real mode (API provider).
-- Record mode (nagrywanie fixture na bazie real requestów).
-- Cache requestów i rate limiting.
+- **Fake mode**: fixture loader, instant responses.
+- **Real mode**: API provider interface (YouTube Data API).
+- **Record mode**: proxy zapisuje real responses → fixture JSON.
+- Provider interface (`DataProvider`): `getChannelStats()`, `getVideoStats()`, `getRecentVideos()`.
+- Cache layer: TTL-based, per-endpoint.
+- Rate limiter: token bucket algorithm, konfigurowalny per provider.
 
 **Definition of Done:**
-- Przełączanie fake/real bez zmian w UI.
+- Przełączanie fake/real bez zmian w UI (env variable + runtime toggle).
 - Record mode tworzy dane odtwarzalne w fake mode.
+- Rate limiter blokuje nadmiar requestów z logiem.
 
 ---
 
-## Faza 4 — Auth + Profile
+### Faza 4 — Data Pipeline + Feature Engineering *(przeorganizowane — wcześniej niż w oryginale)*
 
-**Cel:** separacja środowisk użytkownika.
+**Cel:** Automatyczny pipeline od surowych danych do features gotowych do ML.
 
 **Zakres:**
-- OAuth connect/disconnect/status.
-- Profile: tworzenie, wybór aktywnego profilu, trwałość.
-- Ustawienia per profil (LLM, zakresy raportu, itp.).
+- **ETL orchestrator**: ingestion → validation → staging → transform.
+- **Validation step**: Zod schema + range checks + freshness checks.
+- **Staging layer**: normalizacja nazw, typów, deduplikacja.
+- **Transform layer**: agregacje dzienne/tygodniowe/miesięczne.
+- **Feature engineering**: automatyczne generowanie features z fact tables (tabela z sekcji 4.3).
+- **Data lineage**: `data_lineage` table — kto/kiedy/skąd.
+- Tabele: `stg_videos`, `stg_channels`, `ml_features`, `data_lineage`.
+
+**Definition of Done:**
+- Pipeline przetwarza fixture data end-to-end.
+- Features generowane deterministycznie (te same dane → te same features).
+- Brakujące dane oznaczone explicite (NULL + reason), nie interpolowane.
+- Data lineage query: "skąd pochodzi ta wartość?" zwraca pełną ścieżkę.
+
+---
+
+### Faza 5 — Sync Orchestrator
+
+**Cel:** Kontrolowany, idempotentny, resilient sync.
+
+**Zakres:**
+- Etapy sync z postępem procentowym (events do UI).
+- Checkpointy i resume po przerwaniu.
+- `sync_runs` table: status, etap, duration, error log.
+- Blokada równoległego sync (mutex).
+- Automatic retry z exponential backoff dla API errors.
+- Post-sync hook: automatycznie uruchamia data pipeline (Faza 4).
+- Eventy `sync:progress`, `sync:complete`, `sync:error` do UI.
+
+**Definition of Done:**
+- Sync można przerwać i wznowić bez utraty spójności (test: kill w połowie → resume).
+- Po sync automatycznie uruchamia się pipeline i generuje fresh features.
+- Error reporting: UI pokazuje co poszło nie tak z actionable message.
+
+---
+
+### Faza 6 — Bazowy ML Framework *(przesunięte z Fazy 10!)*
+
+**Cel:** Działający framework ML z pierwszym modelem prognostycznym.
+
+**Zakres:**
+- **Model Registry**: `ml_models` table (id, type, version, config, status, metrics).
+- **Training pipeline**: feature selection → train → validate → store.
+- **Backtesting**: rolling window cross-validation.
+- **Metryki**: MAE, sMAPE, MASE (Mean Absolute Scaled Error).
+- **Quality gate**: model aktywowany tylko gdy metryki < threshold.
+- **Pierwszy model**: Linear Regression + Exponential Smoothing (Holt-Winters) na views/subscribers.
+  - Dlaczego proste modele najpierw: szybkie, interpretowalné, baseline do porównań.
+- **Prediction storage**: `ml_predictions` (model_id, target, horizon, predicted, actual, confidence_interval).
+- **Confidence levels**: p10/p50/p90 (nie tylko point estimate).
+- **Graceful degradation**: < 30 dni danych → ukryj forecast, pokaż trend line.
+- **Shadow mode**: nowy model generuje predykcje obok starego, nie jest aktywny.
+
+**Algorytmy (roadmap wewnątrz fazy):**
+
+| Priorytet | Algorytm | Cel | Kiedy dodać |
+|-----------|----------|-----|-------------|
+| P0 | Exponential Smoothing (Holt-Winters) | Baseline forecast | Na start |
+| P0 | Linear Regression + trend decomposition | Trend detection | Na start |
+| P1 | ARIMA/SARIMA | Sezonowość | Po walidacji baseline |
+| P1 | Prophet (opcjonalnie) | Automatyczny forecast | Jeśli ARIMA niewystarczający |
+| P2 | Gradient Boosted Trees (LightGBM) | Feature-rich prediction | Gdy features stabilne |
+| P3 | LSTM/Transformer | Zaawansowane sekwencje | Tylko jeśli P1/P2 niewystarczające |
+
+**Definition of Done:**
+- Holt-Winters i Linear Regression trenowane na fixture data.
+- Backtesting raport: MAE, sMAPE per model per metryka.
+- Quality gate blokuje kiepski model (test: model z random weights → nie aktywowany).
+- Predictions z confidence intervals (p10/p50/p90).
+
+---
+
+### Faza 7 — Dashboard + Raporty + Eksport
+
+**Cel:** Pierwsza duża wartość biznesowa — wizualizacja danych I predykcji.
+
+**Zakres:**
+- KPI cards (aktualne + delta + trend arrow).
+- Timeseries chart z overlay predykcji ML (confidence band).
+- Zakres dat: 7d / 30d / 90d / custom.
+- Anomaly highlights na wykresach (punkty oznaczone czerwono).
+- Pipeline raportu: sync → pipeline → ML → metrics → insights → render.
+- HTML report template (Handlebars/React SSR).
+- PDF generation (hidden BrowserWindow + print-to-PDF).
+- Weekly export package: `report.pdf`, `top_videos.csv`, `kpi_summary.json`, `predictions.csv`.
+
+**Definition of Done:**
+- Dashboard renderuje real KPIs + ML predictions z confidence bands.
+- Jeden klik generuje raport PDF z metrykami i predykcjami.
+- Export package zawiera maszynowo czytelne formaty (CSV/JSON).
+
+---
+
+### Faza 8 — Auth + Profile + Settings
+
+**Cel:** Multi-user, separacja środowisk.
+
+**Zakres:**
+- OAuth connect/disconnect/status (YouTube API).
+- Multi-profile: tworzenie, wybór, przełączanie (osobne DB per profil).
+- Settings per profil: API keys, LLM provider, report preferences, ML model preferences.
+- Secure credential storage (Electron safeStorage API).
 
 **Definition of Done:**
 - Dwa profile działają niezależnie po restarcie.
+- Credentials nie są w plaintext (safeStorage).
+- Przełączenie profilu → czyste załadowanie danych tego profilu.
 
 ---
 
-## Faza 5 — Sync Orchestrator
+### Faza 9 — Import + Enrichment + Search
 
-**Cel:** kontrolowany i idempotentny sync.
+**Cel:** Pełna kontrola źródeł i wyszukiwania.
 
 **Zakres:**
-- Etapy sync z postępem procentowym.
-- Checkpointy i resume.
-- `sync_runs` + snapshoty.
-- Blokada równoległego sync.
-- Eventy `sync:progress` do UI.
+- Import CSV z mapowaniem kolumn, preview, walidacją (Zod schema).
+- Import automatycznie triggeruje data pipeline (feature regeneration).
+- Transkrypcje + parser SRT → `dim_transcript`.
+- FTS5 full-text search + snippety + timestamp.
+- Search results z relevance score i context.
 
 **Definition of Done:**
-- Sync można przerwać i wznowić bez utraty spójności.
+- Importowane dane od razu widoczne na wykresach i w predictions.
+- Wyszukiwanie zwraca wynik ze snippetem, timestampem i relevance score.
+- Import invalid CSV → czytelny error z numerem wiersza i kolumny.
 
 ---
 
-## Faza 6 — Dashboard + Raporty + Eksport
+### Faza 10 — Anomaly Detection + Trend Analysis *(nowa faza)*
 
-**Cel:** pierwsza duża wartość biznesowa.
+**Cel:** Automatyczne wykrywanie nietypowych zdarzeń i zmian trendów.
 
 **Zakres:**
-- KPI cards + timeseries + zakresy dat.
-- Pipeline raportu: sync → metrics → insights → render.
-- HTML report + PDF (hidden BrowserWindow).
-- Weekly export package (`report_max.pdf`, `top_videos.csv`, `summary.txt`).
+- **Anomaly detection**: Z-score + IQR (dual method, consensus = higher confidence).
+- **Trend decomposition**: STL (Seasonal-Trend decomposition using LOESS).
+- **Change point detection**: CUSUM algorithm.
+- **Tabele**: `ml_anomalies` (timestamp, metric, severity, method, explanation).
+- **Alert generation**: anomaly → insight z kontekstem ("Views spadły o 40% vs avg — prawdopodobna przyczyna: brak publikacji 5 dni").
+- **UI**: anomalie zaznaczone na wykresach + feed anomalii z filtrowaniem.
 
 **Definition of Done:**
-- Jeden klik generuje raport PDF i paczkę eksportową.
+- Anomaly detection znajduje znane anomalie w fixture data (test z planted outliers).
+- Trend decomposition rozdziela seasonal/trend/residual.
+- Change point detection poprawnie znajduje planted change points w fixtures.
 
 ---
 
-## Faza 7 — Import + Enrichment + Search
+### Faza 11 — LLM Assistant
 
-**Cel:** pełna kontrola źródeł i wyszukiwania.
+**Cel:** Odpowiedzi oparte na danych z evidence.
 
 **Zakres:**
-- Import CSV z mapowaniem kolumn i walidacją.
-- Transkrypcje + parser SRT.
-- FTS5 search + snippety + timestamp.
+- Chat UI + historia (persist w SQLite).
+- Provider registry: OpenAI, Anthropic, local (Ollama), LocalStub fallback.
+- Orchestrator pattern: **planner** (co trzeba sprawdzić) → **executor** (SQL queries, feature lookup) → **summarizer** (odpowiedź z evidence).
+- Evidence attachment: każda odpowiedź ma linki do źródłowych danych.
+- Context window management: automatyczne streszczanie długich historii.
+- Structured output: LLM zwraca JSON z `answer`, `evidence[]`, `confidence`, `follow_up_questions[]`.
 
 **Definition of Done:**
-- Importowane dane od razu pojawiają się na wykresach.
-- Wyszukiwanie zwraca wynik ze snippetem i timestampem.
+- Pytanie "jak szły moje filmy w ostatnim miesiącu?" → odpowiedź z konkretnymi liczbami z DB.
+- LocalStub mode: odpowiedź template (bez real LLM) z poprawnymi danymi.
+- Evidence linki prowadzą do konkretnych rekordów.
 
 ---
 
-## Faza 8 — LLM Assistant
+### Faza 12 — LLM Guardrails + Cost Control
 
-**Cel:** odpowiedzi oparte na danych i evidence.
+**Cel:** Kontrola kosztu i bezpieczeństwa.
 
 **Zakres:**
-- Chat UI + historia.
-- Provider registry + LocalStub fallback.
-- Orkiestrator: planner → executor → summarizer.
-- Evidence dołączane do odpowiedzi.
+- Limity dzienne: tokeny, koszt ($), liczba requestów.
+- Redaction: PII, API keys — nigdy nie wysyłane do LLM.
+- Semantic cache: embedding similarity → cache hit jeśli pytanie "wystarczająco podobne".
+- Usage tracking: `llm_usage` table (tokens_in, tokens_out, cost, model, latency, cache_hit).
+- Dashboard usage: wykres kosztu/użycia, top pytania, cache efficiency.
 
 **Definition of Done:**
-- Odpowiedzi zawierają evidence i są spójne z danymi z DB.
+- Limit dzienny blokuje dalsze requesty z informacją w UI.
+- Redaction test: dane wrażliwe nigdy nie opuszczają aplikacji (unit test).
+- Cache hit-rate mierzalny i widoczny w diagnostyce.
 
 ---
 
-## Faza 9 — LLM Guardrails
+### Faza 13 — Quality Scoring *(usprawnione)*
 
-**Cel:** kontrola kosztu i bezpieczeństwa.
+**Cel:** Wielowymiarowy ranking jakości contentu.
 
 **Zakres:**
-- Limity dzienne tokenów/kosztu.
-- Redaction danych wrażliwych.
-- Cache odpowiedzi LLM po hashu promptu.
-- Usage tracking w DB.
+
+**Składowe score:**
+
+| Składowa | Waga (default) | Opis | Obliczanie |
+|----------|----------------|------|------------|
+| Velocity | 0.25 | Szybkość zbierania views | views_7d / avg_views_7d (percentile w kanale) |
+| Efficiency | 0.20 | Views per subscriber | views / subscribers (normalized) |
+| Engagement | 0.25 | Interakcja widzów | (likes + comments * 3) / views |
+| Retention | 0.15 | Utrzymanie widzów | avg_watch_time / duration (jeśli dostępne) |
+| Consistency | 0.15 | Stabilność wyników | 1 - coefficient_of_variation(views_daily) |
+
+- **Normalizacja**: percentile rank wewnątrz kanału (nie sigmoid — percentile jest bardziej interpretowalna i odporna na outliers).
+- **Confidence level**: `high` (>60 dni danych), `medium` (30-60), `low` (<30).
+- **Trend**: score_current vs score_30d_ago → improving / declining / stable.
+- **Wagi konfigurowalne** przez użytkownika (ale sensowne defaults).
+- Tabela: `agg_quality_scores` (video_id, score, components, confidence, calculated_at).
 
 **Definition of Done:**
-- Dashboard usage działa, cache ma mierzalny hit-rate.
+- Ranking z final score i breakdown składowych.
+- Test: video z planted high engagement → wysoki score.
+- Confidence labels poprawne dla różnych długości danych.
 
 ---
 
-## Faza 10 — ML Forecast + Nowcast
+### Faza 14 — Competitor Intelligence
 
-**Cel:** reprodukowalne prognozy.
+**Cel:** Systemowa analiza konkurencji.
 
 **Zakres:**
-- Rejestr modeli i status active.
-- Trening i backtesting rolling windows.
-- Metryki MAE / sMAPE.
-- Quality gate aktywacji modelu.
-- Nowcast (p25/p50/p75).
+- Schema konkurencji: `dim_competitor`, `fact_competitor_day`.
+- Sync danych publicznych (YouTube Data API — publiczne statystyki).
+- Snapshoty dzienne z delta detection.
+- **Metryki porównawcze**: relative growth, market share (w niszy), content frequency comparison.
+- **Hit detection**: video z views > 3σ kanału = "hit".
+- **Momentum scoring**: weighted recent growth vs historical.
+- Radar chart w UI: ty vs konkurencja (5-6 osi).
+- Alert: "Konkurent X opublikował hit — 500% powyżej ich średniej".
 
 **Definition of Done:**
-- Forecast jest reprodukowalny i wersjonowany.
+- Competitor data syncs i widoczna w dashboardzie.
+- Hit detection poprawnie flaguje outlier videos.
+- Radar chart renderuje porównanie min. 3 kanałów.
 
 ---
 
-## Faza 11 — Quality Scoring
+### Faza 15 — Topic Intelligence *(usprawnione)*
 
-**Cel:** ranking jakości contentu.
+**Cel:** Wykrywanie luk tematycznych i trendów topikowych.
 
 **Zakres:**
-- Składowe score: velocity, efficiency, conversion, consistency.
-- Normalizacja sigmoid + wagi.
-- Persist wyników i tabela rankingowa w UI.
+- **Text processing**: tokenizacja + stop words + stemming (dla PL i EN).
+- **TF-IDF** na tytułach + description + tagach → topic vectors.
+- **Clustering**: K-Means z automatycznym doborem K (elbow method + silhouette score).
+- **Topic pressure**: ile views generuje dany topic cluster w czasie.
+- **Gap detection**: "tematy popularne w niszy, których TY nie pokrywasz".
+- **Cannibalization detection**: "te 3 filmy konkurują o ten sam topic — jeden kradnie views drugiemu".
+- **Topic trend**: rising / stable / declining per cluster.
+- **Tabele**: `dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`.
 
 **Definition of Done:**
-- Ranking pokazuje final score i wkład składowych.
+- Clustering grupuje filmy w sensowne tematy (manual review fixtures).
+- Gap detection pokazuje luki z uzasadnieniem.
+- Cannibalization check: planted overlapping topics → flagowane.
 
 ---
 
-## Faza 12 — Competitor Intelligence
+### Faza 16 — Planning System
 
-**Cel:** systemowa analiza konkurencji.
+**Cel:** Backlog + kalendarz + ryzyko kanibalizacji.
 
 **Zakres:**
-- Schema konkurencji + sync danych publicznych.
-- Snapshoty dzienne.
-- Hit detection + momentum + acceleration.
-- Radar konkurencji w UI.
+- Backlog CRUD: pomysły na filmy z metadanymi.
+- **Score pomysłu**: topic_momentum × (1 - cannibalization_risk) × gap_opportunity × effort_inverse.
+- Similarity check tytułów: cosine similarity vs istniejące filmy.
+- **Optimal publish timing**: analiza historyczna → najlepszy dzień/godzina.
+- Calendar view: zaplanowane + opublikowane + predykcje wyników.
+- Risk warnings: kanibalizacja, oversaturation, off-trend.
 
 **Definition of Done:**
-- Widoczne hity konkurencji i trend momentum w czasie.
+- Dodając plan, użytkownik widzi score, ryzyko, sugerowany timing.
+- Similarity > 0.7 → warning z linkiem do podobnego filmu.
 
 ---
 
-## Faza 13 — Topic Intelligence
+### Faza 17 — Plugins (Insights/Alerts)
 
-**Cel:** wykrywanie luk tematycznych.
+**Cel:** Automatyczne insighty po każdym sync/pipeline run.
 
 **Zakres:**
-- TF-IDF + K-Means.
-- Topic pressure day.
-- Gap scoring + reason.
-- Widok klastrów.
+- Plugin manager: register, enable/disable, lifecycle hooks.
+- Built-in plugins:
+  - `weekly-summary`: automatyczny digest tygodniowy.
+  - `anomaly-alert`: powiadomienie o anomaliach.
+  - `competitor-alert`: powiadomienie o hitach konkurencji.
+  - `publish-reminder`: "nie publikowałeś X dni — historycznie to obniża engagement".
+- Persist: `insights` table, `alerts` table.
+- Playbook actions: JSON z rekomendowanymi akcjami.
+- UI: notification center z filtrowaniem i archiwizacją.
 
 **Definition of Done:**
-- Aplikacja pokazuje luki tematyczne z uzasadnieniem.
+- Po sync generują się insighty i alerty.
+- Plugin lifecycle: enable → runs → disable → cleanup.
 
 ---
 
-## Faza 14 — Planning System
+### Faza 18 — Diagnostics + Recovery
 
-**Cel:** backlog + kalendarz + ryzyko kanibalizacji.
+**Cel:** Samodiagnoza i naprawa.
 
 **Zakres:**
-- Backlog CRUD.
-- Score pomysłu (momentum + effort).
-- Similarity check tytułów.
-- Risk score + reason.
+- `perf_events`: czasy każdego etapu pipeline, sync, ML.
+- Diagnostics modal w UI: health check wszystkich modułów.
+- DB integrity check: foreign keys, orphaned records, index health.
+- ML model health: drift detection (prediction error trend), data freshness.
+- Safe mode overlay: wyłącza problematyczny moduł, app działa dalej.
+- Recovery actions: VACUUM, reindex FTS5, reset cache, retrain model, re-run pipeline.
 
 **Definition of Done:**
-- Dodając plan publikacji, użytkownik dostaje ostrzeżenia ryzyka.
+- Health check wykrywa planted problems w fixture (broken FK, stale predictions).
+- Recovery actions naprawiają wykryte problemy.
 
 ---
 
-## Faza 15 — Plugins (Insights/Alerts)
+### Faza 19 — Polish + Packaging
 
-**Cel:** automatyczne insighty po sync.
+**Cel:** Production-ready build.
 
 **Zakres:**
-- Plugin manager i lifecycle.
-- Persist `insights`, `alerts`.
-- Playbook actions (JSON) + UI alertów.
+- Responsive layout + dark mode.
+- Keyboard shortcuts.
+- Onboarding flow (first-run wizard).
+- Auto-update mechanism (electron-updater).
+- Portable build (.exe / .AppImage / .dmg).
+- Telemetry opt-in (anonymous usage stats).
+- "One-click weekly package" → sync + pipeline + ML + report + export.
 
 **Definition of Done:**
-- Po sync generują się alerty z gotowymi playbookami.
+- Portable build działa end-to-end: install → setup → sync → ML → report.
+- Dark mode pełny.
+- Onboarding prowadzi nowego użytkownika.
 
 ---
 
-## Faza 16 — Diagnostics + Recovery
+## 6. Rytuał realizacji każdej fazy
 
-**Cel:** samonaprawa i szybka diagnoza.
+Każdy feature w tej kolejności (bez wyjątków):
 
-**Zakres:**
-- Perf events i czasy etapów.
-- Diagnostics modal.
-- DB integrity check.
-- Safe mode overlay.
-- Recovery actions: vacuum, reindex, reset cache.
+1. **Kontrakt** — `shared`: DTO, Zod schema, eventy, IPC contract.
+2. **Migracja DB** — nowe tabele/kolumny w `core`.
+3. **Logika** — implementacja w odpowiednim pakiecie (`core`/`sync`/`ml`/etc.).
+4. **IPC** — handler w main, hook w preload.
+5. **UI** — komponenty + Zustand store + TanStack Query hooks.
+6. **Testy** — unit (logika) + integration (DB + IPC) + smoke (UI renderuje).
+7. **Dokumentacja** — README modułu, changelog, contracts update.
 
-**Definition of Done:**
-- Użytkownik ma działające narzędzia naprawcze w UI.
-
----
-
-## Faza 17 — Polish + Packaging
-
-**Cel:** domknięcie UX i dystrybucja.
-
-**Zakres:**
-- WIP views podpięte do realnych danych.
-- Responsywność i dark mode.
-- Portable build.
-- „One-click weekly package”.
-
-**Definition of Done:**
-- Portable build działa end-to-end od sync do raportu.
+**Anty-regresja check po każdej fazie:**
+- `pnpm lint` — 0 errors.
+- `pnpm typecheck` — 0 errors.
+- `pnpm test` — all pass.
+- `pnpm build` — succeeds.
+- Żadne istniejące IPC kontrakty nie zostały złamane (backwards compatible).
 
 ---
 
-## 5. Rytuał realizacji każdej fazy (anty-regresja)
+## 7. Definition of Ready (DoR)
 
-Każdy feature realizować w tej kolejności:
+Task wchodzi do realizacji **tylko** gdy zawiera:
 
-1. Kontrakt (`shared`, schema, eventy, DTO, walidacja).  
-2. Implementacja logiki (`core/sync/reports/llm/ml`).  
-3. IPC (main/preload).  
-4. UI.  
-5. Testy (unit + integration + smoke tam, gdzie sensowne).  
-6. Aktualizacja dokumentacji i changelogu.
-
----
-
-## 6. Definition of Ready (DoR) dla tasków
-
-Task może wejść do realizacji tylko gdy zawiera:
-
-- cel biznesowy,
-- zakres plików/modułów,
-- kontrakt wejścia/wyjścia,
-- kryteria akceptacji,
-- listę testów,
-- listę rzeczy „poza zakresem”.
+- [ ] Cel biznesowy (jedno zdanie).
+- [ ] Zakres plików/modułów (lista).
+- [ ] Kontrakt wejścia/wyjścia (DTO types).
+- [ ] Kryteria akceptacji (testowalne).
+- [ ] Lista testów do napisania.
+- [ ] Lista rzeczy „poza zakresem" (co NIE wchodzi).
+- [ ] Dependencies: jakie fazy/taski muszą być ukończone.
 
 ---
 
-## 7. Definition of Done (DoD) globalne
+## 8. Definition of Done (DoD)
 
-Task jest zamknięty dopiero gdy:
+Task jest zamknięty **dopiero** gdy:
 
-- typy i walidacje są kompletne,
-- testy przechodzą lokalnie i w CI,
-- brak naruszeń granic architektury,
-- dokumentacja została zaktualizowana,
-- istnieje wpis w `CHANGELOG_AI.md` (jeśli zmiana była generowana przez AI).
-
----
-
-## 8. Minimalne KPI postępu projektu
-
-- % zrealizowanych faz.
-- Średni lead time taska.
-- Stabilność CI (pass-rate).
-- Liczba regresji na fazę.
-- Pokrycie testami warstwy core/sync/llm/ml.
-- Hit-rate cache (API/LLM).
+- [ ] Typy i walidacje są kompletne (no `any`, no `as` casts without justification).
+- [ ] Testy przechodzą lokalnie i w CI.
+- [ ] Performance budget nie przekroczony.
+- [ ] Brak naruszeń granic architektury (lint rule).
+- [ ] Brak circular dependencies.
+- [ ] Dokumentacja zaktualizowana.
+- [ ] Wpis w `CHANGELOG_AI.md` (jeśli zmiana AI).
+- [ ] Regression check: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 
 ---
 
-## 9. Plan realizacji pierwszych 2 tygodni
+## 9. KPI postępu projektu
 
-## Tydzień 1
-- Faza 0 + Faza 1.
-- Wynik: gotowe fundamenty + DB + query layer + test baseline.
-
-## Tydzień 2
-- Faza 2 + Faza 3.
-- Wynik: działające IPC + dashboard na fake mode + record mode.
+| KPI | Target | Pomiar |
+|-----|--------|--------|
+| % faz ukończonych | 100% | Fazy z DoD ✓ |
+| CI pass rate | > 95% | GitHub Actions |
+| Test coverage (core/ml/analytics) | > 80% | Vitest coverage |
+| IPC response time (p95) | < 100ms | `perf_events` |
+| ML prediction accuracy (sMAPE) | < 20% | `ml_backtests` |
+| Cache hit-rate (API) | > 60% | `sync_runs` stats |
+| Cache hit-rate (LLM) | > 30% | `llm_usage` stats |
+| Regresje na fazę | < 2 | Bug tracker |
+| Anomaly detection precision | > 80% | Test na golden dataset |
 
 ---
 
-## 10. Jak pracować z różnymi LLM nad tym samym repo
+## 10. Plan realizacji — milestone'y
+
+### Milestone 1: Foundation (Fazy 0-2)
+**Wynik:** Działający szkielet z DB, IPC, i pustym dashboardem na fixture data.
+
+### Milestone 2: Data Engine (Fazy 3-5)
+**Wynik:** Pełny pipeline: sync → ETL → features. Fake/Real/Record modes.
+
+### Milestone 3: Intelligence Core (Fazy 6-7)
+**Wynik:** ML forecasting + dashboard z predykcjami i raportami PDF.
+
+### Milestone 4: User-Ready (Fazy 8-9)
+**Wynik:** Auth, multi-profile, import, search. Aplikacja użyteczna solo.
+
+### Milestone 5: Analytics Beast (Fazy 10-15)
+**Wynik:** Anomaly detection, LLM assistant, quality scoring, competitor intel, topic intel, planning. **Pełny "potwór analityczny".**
+
+### Milestone 6: Production (Fazy 16-19)
+**Wynik:** Plugins, diagnostics, polish, packaging. Gotowe do dystrybucji.
+
+---
+
+## 11. Współpraca z wieloma LLM
 
 1. Każda sesja AI zaczyna od przeczytania:
-   - `AGENTS.md`,
-   - `docs/architecture/overview.md`,
-   - właściwego runbooka dla zadania.
+   - `AGENTS.md`
+   - `docs/architecture/overview.md`
+   - Runbook dla konkretnego zadania.
+   - `CHANGELOG_AI.md` (ostatnie 5 wpisów — co się zmieniło).
 
 2. Każda sesja AI kończy się:
-   - checklistą DoD,
-   - krótkim wpisem do `CHANGELOG_AI.md`,
-   - listą ryzyk po zmianie.
+   - Checklistą DoD.
+   - Wpisem do `CHANGELOG_AI.md`.
+   - Listą ryzyk.
+   - "Następny krok" — co powinien zrobić kolejny model.
 
-3. Zakaz „dużych refactorów bez ADR”.
+3. **Zakaz "dużych refactorów bez ADR"** — każda zmiana architektury wymaga decyzji.
 
-4. Jeden PR = jedna odpowiedzialność.
+4. **Jeden PR = jedna odpowiedzialność** — nie mieszamy feature'ów.
 
----
-
-## 11. Najważniejsze decyzje architektoniczne (na teraz)
-
-- Runtime desktop: Electron.
-- Język: TypeScript strict.
-- Baza: SQLite + migracje.
-- Granice komunikacji: IPC + zod DTO.
-- Raportowanie: HTML + PDF offline.
-- LLM: provider registry + LocalStub fallback.
-- ML: registry + backtesting + quality gate.
+5. **Shadow mode dla zmian ML** — nowy model nie zastępuje starego automatycznie.
 
 ---
 
-## 12. Checklista startowa (do odhaczania)
+## 12. Decyzje architektoniczne
 
-- [ ] Utworzyć strukturę monorepo.
-- [ ] Skonfigurować TS strict + lint + format + test.
-- [ ] Dodać pakiet `shared` (DTO, eventy, błędy).
-- [ ] Dodać SQLite + pierwszy zestaw migracji.
-- [ ] Zaimplementować minimalny IPC (`app:getStatus`, `db:getKpis`, `db:getTimeseries`).
-- [ ] Dodać fake mode i fixture.
-- [ ] Uruchomić pierwszy dashboard na danych fixture.
-- [ ] Dodać dokumenty: architecture/contracts/runbooks.
+| Obszar | Decyzja | Uzasadnienie |
+|--------|---------|--------------|
+| Runtime | Electron | Offline-first, dostęp do FS/SQLite, PDF generation |
+| Język | TypeScript strict | Type safety, tooling, AI-friendly |
+| Baza | SQLite (better-sqlite3) | Zero-config, portable, wystarczająca dla single-user |
+| State (UI) | Zustand + TanStack Query | Zustand: simple sync state. TQ: async IPC cache/invalidation |
+| Komunikacja | IPC + Zod DTO | Type-safe boundary, walidacja na obu stronach |
+| Raporty | HTML + PDF (print-to-PDF) | Offline, customizable, no server needed |
+| LLM | Provider registry + LocalStub | Vendor-agnostic, testowalne offline |
+| ML | Custom pipeline + model registry | Kontrola, reprodukowalność, nie black-box SaaS |
+| ML baseline | Holt-Winters + Linear Regression | Proste, interpretowalné, szybkie, dobre baseline |
+| Normalizacja scores | Percentile rank | Odporna na outliers, intuicyjna interpretacja |
+| Feature engineering | Automated z fact tables | Deterministic, versioned, reproducible |
+| Text analysis | TF-IDF + K-Means | Proste, nie wymaga GPU, wystarczające dla metadata |
 
 ---
 
-Ten dokument jest „żywy”: aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
+## 13. Risk register
+
+| Ryzyko | Prawdopodobieństwo | Impact | Mitigation |
+|--------|-------------------|--------|------------|
+| YouTube API rate limits | Wysokie | Średni | Cache, rate limiter, incremental sync |
+| Za mało danych dla ML | Średnie | Wysoki | Graceful degradation, minimum data requirements |
+| SQLite performance przy dużych danych | Niskie | Średni | Indexing strategy, VACUUM schedule, partitioning views |
+| Electron memory leaks | Średnie | Średni | Perf monitoring, memory budget, worker offloading |
+| LLM cost explosion | Średnie | Średni | Hard limits, cache, local models as default |
+| Model drift | Średnie | Średni | Periodic backtesting, shadow mode, alerts |
+| Breaking changes w API providerów | Niskie | Wysoki | Adapter pattern, version pinning, integration tests |
+
+---
+
+## 14. Checklista startowa (do odhaczania)
+
+- [ ] Utworzyć strukturę monorepo (pnpm workspaces).
+- [ ] Skonfigurować TS strict + ESLint flat config + Prettier + Vitest.
+- [ ] CI pipeline (GitHub Actions): lint + typecheck + test.
+- [ ] Pakiet `shared`: DTO, Zod schemas, AppError, events, IPC contracts.
+- [ ] Pakiet `core`: SQLite + migracje + query/mutation layer.
+- [ ] Pakiet `data-pipeline`: ETL skeleton + feature engineering stubs.
+- [ ] Pakiet `ml`: model registry + training pipeline stubs.
+- [ ] App `desktop`: Electron main + preload (security hardened).
+- [ ] App `ui`: React + Zustand + TanStack Query skeleton.
+- [ ] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries`.
+- [ ] Fake mode + realistyczne fixture data (90 dni, 50 filmów).
+- [ ] Pierwszy dashboard na fixture data.
+- [ ] Dokumenty: `AGENTS.md`, `architecture/overview.md`, `architecture/data-flow.md`.
+- [ ] ADR-001: Wybór stack'u technologicznego.
+
+---
+
+> Ten dokument jest „żywy": aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
