@@ -42,3 +42,16 @@ export {
   type SyncErrorEvent,
   SyncErrorEventSchema,
 } from './events/index.ts';
+
+// Logger
+export {
+  createLogger,
+  LOG_LEVELS,
+  type Logger,
+  type LogEntry,
+  type LogLevel,
+  type LogContext,
+  type LogWriter,
+  type Clock,
+  type CreateLoggerOptions,
+} from './logger/index.ts';

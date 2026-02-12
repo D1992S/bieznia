@@ -5,9 +5,11 @@
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "electron .",
+    "dev": "pnpm run build && pnpm run start",
+    "start": "electron .",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit"
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch --preserveWatchOutput"
   },
   "dependencies": {
     "@moze/core": "workspace:*",

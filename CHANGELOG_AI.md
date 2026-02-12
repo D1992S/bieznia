@@ -121,3 +121,56 @@ Dziennik zmian wykonywanych przez modele AI.
 - Ryzyko/regresja: Brak (zmiany dokumentacyjne).
 - Jak zweryfikowano: Review plików, spójność między NEXT_STEP.md ↔ CHANGELOG_AI ↔ README ↔ PLAN_REALIZACJI.
 - Następny krok: Faza 1 (Data Core) — patrz `NEXT_STEP.md`.
+
+## 2026-02-12 (v6)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `package.json`
+  - `scripts/dev-desktop.mjs`
+  - `apps/desktop/package.json`, `apps/desktop/tsconfig.build.json`, `apps/desktop/src/main.ts`
+  - `packages/shared/src/logger/index.ts`, `packages/shared/src/logger/index.test.ts`, `packages/shared/src/index.ts`
+  - `.github/workflows/ci.yml`
+  - `docs/PLAN_REALIZACJI.md`, `README.md`, `NEXT_STEP.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto brakujące elementy Fazy 0 bez wchodzenia w kolejne fazy.
+  - Dopracowano uruchamianie desktopa:
+    - `@moze/desktop` buduje runtime JS do `dist` (`tsconfig.build.json`, `build` script),
+    - `pnpm dev` uruchamia UI i Electron przez nowy skrypt `scripts/dev-desktop.mjs`,
+    - naprawiono ścieżkę produkcyjną renderer (`apps/ui/dist/index.html`) i focus dla single-instance.
+  - Dodano foundation logger w `shared` (`createLogger`, structured JSON, severity levels, context) + testy.
+  - Dodano CI GitHub Actions: `lint`, `typecheck`, `test`, `build`.
+  - Uaktualniono checklistę planu i README/NEXT_STEP pod nowy stan Fazy 0.
+- Dlaczego:
+  - Poprzednia implementacja miała luki względem DoD Fazy 0 (brak CI, niespójny desktop build/dev, brak loggera).
+- Ryzyko/regresja:
+  - Desktop `dev` robi jednorazowy build runtime przed startem Electron (bez auto-rebuild watch).
+  - Lokalne uruchomienie nadal wymaga środowiska zgodnego z `node >= 22`.
+- Jak zweryfikowano:
+  - `pnpm install` (workspace install zakończony powodzeniem; ostrzeżenie engines: Node 20 vs wymagane 22).
+  - `pnpm lint` — PASS.
+  - `pnpm typecheck` — PASS (wszystkie pakiety).
+  - `pnpm test` — PASS (4 pliki testowe, 29 testów).
+  - `pnpm build` — PASS (w tym `apps/desktop` z `tsconfig.build.json` i `apps/ui` build Vite).
+  - Smoke-check artefaktów runtime: `apps/desktop/dist/main.js`, `apps/desktop/dist/preload.js`, `apps/ui/dist/index.html` istnieją.
+- Następny krok:
+  - Rozpocząć Fazę 1 (Data Core) zgodnie z `NEXT_STEP.md`.
+
+## 2026-02-12 (v7)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plików: `README.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Rozszerzono tabelę „Postęp realizacji” w `README.md` o kolumnę:
+    - **„Co powinno działać (prosty opis)”**.
+  - Dla każdej fazy (0–19) dodano zrozumiały, nietechniczny opis efektu dla użytkownika.
+- Dlaczego:
+  - Użytkownik chciał, aby na stronie repo (GitHub) było od razu jasne dla laika, co oznacza każdy etap i czego można się spodziewać po aplikacji.
+- Ryzyko/regresja:
+  - Brak ryzyka runtime (zmiana wyłącznie dokumentacyjna).
+- Jak zweryfikowano:
+  - Odczyt `README.md` po zmianie i kontrola, że każda faza ma opis w prostym języku.
+- Następny krok:
+  - Kontynuować Fazę 1 (Data Core) zgodnie z `NEXT_STEP.md`.

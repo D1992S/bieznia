@@ -823,7 +823,7 @@ Task jest zamknięty **dopiero** gdy:
 
 - [x] Utworzyć strukturę monorepo (pnpm workspaces). ✅ Faza 0
 - [x] Skonfigurować TS strict + ESLint flat config + Prettier + Vitest. ✅ Faza 0
-- [ ] CI pipeline (GitHub Actions): lint + typecheck + test.
+- [x] CI pipeline (GitHub Actions): lint + typecheck + test. ✅ Faza 0
 - [x] Pakiet `shared`: DTO, Zod schemas, AppError, events, IPC contracts. ✅ Faza 0
 - [ ] Pakiet `core`: SQLite + migracje + query/mutation layer.
 - [ ] Pakiet `data-pipeline`: ETL skeleton + feature engineering stubs.

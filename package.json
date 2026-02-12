@@ -13,7 +13,9 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "pnpm --filter @moze/desktop run dev"
+    "dev": "node scripts/dev-desktop.mjs",
+    "dev:ui": "pnpm --filter @moze/ui run dev -- --host 127.0.0.1 --port 5173",
+    "dev:desktop": "pnpm --filter @moze/desktop run dev"
   },
   "engines": {
     "node": ">=22.0.0",

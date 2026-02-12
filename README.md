@@ -6,28 +6,28 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 
 > Aktualny status: **Faza 0 ukończona.** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
-| Faza | Nazwa | Status |
-|------|-------|--------|
-| 0 | Foundation (monorepo, TS, Electron, shared) | DONE |
-| 1 | Data Core (SQLite, migracje, query layer) | **NASTĘPNA** |
-| 2 | Desktop Backend + IPC | — |
-| 3 | Data Modes + Fixtures | — |
-| 4 | Data Pipeline + Feature Engineering | — |
-| 5 | Sync Orchestrator | — |
-| 6 | Bazowy ML Framework | — |
-| 7 | Dashboard + Raporty + Eksport | — |
-| 8 | Auth + Profile + Settings | — |
-| 9 | Import + Enrichment + Search | — |
-| 10 | Anomaly Detection + Trend Analysis | — |
-| 11 | LLM Assistant | — |
-| 12 | LLM Guardrails + Cost Control | — |
-| 13 | Quality Scoring | — |
-| 14 | Competitor Intelligence | — |
-| 15 | Topic Intelligence | — |
-| 16 | Planning System | — |
-| 17 | Plugins (Insights/Alerts) | — |
-| 18 | Diagnostics + Recovery | — |
-| 19 | Polish + Packaging | — |
+| Faza | Nazwa | Status | Co powinno działać (prosty opis) |
+|------|-------|--------|-----------------------------------|
+| 0 | Foundation (monorepo, TS, Electron, shared) | DONE | Aplikacja się uruchamia: jest okno desktop, podstawowy ekran i fundament techniczny. |
+| 1 | Data Core (SQLite, migracje, query layer) | **NASTĘPNA** | Aplikacja ma stabilną bazę danych i potrafi zapisywać/odczytywać podstawowe dane kanału i filmów. |
+| 2 | Desktop Backend + IPC | — | Interfejs zaczyna bezpiecznie rozmawiać z backendem i pokazuje dane z bazy. |
+| 3 | Data Modes + Fixtures | — | Można pracować na danych testowych albo prawdziwych i przełączać tryb pracy. |
+| 4 | Data Pipeline + Feature Engineering | — | Dane są automatycznie czyszczone i przeliczane na metryki do analiz i ML. |
+| 5 | Sync Orchestrator | — | Jest kontrolowany sync z postępem, retry i możliwością wznowienia po przerwaniu. |
+| 6 | Bazowy ML Framework | — | Pojawiają się pierwsze prognozy (np. wyświetlenia/subskrypcje) z oceną jakości modelu. |
+| 7 | Dashboard + Raporty + Eksport | — | Działa dashboard KPI, wykresy i eksport raportów (np. PDF/CSV). |
+| 8 | Auth + Profile + Settings | — | Można podłączyć konto, mieć kilka profili i osobne ustawienia. |
+| 9 | Import + Enrichment + Search | — | Można importować dane (CSV), wzbogacać je i wygodnie przeszukiwać. |
+| 10 | Anomaly Detection + Trend Analysis | — | Aplikacja sama wykrywa nietypowe skoki/spadki i zmiany trendów. |
+| 11 | LLM Assistant | — | Działa asystent AI, który odpowiada na pytania na podstawie Twoich danych. |
+| 12 | LLM Guardrails + Cost Control | — | Jest kontrola kosztów AI i ochrona danych wrażliwych. |
+| 13 | Quality Scoring | — | Każdy materiał dostaje czytelny wynik jakości z uzasadnieniem. |
+| 14 | Competitor Intelligence | — | Widać porównanie do konkurencji i sygnały o ich mocnych ruchach. |
+| 15 | Topic Intelligence | — | Aplikacja podpowiada tematy z potencjałem i pokazuje luki tematyczne. |
+| 16 | Planning System | — | Można planować publikacje i oceniać pomysły przed nagraniem. |
+| 17 | Plugins (Insights/Alerts) | — | Działają automatyczne insighty i alerty po synchronizacji danych. |
+| 18 | Diagnostics + Recovery | — | Aplikacja wykrywa problemy techniczne i pomaga je naprawić. |
+| 19 | Polish + Packaging | — | Wersja gotowa dla użytkownika końcowego: dopracowany UX i paczka instalacyjna. |
 
 ## Dokumentacja
 
@@ -43,6 +43,14 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 ## Stack technologiczny
 
 Electron + React + TypeScript strict + SQLite + Zod + Zustand + TanStack Query + Vitest
+
+## Uruchomienie (Foundation)
+
+1. `pnpm install`
+2. `pnpm dev` (UI + Electron)
+
+Skrót do samego UI: `pnpm dev:ui`  
+Skrót do samego desktop runtime: `pnpm dev:desktop`
 
 ## Zasada pracy z PR
 

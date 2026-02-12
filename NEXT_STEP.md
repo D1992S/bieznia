@@ -16,10 +16,13 @@
 - Monorepo pnpm workspaces: 10 pakietów + 2 aplikacje.
 - TypeScript 5.9 strict, ESLint 9, Prettier, Vitest 4.
 - Pakiet `shared`: `Result<T,E>`, `AppError`, IPC kontrakty (4 komendy + 3 eventy), Zod 4 schemas.
+- Pakiet `shared`: logger JSON (`createLogger`) z poziomami severity i kontekstem.
 - Electron shell z security hardening (contextIsolation, sandbox).
+- Dopracowany dev/build dla desktopa: runtime build do `dist` + skrypt `pnpm dev` uruchamiający UI i Electron.
 - React 19 + Zustand 5 + TanStack Query 5 skeleton.
-- 26 testów unit — wszystkie pass.
-- `pnpm lint && pnpm typecheck && pnpm test` — 0 errors.
+- 29 testów unit (w tym logger) — wszystkie pass.
+- CI pipeline (`.github/workflows/ci.yml`): lint + typecheck + test + build.
+- Standard regresji: `pnpm lint && pnpm typecheck && pnpm test` (egzekwowane również w CI).
 
 ## Co robić teraz — Faza 1: Data Core
 
