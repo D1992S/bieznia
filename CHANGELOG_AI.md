@@ -104,3 +104,20 @@ Dziennik zmian wykonywanych przez modele AI.
   - `pnpm typecheck` — 12/12 pass.
   - `pnpm test` — 26/26 pass.
 - Następny krok: Faza 1 (Data Core) — SQLite setup z better-sqlite3, system migracji, tabele RAW/STAGING/DIM/FACT, warstwa query/mutation w pakiecie `core`. Pamiętaj: wszelkie user-facing komunikaty po polsku.
+
+## 2026-02-12 (v5)
+
+- Data: 2026-02-12
+- Autor (model): Claude Opus 4.6
+- Zakres plików: `NEXT_STEP.md` (nowy), `AGENTS.md`, `README.md`, `docs/PLAN_REALIZACJI.md`
+- Co zmieniono:
+  - Stworzono `NEXT_STEP.md` — dedykowany plik handoff dla kolejnego AI. Zawiera: aktualny status, co dokładnie robić w następnej fazie, pliki do stworzenia, DoD, krytyczne zasady.
+  - Zaktualizowano AGENTS.md:
+    - `NEXT_STEP.md` jako punkt #1 w „Przed rozpoczęciem pracy".
+    - Rozbudowano rytuał zakończenia sesji o obowiązkową aktualizację NEXT_STEP.md, README.md (tabela postępu), PLAN_REALIZACJI.md (checklista).
+  - Dodano tabelę „Postęp realizacji" w README.md — widać od razu które fazy są DONE.
+  - Odhaczono ukończone pozycje w checkliście startowej (sekcja 14 planu).
+- Dlaczego: Kolejne AI muszą wiedzieć dokładnie co robić bez czytania całego repo. NEXT_STEP.md to single point of truth. Tabela w README daje szybki przegląd statusu.
+- Ryzyko/regresja: Brak (zmiany dokumentacyjne).
+- Jak zweryfikowano: Review plików, spójność między NEXT_STEP.md ↔ CHANGELOG_AI ↔ README ↔ PLAN_REALIZACJI.
+- Następny krok: Faza 1 (Data Core) — patrz `NEXT_STEP.md`.
