@@ -821,9 +821,10 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Pakiet `data-pipeline`: ETL skeleton + feature engineering stubs. ✅ Faza 4
 - [x] Pakiet `sync`: orchestrator sync + checkpoint/resume + retry/backoff + mutex. ✅ Faza 5
 - [x] Pakiet `ml`: model registry + training pipeline stubs. ✅ Faza 6
+- [x] Pakiet `reports`: generator raportu + eksport JSON/CSV/HTML. ✅ Faza 7
 - [x] App `desktop`: Electron main + preload (security hardened). ✅ Faza 0
 - [x] App `ui`: React + Zustand + TanStack Query skeleton. ✅ Faza 0
-- [x] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries` + rozszerzenia `app:getDataMode`, `app:setDataMode`, `app:probeDataMode`, `sync:start`, `sync:resume`, `ml:runBaseline`, `ml:getForecast`. ✅ Faza 2/3/5/6
+- [x] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries` + rozszerzenia `app:getDataMode`, `app:setDataMode`, `app:probeDataMode`, `sync:start`, `sync:resume`, `ml:runBaseline`, `ml:getForecast`, `reports:generate`, `reports:export`. ✅ Faza 2/3/5/6/7
 - [x] Realistyczne fixture data (90 dni, 50 filmów). ✅ Faza 1
 - [x] Fake mode (runtime toggle + loader fixture). ✅ Faza 3
 - [x] Record mode + replay fixture (real -> fixture -> fake). ✅ Faza 3

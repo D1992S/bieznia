@@ -1,8 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DataMode, MlTargetMetric } from '@moze/shared';
-import { fetchAppStatus, fetchChannelInfo, fetchDataModeStatus, fetchKpis, fetchMlForecast, fetchTimeseries, probeDataMode, resumeSync, runMlBaseline, setDataMode, startSync } from '../lib/electron-api.ts';
+import type { DataMode, MlTargetMetric, ReportExportFormat, TimeseriesQueryDTO } from '@moze/shared';
+import {
+  exportDashboardReport,
+  fetchAppStatus,
+  fetchChannelInfo,
+  fetchDashboardReport,
+  fetchDataModeStatus,
+  fetchKpis,
+  fetchMlForecast,
+  fetchTimeseries,
+  probeDataMode,
+  resumeSync,
+  runMlBaseline,
+  setDataMode,
+  startSync,
+} from '../lib/electron-api.ts';
 
 export const DEFAULT_CHANNEL_ID = 'UC-SEED-PL-001';
+export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
 
 export interface DateRange {
   dateFrom: string;
@@ -13,8 +28,8 @@ function toIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function buildDateRange(days: number): DateRange {
-  const end = new Date();
+export function buildDateRange(days: number, now: Date = new Date()): DateRange {
+  const end = new Date(now);
   end.setUTCHours(0, 0, 0, 0);
 
   const start = new Date(end);
@@ -24,6 +39,10 @@ export function buildDateRange(days: number): DateRange {
     dateFrom: toIsoDate(start),
     dateTo: toIsoDate(end),
   };
+}
+
+export function isDateRangeValid(range: DateRange): boolean {
+  return range.dateFrom.length > 0 && range.dateTo.length > 0 && range.dateFrom <= range.dateTo;
 }
 
 export function useAppStatusQuery() {
@@ -68,6 +87,7 @@ export function useStartSyncMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['app'] });
       void queryClient.invalidateQueries({ queryKey: ['db'] });
+      void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -80,6 +100,7 @@ export function useResumeSyncMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['app'] });
       void queryClient.invalidateQueries({ queryKey: ['db'] });
+      void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
 }
@@ -105,6 +126,7 @@ export function useRunMlBaselineMutation() {
     onSuccess: (_result, input) => {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'forecast', input.channelId, input.targetMetric] });
       void queryClient.invalidateQueries({ queryKey: ['db', 'timeseries', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
     },
   });
 }
@@ -132,18 +154,56 @@ export function useKpisQuery(channelId: string, range: DateRange, enabled: boole
   });
 }
 
-export function useTimeseriesQuery(channelId: string, range: DateRange, enabled: boolean) {
+export function useTimeseriesQuery(
+  channelId: string,
+  range: DateRange,
+  metric: TimeseriesQueryDTO['metric'],
+  enabled: boolean,
+) {
   return useQuery({
-    queryKey: ['db', 'timeseries', channelId, range.dateFrom, range.dateTo],
+    queryKey: ['db', 'timeseries', channelId, metric, range.dateFrom, range.dateTo],
     queryFn: () =>
       fetchTimeseries({
         channelId,
-        metric: 'views',
+        metric,
         granularity: 'day',
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
       }),
     enabled,
     staleTime: 30_000,
+  });
+}
+
+export function useDashboardReportQuery(
+  channelId: string,
+  range: DateRange,
+  targetMetric: MlTargetMetric,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['reports', 'dashboard', channelId, targetMetric, range.dateFrom, range.dateTo],
+    queryFn: () =>
+      fetchDashboardReport({
+        channelId,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        targetMetric,
+      }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useExportDashboardReportMutation() {
+  return useMutation({
+    mutationFn: (input: {
+      channelId: string;
+      dateFrom: string;
+      dateTo: string;
+      targetMetric: MlTargetMetric;
+      exportDir?: string | null;
+      formats: ReportExportFormat[];
+    }) => exportDashboardReport(input),
   });
 }

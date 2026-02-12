@@ -16,6 +16,10 @@
   MlForecastResultSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultSchema,
+  ReportExportInputDTOSchema,
+  ReportExportResultSchema,
+  ReportGenerateInputDTOSchema,
+  ReportGenerateResultSchema,
   SyncCommandResultSchema,
   SyncCompleteEventSchema,
   SyncErrorEventSchema,
@@ -37,6 +41,10 @@
   type MlForecastResult,
   type MlRunBaselineInputDTO,
   type MlRunBaselineResult,
+  type ReportExportInputDTO,
+  type ReportExportResult,
+  type ReportGenerateInputDTO,
+  type ReportGenerateResult,
   type SyncCommandResult,
   type SyncCompleteEvent,
   type SyncErrorEvent,
@@ -58,6 +66,8 @@ export interface ElectronAPI {
   syncResume: (input: SyncResumeInputDTO) => Promise<SyncCommandResult>;
   mlRunBaseline: (input: MlRunBaselineInputDTO) => Promise<MlRunBaselineResult>;
   mlGetForecast: (input: MlForecastQueryInputDTO) => Promise<MlForecastResult>;
+  reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
+  reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   dbGetKpis: (query: KpiQueryDTO) => Promise<KpiResult>;
   dbGetTimeseries: (query: TimeseriesQueryDTO) => Promise<TimeseriesResult>;
   dbGetChannelInfo: (query: ChannelIdDTO) => Promise<ChannelInfoResult>;
@@ -194,6 +204,20 @@ const api: ElectronAPI = {
       input,
       MlForecastQueryInputDTOSchema,
       MlForecastResultSchema,
+    ),
+  reportsGenerate: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.REPORTS_GENERATE,
+      input,
+      ReportGenerateInputDTOSchema,
+      ReportGenerateResultSchema,
+    ),
+  reportsExport: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.REPORTS_EXPORT,
+      input,
+      ReportExportInputDTOSchema,
+      ReportExportResultSchema,
     ),
   dbGetKpis: (query) =>
     invokeValidated(

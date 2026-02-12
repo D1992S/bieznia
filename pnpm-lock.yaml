@@ -41,6 +41,9 @@ importers:
       '@moze/ml':
         specifier: workspace:*
         version: link:../../packages/ml
+      '@moze/reports':
+        specifier: workspace:*
+        version: link:../../packages/reports
       '@moze/shared':
         specifier: workspace:*
         version: link:../../packages/shared

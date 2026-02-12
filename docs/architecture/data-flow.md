@@ -7,9 +7,11 @@
 - Faza 4: **DONE** (minimum pipeline w kodzie).
 - Faza 5: **DONE** (sync orchestrator + checkpoint/resume + retry/backoff + post-sync pipeline).
 - Faza 6: **DONE** (bazowy framework ML + backtesting + quality gate + predictions).
+- Faza 7: **DONE** (dashboard KPI + wykres forecast overlay + raporty + eksport lokalny).
 - Zaimplementowany runner: `packages/data-pipeline/src/pipeline-runner.ts`.
 - Zaimplementowany orchestrator: `packages/sync/src/sync-orchestrator.ts`.
 - Zaimplementowany baseline ML: `packages/ml/src/ml-baseline.ts`.
+- Zaimplementowany raport i eksport: `packages/reports/src/report-service.ts`.
 - Zaimplementowane tabele: `stg_channels`, `stg_videos`, `ml_features`, `data_lineage`, `ml_models`, `ml_backtests`, `ml_predictions`.
 
 ## Pełny pipeline
@@ -154,10 +156,10 @@ fact_video_day
 
 **Report generation:**
 ```
-1. Collect: KPIs + timeseries + predictions + anomalies + quality scores
-2. Render: HTML template (Handlebars)
-3. Convert: HTML → PDF (Electron hidden BrowserWindow + print-to-PDF)
-4. Package: PDF + CSV + JSON → export directory
+1. Collect: KPIs + timeseries + predictions + top videos + insights
+2. Render: HTML report template
+3. Package: JSON + CSV + HTML → export directory
+4. Expose via IPC: `reports:generate`, `reports:export`
 ```
 
 ## Data Lineage

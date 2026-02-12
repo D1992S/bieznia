@@ -556,3 +556,48 @@ Dziennik zmian wykonywanych przez modele AI.
   - `pnpm build` - PASS.
 - Nastepny krok:
   - Faza 7: Dashboard + Raporty + Eksport (overlay prognoz ML na wykresach + eksport raportow).
+
+## 2026-02-12 (v17)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `packages/reports/src/report-service.ts`, `packages/reports/src/report-service.integration.test.ts`, `packages/reports/src/index.ts`
+  - `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/main.ts`, `apps/desktop/package.json`
+  - `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/hooks/use-dashboard-data.test.ts`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Faze 7 (Dashboard + Raporty + Eksport) end-to-end.
+  - Dodano kontrakty IPC dla raportow:
+    - `reports:generate`
+    - `reports:export`
+  - Zaimplementowano pakiet `@moze/reports`:
+    - `generateDashboardReport()` (KPI + timeseries + prognoza + top videos + insighty),
+    - `exportDashboardReport()` (lokalny eksport `JSON/CSV/HTML`),
+    - `renderDashboardReportHtml()`.
+  - Podlaczono raporty do desktop runtime i preload bridge.
+  - Rozbudowano UI dashboard:
+    - karty KPI z delta/trendem,
+    - wykres szeregu czasowego z overlay prognozy (`p10/p50/p90`),
+    - zakres dat `7d/30d/90d/custom`,
+    - sekcja raportu (insighty + top videos) oraz eksport raportu.
+  - Dodano testy:
+    - integracyjne `reports` (generowanie raportu, walidacja zakresu dat, eksport plikow),
+    - helpery zakresu dat w UI,
+    - rozszerzone integracje IPC desktop dla raportow.
+  - Zaktualizowano status dokumentacji:
+    - Faza 7 = DONE,
+    - Faza 8 = NASTEPNA.
+- Dlaczego:
+  - Celem Fazy 7 bylo dowiezienie pierwszej duzej wartosci biznesowej: czytelny dashboard i lokalny eksport raportow.
+- Ryzyko/regresja:
+  - Eksport aktualnie obejmuje `JSON/CSV/HTML`; PDF pozostaje opcjonalny i nie jest jeszcze implementowany.
+  - Lokalny warning engines nadal wystepuje (`node >=22`, aktualnie `20.x`), mimo ze checki przechodza.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`68/68`, w tym nowe testy reports i UI helper).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 8: Auth + Profile + Settings (connect/disconnect/status, multi-profile, settings per profil, safeStorage dla sekretow).

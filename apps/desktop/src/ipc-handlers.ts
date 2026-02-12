@@ -21,6 +21,12 @@ import {
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   MlRunBaselineResultSchema,
+  ReportExportInputDTOSchema,
+  ReportExportResultDTOSchema,
+  ReportExportResultSchema,
+  ReportGenerateInputDTOSchema,
+  ReportGenerateResultDTOSchema,
+  ReportGenerateResultSchema,
   SyncCommandResultDTOSchema,
   SyncCommandResultSchema,
   SyncResumeInputDTOSchema,
@@ -49,6 +55,12 @@ import {
   type MlRunBaselineInputDTO,
   type MlRunBaselineResult,
   type MlRunBaselineResultDTO,
+  type ReportExportInputDTO,
+  type ReportExportResult,
+  type ReportExportResultDTO,
+  type ReportGenerateInputDTO,
+  type ReportGenerateResult,
+  type ReportGenerateResultDTO,
   type Result,
   type SyncCommandResult,
   type SyncCommandResultDTO,
@@ -69,6 +81,8 @@ export interface DesktopIpcBackend {
   resumeSync: (input: SyncResumeInputDTO) => Result<SyncCommandResultDTO, AppError> | Promise<Result<SyncCommandResultDTO, AppError>>;
   runMlBaseline: (input: MlRunBaselineInputDTO) => Result<MlRunBaselineResultDTO, AppError> | Promise<Result<MlRunBaselineResultDTO, AppError>>;
   getMlForecast: (input: MlForecastQueryInputDTO) => Result<MlForecastResultDTO, AppError> | Promise<Result<MlForecastResultDTO, AppError>>;
+  generateReport: (input: ReportGenerateInputDTO) => Result<ReportGenerateResultDTO, AppError> | Promise<Result<ReportGenerateResultDTO, AppError>>;
+  exportReport: (input: ReportExportInputDTO) => Result<ReportExportResultDTO, AppError> | Promise<Result<ReportExportResultDTO, AppError>>;
   getKpis: (query: KpiQueryDTO) => Result<KpiResultDTO, AppError>;
   getTimeseries: (query: TimeseriesQueryDTO) => Result<TimeseriesResultDTO, AppError>;
   getChannelInfo: (query: { channelId: string }) => Result<ChannelInfoDTO, AppError>;
@@ -288,6 +302,32 @@ export async function handleMlGetForecast(
   );
 }
 
+export async function handleReportsGenerate(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<ReportGenerateResult> {
+  return runHandlerAsync(
+    payload,
+    ReportGenerateInputDTOSchema,
+    ReportGenerateResultDTOSchema,
+    ReportGenerateResultSchema,
+    (input) => backend.generateReport(input),
+  );
+}
+
+export async function handleReportsExport(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<ReportExportResult> {
+  return runHandlerAsync(
+    payload,
+    ReportExportInputDTOSchema,
+    ReportExportResultDTOSchema,
+    ReportExportResultSchema,
+    (input) => backend.exportReport(input),
+  );
+}
+
 export function handleDbGetKpis(backend: DesktopIpcBackend, payload: unknown): KpiResult {
   return runHandler(
     payload,
@@ -327,6 +367,8 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.SYNC_RESUME, (_event, payload) => handleSyncResume(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ML_RUN_BASELINE, (_event, payload) => handleMlRunBaseline(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ML_GET_FORECAST, (_event, payload) => handleMlGetForecast(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.REPORTS_GENERATE, (_event, payload) => handleReportsGenerate(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.REPORTS_EXPORT, (_event, payload) => handleReportsExport(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_KPIS, (_event, payload) => handleDbGetKpis(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_TIMESERIES, (_event, payload) => handleDbGetTimeseries(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_CHANNEL_INFO, (_event, payload) => handleDbGetChannelInfo(backend, payload));

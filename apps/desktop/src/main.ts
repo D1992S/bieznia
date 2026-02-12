@@ -1,7 +1,8 @@
 import { createChannelQueries, createDatabaseConnection, createMetricsQueries, runMigrations, type ChannelQueries, type DatabaseConnection, type MetricsQueries } from '@moze/core';
 import { getLatestMlForecast, runMlBaseline } from '@moze/ml';
+import { exportDashboardReport, generateDashboardReport } from '@moze/reports';
 import { createCachedDataProvider, createDataModeManager, createFakeDataProvider, createRateLimitedDataProvider, createRealDataProvider, createRecordingDataProvider, createSyncOrchestrator, type DataModeManager, type SyncOrchestrator } from '@moze/sync';
-import { AppError, IPC_EVENTS, createLogger, err, ok, type AppStatusDTO, type DataModeProbeInputDTO, type DataModeProbeResultDTO, type DataModeStatusDTO, type KpiQueryDTO, type KpiResultDTO, type MlForecastQueryInputDTO, type MlForecastResultDTO, type MlRunBaselineInputDTO, type MlRunBaselineResultDTO, type Result, type SetDataModeInputDTO, type SyncCommandResultDTO, type SyncResumeInputDTO, type SyncStartInputDTO, type TimeseriesQueryDTO, type TimeseriesResultDTO } from '@moze/shared';
+import { AppError, IPC_EVENTS, createLogger, err, ok, type AppStatusDTO, type DataModeProbeInputDTO, type DataModeProbeResultDTO, type DataModeStatusDTO, type KpiQueryDTO, type KpiResultDTO, type MlForecastQueryInputDTO, type MlForecastResultDTO, type MlRunBaselineInputDTO, type MlRunBaselineResultDTO, type ReportExportInputDTO, type ReportExportResultDTO, type ReportGenerateInputDTO, type ReportGenerateResultDTO, type Result, type SetDataModeInputDTO, type SyncCommandResultDTO, type SyncResumeInputDTO, type SyncStartInputDTO, type TimeseriesQueryDTO, type TimeseriesResultDTO } from '@moze/shared';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -419,6 +420,40 @@ function getMlForecastCommand(input: MlForecastQueryInputDTO): Result<MlForecast
   });
 }
 
+function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGenerateResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return generateDashboardReport({
+    db,
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    targetMetric: input.targetMetric,
+  });
+}
+
+function exportReportCommand(input: ReportExportInputDTO): Result<ReportExportResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  const defaultExportDir = path.join(app.getPath('documents'), 'Mozetobedzieto', 'reports');
+
+  return exportDashboardReport({
+    db,
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    targetMetric: input.targetMetric,
+    exportDir: input.exportDir ?? defaultExportDir,
+    formats: input.formats,
+  });
+}
+
 const ipcBackend: DesktopIpcBackend = {
   getAppStatus: () => readAppStatus(),
   getDataModeStatus: () => readDataModeStatus(),
@@ -428,6 +463,8 @@ const ipcBackend: DesktopIpcBackend = {
   resumeSync: (input) => resumeSync(input),
   runMlBaseline: (input) => runMlBaselineCommand(input),
   getMlForecast: (input) => getMlForecastCommand(input),
+  generateReport: (input) => generateReportCommand(input),
+  exportReport: (input) => exportReportCommand(input),
   getKpis: (query) => readKpis(query),
   getTimeseries: (query) => readTimeseries(query),
   getChannelInfo: (query) => readChannelInfo(query),

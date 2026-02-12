@@ -4,7 +4,7 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 
 ## Postęp realizacji
 
-> Aktualny status: **Faza 6 ukończona.** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+> Aktualny status: **Faza 7 ukończona.** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
 | Faza | Nazwa | Status | Co powinno działać (prosty opis) |
 |------|-------|--------|-----------------------------------|
@@ -15,8 +15,8 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | 4 | Data Pipeline + Feature Engineering | DONE | Działa deterministyczny ETL: staging, walidacja danych, feature engineering i lineage. |
 | 5 | Sync Orchestrator | DONE | Jest kontrolowany sync z postępem, retry i możliwością wznowienia po przerwaniu. |
 | 6 | Bazowy ML Framework | DONE | Pojawiają się pierwsze prognozy (np. wyświetlenia/subskrypcje) z oceną jakości modelu. |
-| 7 | Dashboard + Raporty + Eksport | **NASTĘPNA** | Działa dashboard KPI, wykresy i eksport raportów (np. PDF/CSV). |
-| 8 | Auth + Profile + Settings | — | Można podłączyć konto, mieć kilka profili i osobne ustawienia. |
+| 7 | Dashboard + Raporty + Eksport | DONE | Działa dashboard KPI, wykresy i eksport raportów (np. PDF/CSV). |
+| 8 | Auth + Profile + Settings | **NASTĘPNA** | Można podłączyć konto, mieć kilka profili i osobne ustawienia. |
 | 9 | Import + Enrichment + Search | — | Można importować dane (CSV), wzbogacać je i wygodnie przeszukiwać. |
 | 10 | Anomaly Detection + Trend Analysis | — | Aplikacja sama wykrywa nietypowe skoki/spadki i zmiany trendów. |
 | 11 | LLM Assistant | — | Działa asystent AI, który odpowiada na pytania na podstawie Twoich danych. |

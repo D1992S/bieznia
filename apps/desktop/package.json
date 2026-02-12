@@ -14,6 +14,7 @@
   "dependencies": {
     "@moze/core": "workspace:*",
     "@moze/ml": "workspace:*",
+    "@moze/reports": "workspace:*",
     "@moze/sync": "workspace:*",
     "@moze/shared": "workspace:*"
   },

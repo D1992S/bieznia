@@ -14,6 +14,8 @@ import {
   handleAppProbeDataMode,
   handleMlGetForecast,
   handleMlRunBaseline,
+  handleReportsExport,
+  handleReportsGenerate,
   handleSyncResume,
   handleSyncStart,
   handleAppSetDataMode,
@@ -148,6 +150,73 @@ function createTestContext(): TestContext {
           { date: '2026-02-14', horizonDays: 2, predicted: 110, p10: 95, p50: 110, p90: 125 },
         ],
       }),
+    generateReport: (input) =>
+      ok({
+        generatedAt: '2026-02-12T22:30:00.000Z',
+        channel: {
+          channelId: input.channelId,
+          name: 'Kanał testowy',
+        },
+        range: {
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          days: 30,
+        },
+        kpis: {
+          subscribers: 10000,
+          subscribersDelta: 200,
+          views: 50000,
+          viewsDelta: 4000,
+          videos: 120,
+          videosDelta: 4,
+          avgViewsPerVideo: 416.67,
+          engagementRate: 0.05,
+        },
+        timeseries: {
+          metric: input.targetMetric,
+          granularity: 'day',
+          points: [
+            { date: input.dateFrom, value: 1000 },
+            { date: input.dateTo, value: 1250 },
+          ],
+        },
+        forecast: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+          modelType: 'holt-winters',
+          trainedAt: '2026-02-12T22:00:00.000Z',
+          points: [
+            { date: '2026-02-13', horizonDays: 1, predicted: 1300, p10: 1200, p50: 1300, p90: 1400 },
+          ],
+        },
+        topVideos: [
+          {
+            videoId: 'VID-001',
+            title: 'Film testowy',
+            publishedAt: '2026-01-01T12:00:00.000Z',
+            viewCount: 10000,
+            likeCount: 500,
+            commentCount: 30,
+          },
+        ],
+        insights: [
+          {
+            code: 'INSIGHT_VIEWS_POSITIVE',
+            title: 'Wyświetlenia rosną',
+            description: 'Kanał zanotował dodatnią zmianę wyświetleń.',
+            severity: 'good',
+          },
+        ],
+      }),
+    exportReport: () =>
+      ok({
+        generatedAt: '2026-02-12T22:30:00.000Z',
+        exportDir: 'C:/tmp/moze-report',
+        files: [
+          { kind: 'report.json', path: 'C:/tmp/moze-report/report.json', sizeBytes: 100 },
+          { kind: 'top_videos.csv', path: 'C:/tmp/moze-report/top_videos.csv', sizeBytes: 120 },
+        ],
+      }),
     getKpis: (query) => metricsQueries.getKpis(query),
     getTimeseries: (query) => metricsQueries.getTimeseries(query),
     getChannelInfo: (query) => channelQueries.getChannelInfo(query),
@@ -237,6 +306,29 @@ describe('Desktop IPC handlers integration', () => {
       expect(mlForecastResult.value.points.length).toBeGreaterThan(0);
     }
 
+    const reportGenerateResult = await handleReportsGenerate(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      targetMetric: 'views',
+    });
+    expect(reportGenerateResult.ok).toBe(true);
+    if (reportGenerateResult.ok) {
+      expect(reportGenerateResult.value.channel.channelId).toBe(ctx.channelId);
+    }
+
+    const reportExportResult = await handleReportsExport(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      targetMetric: 'views',
+      formats: ['json', 'csv'],
+    });
+    expect(reportExportResult.ok).toBe(true);
+    if (reportExportResult.ok) {
+      expect(reportExportResult.value.files.length).toBeGreaterThan(0);
+    }
+
     const kpiResult = handleDbGetKpis(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -311,6 +403,15 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidMlRun.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidReportGenerate = await handleReportsGenerate(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: '2026-01-01',
+    });
+    expect(invalidReportGenerate.ok).toBe(false);
+    if (!invalidReportGenerate.ok) {
+      expect(invalidReportGenerate.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     ctx.close();
   });
 
@@ -337,6 +438,8 @@ describe('Desktop IPC handlers integration', () => {
       resumeSync: (input) => ctx.backend.resumeSync(input),
       runMlBaseline: (input) => ctx.backend.runMlBaseline(input),
       getMlForecast: (input) => ctx.backend.getMlForecast(input),
+      generateReport: (input) => ctx.backend.generateReport(input),
+      exportReport: (input) => ctx.backend.exportReport(input),
       getKpis: (query) => ctx.backend.getKpis(query),
       getTimeseries: (query) => ctx.backend.getTimeseries(query),
       getChannelInfo: (query) => ctx.backend.getChannelInfo(query),

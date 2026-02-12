@@ -256,6 +256,100 @@ export type MlForecastResultDTO = z.infer<typeof MlForecastResultDTOSchema>;
 export const MlForecastResultSchema = IpcResultSchema(MlForecastResultDTOSchema);
 export type MlForecastResult = z.infer<typeof MlForecastResultSchema>;
 
+export const ReportDateRangeDTOSchema = z.object({
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  days: z.number().int().positive(),
+});
+
+export type ReportDateRangeDTO = z.infer<typeof ReportDateRangeDTOSchema>;
+
+export const ReportTopVideoDTOSchema = z.object({
+  videoId: z.string(),
+  title: z.string(),
+  publishedAt: z.iso.datetime(),
+  viewCount: z.number().int().nonnegative(),
+  likeCount: z.number().int().nonnegative(),
+  commentCount: z.number().int().nonnegative(),
+});
+
+export type ReportTopVideoDTO = z.infer<typeof ReportTopVideoDTOSchema>;
+
+export const ReportInsightSeveritySchema = z.enum(['good', 'neutral', 'warning']);
+export type ReportInsightSeverity = z.infer<typeof ReportInsightSeveritySchema>;
+
+export const ReportInsightDTOSchema = z.object({
+  code: z.string(),
+  title: z.string(),
+  description: z.string(),
+  severity: ReportInsightSeveritySchema,
+});
+
+export type ReportInsightDTO = z.infer<typeof ReportInsightDTOSchema>;
+
+export const ReportChannelSummaryDTOSchema = z.object({
+  channelId: z.string(),
+  name: z.string(),
+});
+
+export type ReportChannelSummaryDTO = z.infer<typeof ReportChannelSummaryDTOSchema>;
+
+export const ReportGenerateInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  targetMetric: MlTargetMetricSchema.default('views'),
+});
+
+export type ReportGenerateInputDTO = z.infer<typeof ReportGenerateInputDTOSchema>;
+
+export const ReportGenerateResultDTOSchema = z.object({
+  generatedAt: z.iso.datetime(),
+  channel: ReportChannelSummaryDTOSchema,
+  range: ReportDateRangeDTOSchema,
+  kpis: KpiResultDTOSchema,
+  timeseries: TimeseriesResultDTOSchema,
+  forecast: MlForecastResultDTOSchema,
+  topVideos: z.array(ReportTopVideoDTOSchema),
+  insights: z.array(ReportInsightDTOSchema),
+});
+
+export type ReportGenerateResultDTO = z.infer<typeof ReportGenerateResultDTOSchema>;
+export const ReportGenerateResultSchema = IpcResultSchema(ReportGenerateResultDTOSchema);
+export type ReportGenerateResult = z.infer<typeof ReportGenerateResultSchema>;
+
+export const ReportExportFormatSchema = z.enum(['json', 'csv', 'html']);
+export type ReportExportFormat = z.infer<typeof ReportExportFormatSchema>;
+
+export const ReportExportInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  targetMetric: MlTargetMetricSchema.default('views'),
+  exportDir: z.string().min(1).nullable().optional(),
+  formats: z.array(ReportExportFormatSchema).min(1).default(['json', 'csv']),
+});
+
+export type ReportExportInputDTO = z.infer<typeof ReportExportInputDTOSchema>;
+
+export const ReportExportedFileDTOSchema = z.object({
+  kind: z.string(),
+  path: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+});
+
+export type ReportExportedFileDTO = z.infer<typeof ReportExportedFileDTOSchema>;
+
+export const ReportExportResultDTOSchema = z.object({
+  generatedAt: z.iso.datetime(),
+  exportDir: z.string(),
+  files: z.array(ReportExportedFileDTOSchema),
+});
+
+export type ReportExportResultDTO = z.infer<typeof ReportExportResultDTOSchema>;
+export const ReportExportResultSchema = IpcResultSchema(ReportExportResultDTOSchema);
+export type ReportExportResult = z.infer<typeof ReportExportResultSchema>;
+
 export const IPC_CHANNELS = {
   APP_GET_STATUS: 'app:getStatus',
   APP_GET_DATA_MODE: 'app:getDataMode',
@@ -265,6 +359,8 @@ export const IPC_CHANNELS = {
   SYNC_RESUME: 'sync:resume',
   ML_RUN_BASELINE: 'ml:runBaseline',
   ML_GET_FORECAST: 'ml:getForecast',
+  REPORTS_GENERATE: 'reports:generate',
+  REPORTS_EXPORT: 'reports:export',
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',

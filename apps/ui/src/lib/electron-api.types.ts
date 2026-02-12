@@ -12,6 +12,10 @@ import type {
   MlForecastResult,
   MlRunBaselineInputDTO,
   MlRunBaselineResult,
+  ReportExportInputDTO,
+  ReportExportResult,
+  ReportGenerateInputDTO,
+  ReportGenerateResult,
   SyncCommandResult,
   SyncCompleteEvent,
   SyncErrorEvent,
@@ -31,6 +35,8 @@ export interface ElectronAPI {
   syncResume: (input: SyncResumeInputDTO) => Promise<SyncCommandResult>;
   mlRunBaseline: (input: MlRunBaselineInputDTO) => Promise<MlRunBaselineResult>;
   mlGetForecast: (input: MlForecastQueryInputDTO) => Promise<MlForecastResult>;
+  reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
+  reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   dbGetKpis: (query: KpiQueryDTO) => Promise<KpiResult>;
   dbGetTimeseries: (query: TimeseriesQueryDTO) => Promise<TimeseriesResult>;
   dbGetChannelInfo: (query: ChannelIdDTO) => Promise<ChannelInfoResult>;

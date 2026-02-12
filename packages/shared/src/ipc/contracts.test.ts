@@ -9,6 +9,10 @@ import {
   MlForecastResultDTOSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
+  ReportExportInputDTOSchema,
+  ReportExportResultDTOSchema,
+  ReportGenerateInputDTOSchema,
+  ReportGenerateResultDTOSchema,
   MlTargetMetricSchema,
   SyncCommandResultDTOSchema,
   SyncResumeInputDTOSchema,
@@ -272,6 +276,110 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Reports DTO', () => {
+    it('applies defaults for report generate input', () => {
+      const parsed = ReportGenerateInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+
+      expect(parsed.targetMetric).toBe('views');
+    });
+
+    it('applies defaults for report export input', () => {
+      const parsed = ReportExportInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+
+      expect(parsed.targetMetric).toBe('views');
+      expect(parsed.formats).toEqual(['json', 'csv']);
+    });
+
+    it('validates report generate and export results', () => {
+      const generated = ReportGenerateResultDTOSchema.parse({
+        generatedAt: '2026-02-12T23:00:00.000Z',
+        channel: {
+          channelId: 'UC123',
+          name: 'Kanał testowy',
+        },
+        range: {
+          dateFrom: '2026-01-01',
+          dateTo: '2026-01-31',
+          days: 31,
+        },
+        kpis: {
+          subscribers: 10000,
+          subscribersDelta: 250,
+          views: 500000,
+          viewsDelta: 40000,
+          videos: 100,
+          videosDelta: 4,
+          avgViewsPerVideo: 5000,
+          engagementRate: 0.06,
+        },
+        timeseries: {
+          metric: 'views',
+          granularity: 'day',
+          points: [
+            { date: '2026-01-01', value: 12345 },
+          ],
+        },
+        forecast: {
+          channelId: 'UC123',
+          targetMetric: 'views',
+          modelType: 'holt-winters',
+          trainedAt: '2026-02-12T22:00:00.000Z',
+          points: [
+            {
+              date: '2026-02-13',
+              horizonDays: 1,
+              predicted: 14000,
+              p10: 12000,
+              p50: 14000,
+              p90: 16000,
+            },
+          ],
+        },
+        topVideos: [
+          {
+            videoId: 'VID-001',
+            title: 'Top film',
+            publishedAt: '2025-12-01T12:00:00.000Z',
+            viewCount: 123456,
+            likeCount: 7000,
+            commentCount: 800,
+          },
+        ],
+        insights: [
+          {
+            code: 'INSIGHT_VIEWS_GROWTH',
+            title: 'Wyświetlenia rosną',
+            description: 'Kanał zanotował dodatnią zmianę wyświetleń.',
+            severity: 'good',
+          },
+        ],
+      });
+      expect(generated.range.days).toBe(31);
+
+      const exported = ReportExportResultDTOSchema.parse({
+        generatedAt: '2026-02-12T23:00:00.000Z',
+        exportDir: 'C:/reports/export-001',
+        files: [
+          {
+            kind: 'kpi_summary.json',
+            path: 'C:/reports/export-001/kpi_summary.json',
+            sizeBytes: 120,
+          },
+        ],
+      });
+
+      expect(exported.files).toHaveLength(1);
+    });
+  });
+
   describe('Channel constants', () => {
     it('IPC_CHANNELS has expected keys', () => {
       expect(IPC_CHANNELS.APP_GET_STATUS).toBe('app:getStatus');
@@ -282,6 +390,8 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.SYNC_RESUME).toBe('sync:resume');
       expect(IPC_CHANNELS.ML_RUN_BASELINE).toBe('ml:runBaseline');
       expect(IPC_CHANNELS.ML_GET_FORECAST).toBe('ml:getForecast');
+      expect(IPC_CHANNELS.REPORTS_GENERATE).toBe('reports:generate');
+      expect(IPC_CHANNELS.REPORTS_EXPORT).toBe('reports:export');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');

@@ -13,6 +13,10 @@ import type {
   MlForecastResultDTO,
   MlRunBaselineInputDTO,
   MlRunBaselineResultDTO,
+  ReportExportInputDTO,
+  ReportExportResultDTO,
+  ReportGenerateInputDTO,
+  ReportGenerateResultDTO,
   SyncCommandResultDTO,
   SyncResumeInputDTO,
   SyncStartInputDTO,
@@ -83,6 +87,18 @@ export async function runMlBaseline(input: MlRunBaselineInputDTO): Promise<MlRun
 export async function fetchMlForecast(input: MlForecastQueryInputDTO): Promise<MlForecastResultDTO> {
   const api = ensureElectronApi();
   const result = await api.mlGetForecast(input);
+  return unwrapResult(result);
+}
+
+export async function fetchDashboardReport(input: ReportGenerateInputDTO): Promise<ReportGenerateResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.reportsGenerate(input);
+  return unwrapResult(result);
+}
+
+export async function exportDashboardReport(input: ReportExportInputDTO): Promise<ReportExportResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.reportsExport(input);
   return unwrapResult(result);
 }
 
