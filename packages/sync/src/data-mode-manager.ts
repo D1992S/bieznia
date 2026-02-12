@@ -24,8 +24,14 @@ export interface CreateDataModeManagerInput {
   source?: string;
 }
 
+export interface ActiveDataProvider {
+  mode: DataMode;
+  provider: DataProvider;
+}
+
 export interface DataModeManager {
   getStatus: () => DataModeStatusDTO;
+  getActiveProvider: () => ActiveDataProvider;
   setMode: (input: SetDataModeInputDTO) => Result<DataModeStatusDTO, AppError>;
   probe: (input: DataModeProbeInputDTO) => Result<DataModeProbeResultDTO, AppError>;
 }
@@ -63,8 +69,14 @@ export function createDataModeManager(input: CreateDataModeManagerInput): DataMo
     source,
   });
 
+  const getActiveProvider = (): ActiveDataProvider => ({
+    mode: currentMode,
+    provider: pickProvider(currentMode, input),
+  });
+
   return {
     getStatus,
+    getActiveProvider,
     setMode: (setModeInput) => {
       const parsedInput = SetDataModeInputDTOSchema.safeParse(setModeInput);
       if (!parsedInput.success) {
@@ -80,7 +92,7 @@ export function createDataModeManager(input: CreateDataModeManagerInput): DataMo
         return err(createValidationError('SYNC_MODE_PROBE_INVALID', parsedProbe.error.issues));
       }
 
-      const provider = pickProvider(currentMode, input);
+      const provider = getActiveProvider().provider;
       const channelResult = provider.getChannelStats({ channelId: parsedProbe.data.channelId });
       if (!channelResult.ok) {
         return channelResult;

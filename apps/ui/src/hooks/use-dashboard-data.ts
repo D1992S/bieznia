@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DataMode } from '@moze/shared';
-import { fetchAppStatus, fetchChannelInfo, fetchDataModeStatus, fetchKpis, fetchTimeseries, probeDataMode, setDataMode } from '../lib/electron-api.ts';
+import { fetchAppStatus, fetchChannelInfo, fetchDataModeStatus, fetchKpis, fetchTimeseries, probeDataMode, resumeSync, setDataMode, startSync } from '../lib/electron-api.ts';
 
 export const DEFAULT_CHANNEL_ID = 'UC-SEED-PL-001';
 
@@ -57,6 +57,30 @@ export function useProbeDataModeMutation() {
   return useMutation({
     mutationFn: (input: { channelId: string; videoIds: string[]; recentLimit: number }) =>
       probeDataMode(input),
+  });
+}
+
+export function useStartSyncMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { channelId: string; profileId?: string | null; recentLimit: number }) =>
+      startSync(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['app'] });
+      void queryClient.invalidateQueries({ queryKey: ['db'] });
+    },
+  });
+}
+
+export function useResumeSyncMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { syncRunId: number; channelId: string; recentLimit: number }) =>
+      resumeSync(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['app'] });
+      void queryClient.invalidateQueries({ queryKey: ['db'] });
+    },
   });
 }
 

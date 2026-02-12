@@ -4,7 +4,12 @@ import type {
   AppMetaEntryInput,
   CreateSyncRunInput,
   FinishSyncRunInput,
+  GetLatestOpenSyncRunInput,
+  GetSyncRunByIdInput,
   RawApiResponseInput,
+  ResumeSyncRunInput,
+  SyncRunRecord,
+  UpdateSyncRunCheckpointInput,
   UpsertChannelDayInput,
   UpsertChannelInput,
   UpsertProfileInput,
@@ -16,7 +21,11 @@ export interface CoreRepository {
   upsertProfile: (input: UpsertProfileInput) => Result<void, AppError>;
   setAppMetaEntry: (input: AppMetaEntryInput) => Result<void, AppError>;
   createSyncRun: (input: CreateSyncRunInput) => Result<number, AppError>;
+  updateSyncRunCheckpoint: (input: UpdateSyncRunCheckpointInput) => Result<void, AppError>;
+  resumeSyncRun: (input: ResumeSyncRunInput) => Result<void, AppError>;
   finishSyncRun: (input: FinishSyncRunInput) => Result<void, AppError>;
+  getSyncRunById: (input: GetSyncRunByIdInput) => Result<SyncRunRecord | null, AppError>;
+  getLatestOpenSyncRun: (input: GetLatestOpenSyncRunInput) => Result<SyncRunRecord | null, AppError>;
   recordRawApiResponse: (input: RawApiResponseInput) => Result<number, AppError>;
   upsertChannel: (input: UpsertChannelInput) => Result<void, AppError>;
   upsertVideos: (inputs: readonly UpsertVideoInput[]) => Result<void, AppError>;
@@ -108,6 +117,79 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
         error_code = @errorCode,
         error_message = @errorMessage
       WHERE id = @syncRunId
+    `,
+  );
+
+  const updateSyncRunCheckpointStmt = db.prepare<{
+    syncRunId: number;
+    status: string;
+    stage: string | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+  }>(
+    `
+      UPDATE sync_runs
+      SET
+        status = @status,
+        stage = @stage,
+        error_code = @errorCode,
+        error_message = @errorMessage
+      WHERE id = @syncRunId
+    `,
+  );
+
+  const resumeSyncRunStmt = db.prepare<{
+    syncRunId: number;
+    status: string;
+    stage: string | null;
+  }>(
+    `
+      UPDATE sync_runs
+      SET
+        status = @status,
+        stage = @stage,
+        finished_at = NULL,
+        error_code = NULL,
+        error_message = NULL
+      WHERE id = @syncRunId
+    `,
+  );
+
+  const getSyncRunByIdStmt = db.prepare<{ syncRunId: number }, SyncRunRecord>(
+    `
+      SELECT
+        id,
+        profile_id AS profileId,
+        status,
+        stage,
+        started_at AS startedAt,
+        finished_at AS finishedAt,
+        error_code AS errorCode,
+        error_message AS errorMessage
+      FROM sync_runs
+      WHERE id = @syncRunId
+      ORDER BY id ASC
+      LIMIT 1
+    `,
+  );
+
+  const getLatestOpenSyncRunStmt = db.prepare<{ profileId: string | null }, SyncRunRecord>(
+    `
+      SELECT
+        id,
+        profile_id AS profileId,
+        status,
+        stage,
+        started_at AS startedAt,
+        finished_at AS finishedAt,
+        error_code AS errorCode,
+        error_message AS errorMessage
+      FROM sync_runs
+      WHERE status = 'running'
+        AND finished_at IS NULL
+        AND (@profileId IS NULL OR profile_id = @profileId)
+      ORDER BY started_at DESC, id DESC
+      LIMIT 1
     `,
   );
 
@@ -455,6 +537,48 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
       }
     },
 
+    updateSyncRunCheckpoint: (input) => {
+      try {
+        updateSyncRunCheckpointStmt.run({
+          syncRunId: input.syncRunId,
+          status: input.status,
+          stage: input.stage ?? null,
+          errorCode: input.errorCode ?? null,
+          errorMessage: input.errorMessage ?? null,
+        });
+        return ok(undefined);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_SYNC_RUN_CHECKPOINT_FAILED',
+            'Nie udalo sie zaktualizowac checkpointu synchronizacji.',
+            { syncRunId: input.syncRunId, status: input.status, stage: input.stage ?? null },
+            cause,
+          ),
+        );
+      }
+    },
+
+    resumeSyncRun: (input) => {
+      try {
+        resumeSyncRunStmt.run({
+          syncRunId: input.syncRunId,
+          status: input.status,
+          stage: input.stage ?? null,
+        });
+        return ok(undefined);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_SYNC_RUN_RESUME_FAILED',
+            'Nie udalo sie wznowic rekordu synchronizacji.',
+            { syncRunId: input.syncRunId, status: input.status, stage: input.stage ?? null },
+            cause,
+          ),
+        );
+      }
+    },
+
     finishSyncRun: (input) => {
       try {
         finishSyncRunStmt.run({
@@ -472,6 +596,36 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
             'DB_SYNC_RUN_FINISH_FAILED',
             'Nie udało się zakończyć rekordu synchronizacji.',
             { syncRunId: input.syncRunId, status: input.status },
+            cause,
+          ),
+        );
+      }
+    },
+
+    getSyncRunById: (input) => {
+      try {
+        return ok(getSyncRunByIdStmt.get({ syncRunId: input.syncRunId }) ?? null);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_SYNC_RUN_GET_FAILED',
+            'Nie udalo sie odczytac rekordu synchronizacji.',
+            { syncRunId: input.syncRunId },
+            cause,
+          ),
+        );
+      }
+    },
+
+    getLatestOpenSyncRun: (input) => {
+      try {
+        return ok(getLatestOpenSyncRunStmt.get({ profileId: input.profileId ?? null }) ?? null);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_SYNC_RUN_OPEN_GET_FAILED',
+            'Nie udalo sie odczytac aktywnego sync run.',
+            { profileId: input.profileId ?? null },
             cause,
           ),
         );

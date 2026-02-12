@@ -11,10 +11,11 @@
 | 2 | Desktop Backend + IPC | DONE |
 | 3 | Data Modes + Fixtures | DONE |
 | 4 | Data Pipeline + Feature Engineering | DONE |
-| 5 | Sync Orchestrator | **NASTEPNA** |
-| 6-19 | Reszta | Oczekuje |
+| 5 | Sync Orchestrator | DONE |
+| 6 | Bazowy ML Framework | **NASTEPNA** |
+| 7-19 | Reszta | Oczekuje |
 
-## Co zostalo zrobione (Faza 0 + 1 + 2 + 3 + 4)
+## Co zostalo zrobione (Faza 0 + 1 + 2 + 3 + 4 + 5)
 
 - Monorepo pnpm workspaces: 10 pakietow + 2 aplikacje.
 - TypeScript 5.9 strict, ESLint 9, Prettier, Vitest 4.
@@ -74,54 +75,82 @@
     - lineage entries dla etapow: `ingest`, `validation`, `staging`, `feature-generation`
   - Deterministycznosc:
     - pipeline usuwa poprzedni feature set (`channel_id + feature_set_version`) i zapisuje wynik stabilnie.
+- `sync` + `desktop` + `ui` + `shared` + `core` (Faza 5):
+  - Kontrakty IPC dla orchestratora sync:
+    - `sync:start`
+    - `sync:resume`
+    - DTO wyniku komendy sync (`syncRunId`, `status`, `stage`, `recordsProcessed`, `pipelineFeatures`).
+  - Rozszerzony `core` repository dla `sync_runs`:
+    - `updateSyncRunCheckpoint()`
+    - `resumeSyncRun()`
+    - `getSyncRunById()`
+    - `getLatestOpenSyncRun()`
+  - Zaimplementowany orchestrator synchronizacji:
+    - stage machine (`collect-provider-data` -> `persist-warehouse` -> `run-pipeline` -> `completed`),
+    - checkpointy i resume z `sync_runs`,
+    - blokada rownoleglego sync (mutex in-process + kontrola aktywnego run w DB),
+    - retry/backoff dla bledow providera,
+    - zapis danych providera do warehouse + `raw_api_responses`,
+    - automatyczne `runDataPipeline()` po udanym sync.
+  - Eventy sync:
+    - emisja `sync:progress`, `sync:complete`, `sync:error` do UI przez Electron main.
+  - UI:
+    - sekcja "Sync orchestrator (Faza 5)" z przyciskami uruchomienia/wznowienia sync,
+    - podglad postepu i bledow na zywo (eventy IPC).
 - Testy:
-  - 47 testow pass:
+  - 53 testy pass:
     - integracyjne IPC (w tym nowe handlery data mode),
     - integracyjne sync data modes (fake/real/record, rate limit, cache TTL),
-    - integracyjne data-pipeline (end-to-end, deterministycznosc, validation range, validation freshness).
+    - integracyjne data-pipeline (end-to-end, deterministycznosc, validation range, validation freshness),
+    - integracyjne sync orchestratora (happy path + mutex + resume z checkpointu pipeline).
 - Build/runtime:
   - Desktop runtime bundlowany przez `esbuild` (`apps/desktop/scripts/build-desktop.mjs`), co umozliwia runtime import `@moze/core`/`@moze/shared`.
 - Standard regresji: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 
-## Co robic teraz — Faza 5: Sync Orchestrator
+## Co robic teraz — Faza 6: Bazowy ML Framework
 
-**Cel:** Kontrolowany sync z checkpointami i gotowym wywolaniem pipeline po sync.
+**Cel:** Dzialajacy framework ML z pierwszym modelem prognostycznym.
 
 **Zakres:**
-1. Sync stage machine:
-   - etapy, statusy i checkpointy wznowienia.
-2. Blokada rownoleglego sync:
-   - mutex, jeden aktywny sync na raz.
-3. Retry/backoff:
-   - odpornosc na bledy providerow API.
-4. Integracja z pipeline:
-   - po sync uruchamiane `runDataPipeline()` (Faza 4).
-5. Eventy progress:
-   - `sync:progress`, `sync:complete`, `sync:error` do UI.
-6. Testy integracyjne:
-   - przerwanie/wznowienie + kontrola statusow + post-sync pipeline.
+1. Model registry:
+   - tabela `ml_models` (id, type, version, config, status, metrics).
+2. Training pipeline:
+   - flow: feature selection -> train -> validate -> store.
+3. Backtesting:
+   - rolling window cross-validation.
+4. Metryki i quality gate:
+   - MAE, sMAPE, MASE oraz aktywacja modelu tylko przy metrykach < threshold.
+5. Pierwsze modele:
+   - baseline `Holt-Winters` + `Linear Regression` dla views/subscribers.
+6. Predykcje:
+   - tabela `ml_predictions` + confidence levels p10/p50/p90.
+7. Zachowanie przy malych danych:
+   - < 30 dni danych -> graceful degradation (bez twardych bledow dla UI).
+8. Testy integracyjne:
+   - train/backtest/quality gate/predictions na fixture data.
 
-**Definition of Done (Faza 5):**
-- [ ] Sync ma etapy i checkpointy oraz zapis do `sync_runs`.
-- [ ] Rownolegly sync jest blokowany.
-- [ ] Retry/backoff dziala dla bledow providera.
-- [ ] Po sync uruchamia sie pipeline i generuje swieze features.
-- [ ] Eventy progress/complete/error sa emitowane poprawnie.
-- [ ] Testy integracyjne sync orchestratora przechodza.
+**Definition of Done (Faza 6):**
+- [ ] Dziala registry modeli i zapis metadanych treningu.
+- [ ] Trening baseline modeli przechodzi na fixture data.
+- [ ] Backtesting zwraca MAE/sMAPE/MASE per model.
+- [ ] Quality gate blokuje zly model i aktywuje model spelniajacy progi.
+- [ ] `ml_predictions` zapisuje p10/p50/p90.
+- [ ] Graceful degradation dziala dla krotszej historii danych.
+- [ ] Testy integracyjne ML przechodza.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` — 0 errors.
 - [ ] Wpis w `CHANGELOG_AI.md`.
 - [ ] Aktualizacja tego pliku (`NEXT_STEP.md`).
 
 **Pliki do modyfikacji/stworzenia:**
 ```
-packages/sync/src/                    — orchestrator sync + retry/checkpoint/mutex
-packages/core/src/                    — ewentualne rozszerzenia statusow/stage w `sync_runs`
-apps/desktop/src/                     — podpiecie orchestratora i eventow IPC sync
-apps/ui/src/                          — konsumpcja eventow progress sync (bez lamania granic modulu)
-packages/data-pipeline/src/           — wywolanie `runDataPipeline()` po zakonczeniu sync
+packages/ml/src/                      — model registry + training + backtesting + predictions
+packages/core/src/                    — migracja tabel ML (`ml_models`, `ml_predictions`, opcj. `ml_backtests`)
+packages/shared/src/                  — DTO/kontrakty IPC dla ML results
+apps/desktop/src/                     — handlery IPC ML
+apps/ui/src/                          — minimalny podglad wynikow baseline modelu
 ```
 
-**Szczegoly:** `docs/PLAN_REALIZACJI.md` -> Faza 5.
+**Szczegoly:** `docs/PLAN_REALIZACJI.md` -> Faza 6.
 
 ## Krytyczne zasady (nie pomijaj)
 

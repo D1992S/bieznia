@@ -17,6 +17,8 @@ export {
   type DataModeStatusResult,
   DataModeProbeResultSchema,
   type DataModeProbeResult,
+  SyncCommandResultSchema,
+  type SyncCommandResult,
   KpiResultSchema,
   type KpiResult,
   TimeseriesResultSchema,
@@ -57,6 +59,12 @@ export {
   type DataModeProbeInputDTO,
   DataModeProbeResultDTOSchema,
   type DataModeProbeResultDTO,
+  SyncStartInputDTOSchema,
+  type SyncStartInputDTO,
+  SyncResumeInputDTOSchema,
+  type SyncResumeInputDTO,
+  SyncCommandResultDTOSchema,
+  type SyncCommandResultDTO,
 } from './dto/index.ts';
 
 // Events

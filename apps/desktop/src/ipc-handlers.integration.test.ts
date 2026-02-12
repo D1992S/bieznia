@@ -12,6 +12,8 @@ import { describe, expect, it } from 'vitest';
 import {
   handleAppGetDataMode,
   handleAppProbeDataMode,
+  handleSyncResume,
+  handleSyncStart,
   handleAppSetDataMode,
   handleAppGetStatus,
   handleDbGetChannelInfo,
@@ -93,6 +95,22 @@ function createTestContext(): TestContext {
         videoStats: input.videoIds.length,
         recordFilePath: null,
       }),
+    startSync: () =>
+      ok({
+        syncRunId: 1,
+        status: 'completed',
+        stage: 'completed',
+        recordsProcessed: 12,
+        pipelineFeatures: 90,
+      }),
+    resumeSync: (input) =>
+      ok({
+        syncRunId: input.syncRunId,
+        status: 'completed',
+        stage: 'completed',
+        recordsProcessed: 0,
+        pipelineFeatures: 90,
+      }),
     getKpis: (query) => metricsQueries.getKpis(query),
     getTimeseries: (query) => metricsQueries.getTimeseries(query),
     getChannelInfo: (query) => channelQueries.getChannelInfo(query),
@@ -111,7 +129,7 @@ function createTestContext(): TestContext {
 }
 
 describe('Desktop IPC handlers integration', () => {
-  it('returns happy-path results for app status, kpis, timeseries and channel info', () => {
+  it('returns happy-path results for app status, kpis, timeseries and channel info', async () => {
     const ctx = createTestContext();
 
     const statusResult = handleAppGetStatus(ctx.backend, undefined);
@@ -141,6 +159,26 @@ describe('Desktop IPC handlers integration', () => {
     expect(probeModeResult.ok).toBe(true);
     if (probeModeResult.ok) {
       expect(probeModeResult.value.videoStats).toBe(2);
+    }
+
+    const startSyncResult = await handleSyncStart(ctx.backend, {
+      channelId: ctx.channelId,
+      profileId: 'PROFILE-001',
+      recentLimit: 10,
+    });
+    expect(startSyncResult.ok).toBe(true);
+    if (startSyncResult.ok) {
+      expect(startSyncResult.value.status).toBe('completed');
+    }
+
+    const resumeSyncResult = await handleSyncResume(ctx.backend, {
+      syncRunId: 1,
+      channelId: ctx.channelId,
+      recentLimit: 10,
+    });
+    expect(resumeSyncResult.ok).toBe(true);
+    if (resumeSyncResult.ok) {
+      expect(resumeSyncResult.value.syncRunId).toBe(1);
     }
 
     const kpiResult = handleDbGetKpis(ctx.backend, {
@@ -176,7 +214,7 @@ describe('Desktop IPC handlers integration', () => {
     ctx.close();
   });
 
-  it('returns AppError for invalid IPC payload', () => {
+  it('returns AppError for invalid IPC payload', async () => {
     const ctx = createTestContext();
 
     const invalidPayloadResult = handleDbGetKpis(ctx.backend, {
@@ -205,6 +243,12 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidSetMode.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidSyncStart = await handleSyncStart(ctx.backend, { recentLimit: 10 });
+    expect(invalidSyncStart.ok).toBe(false);
+    if (!invalidSyncStart.ok) {
+      expect(invalidSyncStart.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     ctx.close();
   });
 
@@ -227,6 +271,8 @@ describe('Desktop IPC handlers integration', () => {
       getDataModeStatus: () => ctx.backend.getDataModeStatus(),
       setDataMode: (input) => ctx.backend.setDataMode(input),
       probeDataMode: (input) => ctx.backend.probeDataMode(input),
+      startSync: (input) => ctx.backend.startSync(input),
+      resumeSync: (input) => ctx.backend.resumeSync(input),
       getKpis: (query) => ctx.backend.getKpis(query),
       getTimeseries: (query) => ctx.backend.getTimeseries(query),
       getChannelInfo: (query) => ctx.backend.getChannelInfo(query),

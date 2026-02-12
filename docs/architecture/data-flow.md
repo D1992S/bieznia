@@ -5,7 +5,9 @@
 ## Status implementacji
 
 - Faza 4: **DONE** (minimum pipeline w kodzie).
+- Faza 5: **DONE** (sync orchestrator + checkpoint/resume + retry/backoff + post-sync pipeline).
 - Zaimplementowany runner: `packages/data-pipeline/src/pipeline-runner.ts`.
+- Zaimplementowany orchestrator: `packages/sync/src/sync-orchestrator.ts`.
 - Zaimplementowane tabele: `stg_channels`, `stg_videos`, `ml_features`, `data_lineage`.
 
 ## Pełny pipeline

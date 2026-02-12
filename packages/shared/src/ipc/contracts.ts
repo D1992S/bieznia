@@ -148,11 +148,41 @@ export type DataModeProbeResultDTO = z.infer<typeof DataModeProbeResultDTOSchema
 export const DataModeProbeResultSchema = IpcResultSchema(DataModeProbeResultDTOSchema);
 export type DataModeProbeResult = z.infer<typeof DataModeProbeResultSchema>;
 
+export const SyncStartInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  profileId: z.string().min(1).nullable().optional(),
+  recentLimit: z.number().int().min(1).max(100).default(20),
+});
+
+export type SyncStartInputDTO = z.infer<typeof SyncStartInputDTOSchema>;
+
+export const SyncResumeInputDTOSchema = z.object({
+  syncRunId: z.number().int().positive(),
+  channelId: z.string().min(1),
+  recentLimit: z.number().int().min(1).max(100).default(20),
+});
+
+export type SyncResumeInputDTO = z.infer<typeof SyncResumeInputDTOSchema>;
+
+export const SyncCommandResultDTOSchema = z.object({
+  syncRunId: z.number().int().positive(),
+  status: z.enum(['running', 'completed', 'failed']),
+  stage: z.string(),
+  recordsProcessed: z.number().int().nonnegative(),
+  pipelineFeatures: z.number().int().nonnegative().nullable(),
+});
+
+export type SyncCommandResultDTO = z.infer<typeof SyncCommandResultDTOSchema>;
+export const SyncCommandResultSchema = IpcResultSchema(SyncCommandResultDTOSchema);
+export type SyncCommandResult = z.infer<typeof SyncCommandResultSchema>;
+
 export const IPC_CHANNELS = {
   APP_GET_STATUS: 'app:getStatus',
   APP_GET_DATA_MODE: 'app:getDataMode',
   APP_SET_DATA_MODE: 'app:setDataMode',
   APP_PROBE_DATA_MODE: 'app:probeDataMode',
+  SYNC_START: 'sync:start',
+  SYNC_RESUME: 'sync:resume',
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',

@@ -15,6 +15,10 @@ import {
   KpiQueryDTOSchema,
   KpiResultDTOSchema,
   KpiResultSchema,
+  SyncCommandResultDTOSchema,
+  SyncCommandResultSchema,
+  SyncResumeInputDTOSchema,
+  SyncStartInputDTOSchema,
   SetDataModeInputDTOSchema,
   TimeseriesQueryDTOSchema,
   TimeseriesResultDTOSchema,
@@ -34,6 +38,10 @@ import {
   type KpiResult,
   type KpiResultDTO,
   type Result,
+  type SyncCommandResult,
+  type SyncCommandResultDTO,
+  type SyncResumeInputDTO,
+  type SyncStartInputDTO,
   type TimeseriesQueryDTO,
   type TimeseriesResult,
   type TimeseriesResultDTO,
@@ -45,6 +53,8 @@ export interface DesktopIpcBackend {
   getDataModeStatus: () => Result<DataModeStatusDTO, AppError>;
   setDataMode: (input: SetDataModeInputDTO) => Result<DataModeStatusDTO, AppError>;
   probeDataMode: (input: DataModeProbeInputDTO) => Result<DataModeProbeResultDTO, AppError>;
+  startSync: (input: SyncStartInputDTO) => Result<SyncCommandResultDTO, AppError> | Promise<Result<SyncCommandResultDTO, AppError>>;
+  resumeSync: (input: SyncResumeInputDTO) => Result<SyncCommandResultDTO, AppError> | Promise<Result<SyncCommandResultDTO, AppError>>;
   getKpis: (query: KpiQueryDTO) => Result<KpiResultDTO, AppError>;
   getTimeseries: (query: TimeseriesQueryDTO) => Result<TimeseriesResultDTO, AppError>;
   getChannelInfo: (query: { channelId: string }) => Result<ChannelInfoDTO, AppError>;
@@ -72,6 +82,16 @@ function createOutputError(payload: unknown, issues: unknown): AppError {
     'Wewnętrzna odpowiedź IPC ma niepoprawny format.',
     'error',
     { payload, issues },
+  );
+}
+
+function createUnhandledHandlerError(cause: unknown): AppError {
+  return AppError.create(
+    'IPC_HANDLER_EXECUTION_FAILED',
+    'Wewnętrzna obsluga komendy IPC zakonczona niepowodzeniem.',
+    'error',
+    {},
+    cause instanceof Error ? cause : new Error(String(cause)),
   );
 }
 
@@ -138,6 +158,30 @@ function runHandler<TInput, TOutput>(
   return serializeSuccess(outputSchema, resultSchema, result.value);
 }
 
+async function runHandlerAsync<TInput, TOutput>(
+  payload: unknown,
+  inputSchema: z.ZodType<TInput>,
+  outputSchema: z.ZodType<TOutput>,
+  resultSchema: z.ZodType<IpcResult<TOutput>>,
+  execute: (input: TInput) => Result<TOutput, AppError> | Promise<Result<TOutput, AppError>>,
+): Promise<IpcResult<TOutput>> {
+  const inputValidation = inputSchema.safeParse(payload);
+  if (!inputValidation.success) {
+    return serializeError(resultSchema, createValidationError(payload, inputValidation.error.issues));
+  }
+
+  try {
+    const result = await execute(inputValidation.data);
+    if (!result.ok) {
+      return serializeError(resultSchema, result.error);
+    }
+
+    return serializeSuccess(outputSchema, resultSchema, result.value);
+  } catch (cause) {
+    return serializeError(resultSchema, createUnhandledHandlerError(cause));
+  }
+}
+
 export function handleAppGetStatus(backend: DesktopIpcBackend, payload: unknown): AppStatusResult {
   return runHandler(
     payload,
@@ -178,6 +222,32 @@ export function handleAppProbeDataMode(backend: DesktopIpcBackend, payload: unkn
   );
 }
 
+export async function handleSyncStart(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<SyncCommandResult> {
+  return runHandlerAsync(
+    payload,
+    SyncStartInputDTOSchema,
+    SyncCommandResultDTOSchema,
+    SyncCommandResultSchema,
+    (input) => backend.startSync(input),
+  );
+}
+
+export async function handleSyncResume(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<SyncCommandResult> {
+  return runHandlerAsync(
+    payload,
+    SyncResumeInputDTOSchema,
+    SyncCommandResultDTOSchema,
+    SyncCommandResultSchema,
+    (input) => backend.resumeSync(input),
+  );
+}
+
 export function handleDbGetKpis(backend: DesktopIpcBackend, payload: unknown): KpiResult {
   return runHandler(
     payload,
@@ -213,6 +283,8 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.APP_GET_DATA_MODE, (_event, payload) => handleAppGetDataMode(backend, payload));
   ipcMain.handle(IPC_CHANNELS.APP_SET_DATA_MODE, (_event, payload) => handleAppSetDataMode(backend, payload));
   ipcMain.handle(IPC_CHANNELS.APP_PROBE_DATA_MODE, (_event, payload) => handleAppProbeDataMode(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.SYNC_START, (_event, payload) => handleSyncStart(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.SYNC_RESUME, (_event, payload) => handleSyncResume(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_KPIS, (_event, payload) => handleDbGetKpis(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_TIMESERIES, (_event, payload) => handleDbGetTimeseries(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_CHANNEL_INFO, (_event, payload) => handleDbGetChannelInfo(backend, payload));

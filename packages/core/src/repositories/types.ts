@@ -28,6 +28,39 @@ export interface FinishSyncRunInput {
   errorMessage?: string | null;
 }
 
+export interface UpdateSyncRunCheckpointInput {
+  syncRunId: number;
+  status: string;
+  stage?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface ResumeSyncRunInput {
+  syncRunId: number;
+  status: string;
+  stage?: string | null;
+}
+
+export interface GetSyncRunByIdInput {
+  syncRunId: number;
+}
+
+export interface GetLatestOpenSyncRunInput {
+  profileId?: string | null;
+}
+
+export interface SyncRunRecord {
+  id: number;
+  profileId: string | null;
+  status: string;
+  stage: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
 export interface RawApiResponseInput {
   source: string;
   endpoint: string;

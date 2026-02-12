@@ -1,6 +1,6 @@
 import { createChannelQueries, createDatabaseConnection, createMetricsQueries, runMigrations, type ChannelQueries, type DatabaseConnection, type MetricsQueries } from '@moze/core';
-import { createCachedDataProvider, createDataModeManager, createFakeDataProvider, createRateLimitedDataProvider, createRealDataProvider, createRecordingDataProvider, type DataModeManager } from '@moze/sync';
-import { AppError, createLogger, err, ok, type AppStatusDTO, type DataModeProbeInputDTO, type DataModeProbeResultDTO, type DataModeStatusDTO, type KpiQueryDTO, type KpiResultDTO, type Result, type SetDataModeInputDTO, type TimeseriesQueryDTO, type TimeseriesResultDTO } from '@moze/shared';
+import { createCachedDataProvider, createDataModeManager, createFakeDataProvider, createRateLimitedDataProvider, createRealDataProvider, createRecordingDataProvider, createSyncOrchestrator, type DataModeManager, type SyncOrchestrator } from '@moze/sync';
+import { AppError, IPC_EVENTS, createLogger, err, ok, type AppStatusDTO, type DataModeProbeInputDTO, type DataModeProbeResultDTO, type DataModeStatusDTO, type KpiQueryDTO, type KpiResultDTO, type Result, type SetDataModeInputDTO, type SyncCommandResultDTO, type SyncResumeInputDTO, type SyncStartInputDTO, type TimeseriesQueryDTO, type TimeseriesResultDTO } from '@moze/shared';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,7 @@ interface BackendState {
   metricsQueries: MetricsQueries | null;
   channelQueries: ChannelQueries | null;
   dataModeManager: DataModeManager | null;
+  syncOrchestrator: SyncOrchestrator | null;
   dbPath: string | null;
 }
 
@@ -30,6 +31,7 @@ const backendState: BackendState = {
   metricsQueries: null,
   channelQueries: null,
   dataModeManager: null,
+  syncOrchestrator: null,
   dbPath: null,
 };
 
@@ -54,6 +56,14 @@ function normalizeIsoDateTime(value: string | null | undefined): string | null {
   return `${value.replace(' ', 'T')}Z`;
 }
 
+function emitSyncEvent(eventName: string, payload: unknown): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(eventName, payload);
+}
+
 function createDbNotReadyError(): AppError {
   return AppError.create(
     'APP_DB_NOT_READY',
@@ -67,6 +77,15 @@ function createDataModeNotReadyError(): AppError {
   return AppError.create(
     'APP_DATA_MODE_NOT_READY',
     'Tryb danych nie jest gotowy. Uruchom ponownie aplikacje.',
+    'error',
+    {},
+  );
+}
+
+function createSyncNotReadyError(): AppError {
+  return AppError.create(
+    'APP_SYNC_NOT_READY',
+    'Orkiestrator synchronizacji nie jest gotowy. Uruchom ponownie aplikacje.',
     'error',
     {},
   );
@@ -186,6 +205,22 @@ function initializeBackend(): Result<void, AppError> {
   }
 
   backendState.dataModeManager = dataModesResult.value;
+  backendState.syncOrchestrator = createSyncOrchestrator({
+    db: connectionResult.value.db,
+    dataModeManager: dataModesResult.value,
+    logger: logger.withContext({ module: 'sync-orchestrator' }),
+    hooks: {
+      onProgress: (event) => {
+        emitSyncEvent(IPC_EVENTS.SYNC_PROGRESS, event);
+      },
+      onComplete: (event) => {
+        emitSyncEvent(IPC_EVENTS.SYNC_COMPLETE, event);
+      },
+      onError: (event) => {
+        emitSyncEvent(IPC_EVENTS.SYNC_ERROR, event);
+      },
+    },
+  });
 
   logger.info('Backend gotowy.', {
     dbPath,
@@ -210,6 +245,7 @@ function closeBackend(): void {
   backendState.metricsQueries = null;
   backendState.channelQueries = null;
   backendState.dataModeManager = null;
+  backendState.syncOrchestrator = null;
 }
 
 function readAppStatus(): Result<AppStatusDTO, AppError> {
@@ -341,11 +377,27 @@ function probeDataMode(input: DataModeProbeInputDTO): Result<DataModeProbeResult
   return backendState.dataModeManager.probe(input);
 }
 
+async function startSync(input: SyncStartInputDTO): Promise<Result<SyncCommandResultDTO, AppError>> {
+  if (!backendState.syncOrchestrator) {
+    return err(createSyncNotReadyError());
+  }
+  return backendState.syncOrchestrator.startSync(input);
+}
+
+async function resumeSync(input: SyncResumeInputDTO): Promise<Result<SyncCommandResultDTO, AppError>> {
+  if (!backendState.syncOrchestrator) {
+    return err(createSyncNotReadyError());
+  }
+  return backendState.syncOrchestrator.resumeSync(input);
+}
+
 const ipcBackend: DesktopIpcBackend = {
   getAppStatus: () => readAppStatus(),
   getDataModeStatus: () => readDataModeStatus(),
   setDataMode: (input) => setDataMode(input),
   probeDataMode: (input) => probeDataMode(input),
+  startSync: (input) => startSync(input),
+  resumeSync: (input) => resumeSync(input),
   getKpis: (query) => readKpis(query),
   getTimeseries: (query) => readTimeseries(query),
   getChannelInfo: (query) => readChannelInfo(query),

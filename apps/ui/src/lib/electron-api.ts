@@ -9,6 +9,9 @@ import type {
   IpcResult,
   KpiQueryDTO,
   KpiResultDTO,
+  SyncCommandResultDTO,
+  SyncResumeInputDTO,
+  SyncStartInputDTO,
   TimeseriesQueryDTO,
   TimeseriesResultDTO,
 } from '@moze/shared';
@@ -52,6 +55,18 @@ export async function setDataMode(input: SetDataModeInputDTO): Promise<DataModeS
 export async function probeDataMode(input: DataModeProbeInputDTO): Promise<DataModeProbeResultDTO> {
   const api = ensureElectronApi();
   const result = await api.appProbeDataMode(input);
+  return unwrapResult(result);
+}
+
+export async function startSync(input: SyncStartInputDTO): Promise<SyncCommandResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.syncStart(input);
+  return unwrapResult(result);
+}
+
+export async function resumeSync(input: SyncResumeInputDTO): Promise<SyncCommandResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.syncResume(input);
   return unwrapResult(result);
 }
 

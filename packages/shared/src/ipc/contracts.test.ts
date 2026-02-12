@@ -5,6 +5,9 @@ import {
   DataModeProbeResultDTOSchema,
   DataModeSchema,
   DataModeStatusDTOSchema,
+  SyncCommandResultDTOSchema,
+  SyncResumeInputDTOSchema,
+  SyncStartInputDTOSchema,
   SetDataModeInputDTOSchema,
   KpiQueryDTOSchema,
   KpiResultDTOSchema,
@@ -163,12 +166,47 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Sync DTO', () => {
+    it('applies default recentLimit for sync start input', () => {
+      const parsed = SyncStartInputDTOSchema.parse({
+        channelId: 'UC123',
+      });
+
+      expect(parsed.recentLimit).toBe(20);
+      expect(parsed.profileId).toBeUndefined();
+    });
+
+    it('validates sync resume input', () => {
+      const parsed = SyncResumeInputDTOSchema.parse({
+        syncRunId: 12,
+        channelId: 'UC123',
+      });
+      expect(parsed.syncRunId).toBe(12);
+      expect(parsed.channelId).toBe('UC123');
+      expect(parsed.recentLimit).toBe(20);
+    });
+
+    it('validates sync command result payload', () => {
+      const parsed = SyncCommandResultDTOSchema.parse({
+        syncRunId: 9,
+        status: 'completed',
+        stage: 'completed',
+        recordsProcessed: 55,
+        pipelineFeatures: 90,
+      });
+
+      expect(parsed.status).toBe('completed');
+    });
+  });
+
   describe('Channel constants', () => {
     it('IPC_CHANNELS has expected keys', () => {
       expect(IPC_CHANNELS.APP_GET_STATUS).toBe('app:getStatus');
       expect(IPC_CHANNELS.APP_GET_DATA_MODE).toBe('app:getDataMode');
       expect(IPC_CHANNELS.APP_SET_DATA_MODE).toBe('app:setDataMode');
       expect(IPC_CHANNELS.APP_PROBE_DATA_MODE).toBe('app:probeDataMode');
+      expect(IPC_CHANNELS.SYNC_START).toBe('sync:start');
+      expect(IPC_CHANNELS.SYNC_RESUME).toBe('sync:resume');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');

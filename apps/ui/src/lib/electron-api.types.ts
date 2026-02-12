@@ -8,9 +8,12 @@ import type {
   ChannelInfoResult,
   KpiQueryDTO,
   KpiResult,
+  SyncCommandResult,
   SyncCompleteEvent,
   SyncErrorEvent,
   SyncProgressEvent,
+  SyncResumeInputDTO,
+  SyncStartInputDTO,
   TimeseriesQueryDTO,
   TimeseriesResult,
 } from '@moze/shared';
@@ -20,6 +23,8 @@ export interface ElectronAPI {
   appGetDataMode: () => Promise<DataModeStatusResult>;
   appSetDataMode: (input: SetDataModeInputDTO) => Promise<DataModeStatusResult>;
   appProbeDataMode: (input: DataModeProbeInputDTO) => Promise<DataModeProbeResult>;
+  syncStart: (input: SyncStartInputDTO) => Promise<SyncCommandResult>;
+  syncResume: (input: SyncResumeInputDTO) => Promise<SyncCommandResult>;
   dbGetKpis: (query: KpiQueryDTO) => Promise<KpiResult>;
   dbGetTimeseries: (query: TimeseriesQueryDTO) => Promise<TimeseriesResult>;
   dbGetChannelInfo: (query: ChannelIdDTO) => Promise<ChannelInfoResult>;

@@ -446,3 +446,59 @@ Dziennik zmian wykonywanych przez modele AI.
   - `pnpm build` - PASS.
 - Nastepny krok:
   - Faza 5: Sync Orchestrator (checkpointy, retry/backoff, mutex, eventy progress i wywolanie `runDataPipeline()` po sync).
+
+## 2026-02-12 (v15)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `packages/core/src/repositories/types.ts`, `packages/core/src/repositories/core-repository.ts`, `packages/core/src/repositories/index.ts`, `packages/core/src/index.ts`
+  - `packages/sync/src/data-mode-manager.ts`, `packages/sync/src/sync-orchestrator.ts`, `packages/sync/src/sync-orchestrator.integration.test.ts`, `packages/sync/src/index.ts`
+  - `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/main.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Faze 5 (Sync Orchestrator) end-to-end.
+  - Dodano komendy IPC:
+    - `sync:start`
+    - `sync:resume`
+    - DTO wyniku komendy sync.
+  - Rozszerzono `core` repository dla `sync_runs`:
+    - checkpoint update,
+    - resume run (reset finished/error),
+    - odczyt run po ID,
+    - odczyt najnowszego aktywnego run.
+  - Zaimplementowano `createSyncOrchestrator()`:
+    - stage machine (`collect-provider-data` -> `persist-warehouse` -> `run-pipeline` -> `completed`),
+    - checkpointy w `sync_runs` + resume,
+    - mutex blokujacy rownolegly sync,
+    - retry/backoff dla bledow providera,
+    - zapis do `raw_api_responses` i warehouse tables,
+    - automatyczne `runDataPipeline()` po sync.
+  - Podlaczono orchestrator do Electron main i eventow:
+    - `sync:progress`, `sync:complete`, `sync:error`.
+  - UI rozszerzone o sekcje Fazy 5:
+    - uruchamianie sync,
+    - wznowienie ostatniego nieudanego sync,
+    - podglad postepu/bledu/zakonczenia.
+  - Dodano testy integracyjne orchestratora:
+    - happy path,
+    - blokada rownoleglego uruchomienia,
+    - fail na pipeline + resume z checkpointu `run-pipeline`.
+  - Zaktualizowano dokumentacje statusu:
+    - Faza 5 = DONE,
+    - Faza 6 = NASTEPNA.
+- Dlaczego:
+  - Celem bylo zamkniecie warstwy resilient sync i spiecie jej z pipeline danych, aby M2 mial kompletny przeplyw sync -> ETL -> features.
+- Ryzyko/regresja:
+  - Retry/backoff w orchestratorze obejmuje klasy bledow providers zdefiniowane kodami (`SYNC_PROVIDER_*`, `SYNC_RATE_LIMIT_EXCEEDED`).
+  - Resume wymaga jawnego `channelId` w komendzie `sync:resume` (celowo, zeby uniknac ukrytego stanu procesu).
+  - Lokalnie nadal widoczny warning engines (`node >=22`, aktualnie `20.x`), mimo ze checki przechodza.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`53/53`, w tym nowe testy sync orchestratora).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 6: Bazowy ML Framework (registry modeli, baseline trening, backtesting i quality gate).

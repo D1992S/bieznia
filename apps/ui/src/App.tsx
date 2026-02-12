@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react';
-import { DEFAULT_CHANNEL_ID, buildDateRange, useAppStatusQuery, useChannelInfoQuery, useDataModeStatusQuery, useKpisQuery, useProbeDataModeMutation, useSetDataModeMutation, useTimeseriesQuery } from './hooks/use-dashboard-data.ts';
+import { useEffect, useMemo, useState } from 'react';
+import type { SyncCompleteEvent, SyncErrorEvent, SyncProgressEvent } from '@moze/shared';
+import { DEFAULT_CHANNEL_ID, buildDateRange, useAppStatusQuery, useChannelInfoQuery, useDataModeStatusQuery, useKpisQuery, useProbeDataModeMutation, useResumeSyncMutation, useSetDataModeMutation, useStartSyncMutation, useTimeseriesQuery } from './hooks/use-dashboard-data.ts';
 import { useAppStore } from './store/index.ts';
 
 function formatNumber(value: number): string {
@@ -9,6 +10,10 @@ function formatNumber(value: number): string {
 export function App() {
   const setInitialized = useAppStore((s) => s.setInitialized);
   const isDesktopRuntime = typeof window !== 'undefined' && Boolean(window.electronAPI);
+  const [lastProgressEvent, setLastProgressEvent] = useState<SyncProgressEvent | null>(null);
+  const [lastCompleteEvent, setLastCompleteEvent] = useState<SyncCompleteEvent | null>(null);
+  const [lastErrorEvent, setLastErrorEvent] = useState<SyncErrorEvent | null>(null);
+  const [resumeSyncRunId, setResumeSyncRunId] = useState<number | null>(null);
   const dateRange = useMemo(() => buildDateRange(30), []);
   const channelId = DEFAULT_CHANNEL_ID;
 
@@ -16,6 +21,8 @@ export function App() {
   const dataModeQuery = useDataModeStatusQuery(isDesktopRuntime);
   const setModeMutation = useSetDataModeMutation();
   const probeModeMutation = useProbeDataModeMutation();
+  const startSyncMutation = useStartSyncMutation();
+  const resumeSyncMutation = useResumeSyncMutation();
   const dataEnabled = isDesktopRuntime && statusQuery.data?.dbReady === true;
   const channelInfoQuery = useChannelInfoQuery(channelId, dataEnabled);
   const kpisQuery = useKpisQuery(channelId, dateRange, dataEnabled);
@@ -24,6 +31,35 @@ export function App() {
   useEffect(() => {
     setInitialized(statusQuery.data?.dbReady === true);
   }, [setInitialized, statusQuery.data?.dbReady]);
+
+  useEffect(() => {
+    if (!isDesktopRuntime || !window.electronAPI) {
+      return;
+    }
+
+    const unsubscribeProgress = window.electronAPI.onSyncProgress((event) => {
+      setLastProgressEvent(event);
+      setLastErrorEvent(null);
+    });
+    const unsubscribeComplete = window.electronAPI.onSyncComplete((event) => {
+      setLastCompleteEvent(event);
+      setLastErrorEvent(null);
+      setResumeSyncRunId(null);
+    });
+    const unsubscribeError = window.electronAPI.onSyncError((event) => {
+      setLastErrorEvent(event);
+      const parsedRunId = Number(event.syncRunId);
+      if (Number.isFinite(parsedRunId)) {
+        setResumeSyncRunId(parsedRunId);
+      }
+    });
+
+    return () => {
+      unsubscribeProgress();
+      unsubscribeComplete();
+      unsubscribeError();
+    };
+  }, [isDesktopRuntime]);
 
   if (!isDesktopRuntime) {
     return (
@@ -66,6 +102,57 @@ export function App() {
       <p>Aktywny profil: {appStatus.profileId ?? 'Brak'}</p>
       <p>Sync w trakcie: {appStatus.syncRunning ? 'Tak' : 'Nie'}</p>
       <p>Ostatni sync: {appStatus.lastSyncAt ?? 'Brak'}</p>
+
+      <hr />
+
+      <h2>Sync orchestrator (Faza 5)</h2>
+      <button
+        type="button"
+        onClick={() => {
+          startSyncMutation.mutate({
+            channelId,
+            profileId: appStatus.profileId,
+            recentLimit: 10,
+          });
+        }}
+        disabled={startSyncMutation.isPending || appStatus.syncRunning}
+        style={{ marginRight: '0.5rem' }}
+      >
+        Uruchom sync
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (!resumeSyncRunId) {
+            return;
+          }
+          resumeSyncMutation.mutate({
+            syncRunId: resumeSyncRunId,
+            channelId,
+            recentLimit: 10,
+          });
+        }}
+        disabled={resumeSyncMutation.isPending || resumeSyncRunId === null}
+      >
+        Wznow ostatni nieudany sync
+      </button>
+      {startSyncMutation.isError && <p>Nie udalo sie uruchomic synchronizacji.</p>}
+      {resumeSyncMutation.isError && <p>Nie udalo sie wznowic synchronizacji.</p>}
+      {lastProgressEvent && (
+        <p>
+          Postep: {lastProgressEvent.percent}% ({lastProgressEvent.stage}) - {lastProgressEvent.message}
+        </p>
+      )}
+      {lastCompleteEvent && (
+        <p>
+          Zakonczono sync #{lastCompleteEvent.syncRunId}. Przetworzone rekordy: {formatNumber(lastCompleteEvent.recordsProcessed)}, czas: {formatNumber(Math.round(lastCompleteEvent.duration))} ms.
+        </p>
+      )}
+      {lastErrorEvent && (
+        <p>
+          Blad sync ({lastErrorEvent.code}): {lastErrorEvent.message} {lastErrorEvent.retryable ? '(mozliwe ponowienie)' : '(wymagana interwencja)'}
+        </p>
+      )}
 
       <hr />
 

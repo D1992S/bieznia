@@ -5,6 +5,7 @@ export {
 export {
   createDataModeManager,
   type CreateDataModeManagerInput,
+  type ActiveDataProvider,
   type DataModeManager,
 } from './data-mode-manager.ts';
 export type {
@@ -32,3 +33,12 @@ export {
   type CreateRateLimitedDataProviderInput,
   type TokenBucketConfig,
 } from './rate-limiter.ts';
+export {
+  createSyncOrchestrator,
+  type CreateSyncOrchestratorInput,
+  type ResumeSyncInput,
+  type StartSyncInput,
+  type SyncCommandResultData,
+  type SyncOrchestrator,
+  type SyncRetryPolicy,
+} from './sync-orchestrator.ts';
