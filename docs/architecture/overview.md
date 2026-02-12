@@ -44,6 +44,8 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+**Tryb solo (aktualny scope):** warstwa `plugins` jest poza zakresem implementacji.
+
 ## Dependency Graph (dozwolone importy)
 
 ```
@@ -58,7 +60,7 @@ data-pipeline (shared, core)
 ├── analytics (shared, core, ml)
 ├── reports (shared, core)
 ├── llm (shared, core)
-├── plugins (shared, core)
+├── plugins (shared, core) [out-of-scope w trybie solo]
 ├── diagnostics (shared, core)
   ↑
 apps/desktop (shared + dowolny package)

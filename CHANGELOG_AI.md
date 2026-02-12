@@ -365,3 +365,33 @@ Dziennik zmian wykonywanych przez modele AI.
   - `pnpm build` - PASS.
 - Nastepny krok:
   - Faza 4: Data Pipeline + Feature Engineering (ETL orchestration, validation, staging, feature generation, data lineage).
+
+## 2026-02-12 (v13)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `docs/architecture/overview.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Usunieto z planu produktu elementy niepotrzebne w trybie single-user:
+    - plugin runtime (Faza 17 -> SKIP w trybie solo),
+    - packaging pod dystrybucje (usuniete z Fazy 19),
+    - telemetry opt-in (usuniete z Fazy 19).
+  - Zaktualizowano roadmape i opisy faz:
+    - README: Faza 17 oznaczona jako `SKIP (solo)`, Faza 19 zmieniona na lokalne dopracowanie UX bez dystrybucji.
+    - NEXT_STEP: mapa faz zaktualizowana o `SKIP (solo)` dla pluginow oraz `bez packaging/telemetry` dla Fazy 19.
+    - PLAN_REALIZACJI: przebudowano opisy Fazy 17 i 19, zaktualizowano Milestone 6 pod scope solo.
+    - architecture/overview: doprecyzowano, ze warstwa plugins jest out-of-scope w trybie solo.
+- Dlaczego:
+  - Aplikacja bedzie uzywana przez jednego uzytkownika, bez potrzeby dystrybucji, telemetry i plugin architecture.
+- Ryzyko/regresja:
+  - Brak ryzyka runtime (zmiany dokumentacyjne).
+  - Mniejsza rozszerzalnosc w przyszlosci: ewentualny powrot do plugin runtime i packagingu bedzie wymagac osobnego planu.
+- Jak zweryfikowano:
+  - Przeglad diffow dokumentacji i spojnosc opisow miedzy README, NEXT_STEP, PLAN_REALIZACJI i architecture/overview.
+- Nastepny krok:
+  - Kontynuowac Faze 4 wedlug nowego scope solo.

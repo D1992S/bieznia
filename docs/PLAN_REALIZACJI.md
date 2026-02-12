@@ -73,7 +73,7 @@
   /llm              # provider registry + planner/executor/summarizer
   /ml               # training, forecasting, nowcast, anomaly, backtesting
   /analytics        # quality scoring, competitor intel, topic intel  ← NOWE (wydzielone)
-  /plugins          # plugin runtime (insights/alerts)
+  /plugins          # poza zakresem trybu solo (brak plugin runtime)
   /diagnostics      # integrity checks + recovery + perf monitoring
 /docs
   /architecture
@@ -618,24 +618,18 @@ apps/ui/src/store/index.ts
 
 ---
 
-### Faza 17 — Plugins (Insights/Alerts)
+### Faza 17 — Plugins (Insights/Alerts) — SKIP w trybie solo
 
-**Cel:** Automatyczne insighty po każdym sync/pipeline run.
+**Cel:** Świadome wyłączenie zakresu plugin runtime dla pojedynczego użytkownika.
 
 **Zakres:**
-- Plugin manager: register, enable/disable, lifecycle hooks.
-- Built-in plugins:
-  - `weekly-summary`: automatyczny digest tygodniowy.
-  - `anomaly-alert`: powiadomienie o anomaliach.
-  - `competitor-alert`: powiadomienie o hitach konkurencji.
-  - `publish-reminder`: "nie publikowałeś X dni — historycznie to obniża engagement".
-- Persist: `insights` table, `alerts` table.
-- Playbook actions: JSON z rekomendowanymi akcjami.
-- UI: notification center z filtrowaniem i archiwizacją.
+- Brak implementacji plugin managera i lifecycle hooks.
+- Brak built-in pluginów i dedykowanego notification center.
+- Insighty/alerty pozostają ewentualnie jako część core UI lub diagnostyki, bez warstwy pluginów.
 
 **Definition of Done:**
-- Po sync generują się insighty i alerty.
-- Plugin lifecycle: enable → runs → disable → cleanup.
+- Faza oznaczona jako `SKIP (solo)` w dokumentacji i roadmapie.
+- Brak nowych zależności/runtime związanych z plugin architecture.
 
 ---
 
@@ -657,23 +651,20 @@ apps/ui/src/store/index.ts
 
 ---
 
-### Faza 19 — Polish + Packaging
+### Faza 19 — Polish + Local UX (bez packaging/telemetry)
 
-**Cel:** Production-ready build.
+**Cel:** Dopracowanie codziennego UX dla pojedynczego użytkownika, bez wymagań dystrybucyjnych.
 
 **Zakres:**
 - Responsive layout + dark mode.
 - Keyboard shortcuts.
 - Onboarding flow (first-run wizard).
-- Auto-update mechanism (electron-updater).
-- Portable build (.exe / .AppImage / .dmg).
-- Telemetry opt-in (anonymous usage stats).
-- "One-click weekly package" → sync + pipeline + ML + report + export.
+- Lokalny "one-click weekly package" → sync + pipeline + ML + report + export (bez publikacji paczek instalacyjnych).
 
 **Definition of Done:**
-- Portable build działa end-to-end: install → setup → sync → ML → report.
+- Aplikacja działa stabilnie lokalnie po `pnpm dev` / lokalnym buildzie.
 - Dark mode pełny.
-- Onboarding prowadzi nowego użytkownika.
+- Onboarding prowadzi użytkownika pierwszego uruchomienia.
 
 ---
 
@@ -761,7 +752,7 @@ Task jest zamknięty **dopiero** gdy:
 **Wynik:** Anomaly detection, LLM assistant, quality scoring, competitor intel, topic intel, planning. **Pełny "potwór analityczny".**
 
 ### Milestone 6: Production (Fazy 16-19)
-**Wynik:** Plugins, diagnostics, polish, packaging. Gotowe do dystrybucji.
+**Wynik:** Diagnostics + polish pod użycie lokalne single-user (bez plugin runtime, packagingu dystrybucyjnego i telemetry opt-in).
 
 ---
 

@@ -25,9 +25,9 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | 14 | Competitor Intelligence | — | Widać porównanie do konkurencji i sygnały o ich mocnych ruchach. |
 | 15 | Topic Intelligence | — | Aplikacja podpowiada tematy z potencjałem i pokazuje luki tematyczne. |
 | 16 | Planning System | — | Można planować publikacje i oceniać pomysły przed nagraniem. |
-| 17 | Plugins (Insights/Alerts) | — | Działają automatyczne insighty i alerty po synchronizacji danych. |
+| 17 | Plugins (Insights/Alerts) | SKIP (solo) | Poza zakresem w trybie solo (bez plugin runtime). |
 | 18 | Diagnostics + Recovery | — | Aplikacja wykrywa problemy techniczne i pomaga je naprawić. |
-| 19 | Polish + Packaging | — | Wersja gotowa dla użytkownika końcowego: dopracowany UX i paczka instalacyjna. |
+| 19 | Polish + Local UX | — | Dopracowany UX lokalny bez packagingu dystrybucyjnego i bez telemetrii opt-in. |
 
 ## Dokumentacja
 

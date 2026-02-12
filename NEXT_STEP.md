@@ -142,6 +142,6 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
 | 14 | Competitor Intelligence | M5 |
 | 15 | Topic Intelligence | M5 |
 | 16 | Planning System | M6 |
-| 17 | Plugins (Insights/Alerts) | M6 |
+| 17 | Plugins (Insights/Alerts) — SKIP (solo) | M6 |
 | 18 | Diagnostics + Recovery | M6 |
-| 19 | Polish + Packaging | M6 |
+| 19 | Polish + Local UX (bez packaging/telemetry) | M6 |
