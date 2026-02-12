@@ -1,0 +1,19 @@
+{
+  "name": "@moze/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "electron .",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@moze/core": "workspace:*",
+    "@moze/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "^40.4.0"
+  }
+}

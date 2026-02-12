@@ -4,11 +4,12 @@
 
 ## 1. Przed rozpoczęciem pracy
 
-1. Przeczytaj ten plik (`AGENTS.md`).
-2. Przeczytaj `docs/architecture/overview.md` — mapa modułów.
-3. Przeczytaj `docs/architecture/data-flow.md` — pipeline danych.
-4. Przeczytaj `CHANGELOG_AI.md` — ostatnie 5 wpisów (kontekst zmian).
-5. Przeczytaj runbook dla swojego zadania (`docs/runbooks/`).
+1. **Przeczytaj `NEXT_STEP.md`** — mówi co robić teraz, jaki jest status projektu i jakie zasady obowiązują.
+2. Przeczytaj ten plik (`AGENTS.md`) — zasady kodu.
+3. Przeczytaj `docs/architecture/overview.md` — mapa modułów.
+4. Przeczytaj `docs/architecture/data-flow.md` — pipeline danych.
+5. Przeczytaj `CHANGELOG_AI.md` — ostatnie 5 wpisów (kontekst zmian).
+6. Przeczytaj runbook dla swojego zadania (`docs/runbooks/`).
 
 ## 2. Zasady modyfikacji
 
@@ -33,6 +34,18 @@ apps/ui            → Zależy od: shared (TYLKO). Komunikacja przez IPC.
 - `apps/ui` **NIGDY** nie importuje z `core`, `sync`, `ml`, itp. — tylko `shared`.
 - Circular dependencies = błąd krytyczny.
 - Nowa zależność między pakietami wymaga aktualizacji tego pliku.
+
+### Język aplikacji — POLSKI
+
+> **KRYTYCZNE**: Cała aplikacja jest po polsku. To nie jest opcjonalne.
+
+- **UI (cały)**: etykiety, komunikaty, placeholdery, tooltips, alerty, opisy w dashboardzie, raporty — **po polsku**.
+- **Komunikaty błędów widoczne dla użytkownika** (AppError.message w UI, toasty, modale) — **po polsku**.
+- **Komunikaty wewnętrzne** (logi, error codes, stack traces) — po angielsku (standard branżowy).
+- **Nazwy zmiennych/funkcji/typów** — po angielsku (camelCase/PascalCase).
+- **Komentarze w kodzie** — po angielsku.
+- **Dokumentacja techniczna** — po polsku (spójnie z resztą repo).
+- **Testy**: opisy (describe/it) po angielsku, ale testowane stringi UI muszą odpowiadać polskim wersjom.
 
 ### Konwencje kodu
 
@@ -67,9 +80,12 @@ Przed zakończeniem każdej sesji AI:
 
 1. **Regression check**: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
 2. **CHANGELOG_AI.md**: dodaj wpis z template (data, autor, zakres, co/dlaczego, ryzyko, weryfikacja, następny krok).
-3. **DoD checklist**: zweryfikuj Definition of Done z `docs/PLAN_REALIZACJI.md` sekcja 8.
-4. **Ryzyka**: wymień w commicie co może się wysypać.
-5. **Następny krok**: opisz co powinien zrobić kolejny model/developer.
+3. **NEXT_STEP.md** (OBOWIĄZKOWE): zaktualizuj — zmień status ukończonej fazy na DONE, opisz szczegółowo następną fazę (cel, zakres, pliki do stworzenia, DoD), dodaj wszelkie nowe zasady/uwagi techniczne.
+4. **README.md**: zaktualizuj tabelę "Postęp realizacji" — oznacz ukończone fazy jako `DONE`, następną jako `**NASTĘPNA**`.
+5. **PLAN_REALIZACJI.md**: odhacz ukończone pozycje w checkliście (sekcja 14) — `[x]` zamiast `[ ]`.
+6. **DoD checklist**: zweryfikuj Definition of Done z `docs/PLAN_REALIZACJI.md` sekcja 8.
+7. **Ryzyka**: wymień w commicie co może się wysypać.
+8. **Następny krok**: opisz co powinien zrobić kolejny model/developer.
 
 ## 4. Struktura commitów
 

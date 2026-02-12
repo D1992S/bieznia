@@ -49,6 +49,13 @@
    - Brakujące dane: explicite oznaczane (NULL z reason), nie interpolowane cicho.
    - Data lineage: każdy rekord wie skąd pochodzi (source, timestamp, sync_run_id).
 
+9. **Język aplikacji — POLSKI**
+   - Cały interfejs użytkownika (UI) jest **wyłącznie po polsku**: etykiety, komunikaty, placeholdery, tooltips, alerty, raporty, opisy na dashboardzie.
+   - Komunikaty błędów widoczne dla użytkownika — po polsku.
+   - Nazwy zmiennych/funkcji/typów — po angielsku (standard branżowy).
+   - Komentarze w kodzie — po angielsku.
+   - Szczegółowe zasady w `AGENTS.md` sekcja „Język aplikacji".
+
 ---
 
 ## 2. Struktura repo (docelowa)
@@ -814,19 +821,19 @@ Task jest zamknięty **dopiero** gdy:
 
 ## 14. Checklista startowa (do odhaczania)
 
-- [ ] Utworzyć strukturę monorepo (pnpm workspaces).
-- [ ] Skonfigurować TS strict + ESLint flat config + Prettier + Vitest.
+- [x] Utworzyć strukturę monorepo (pnpm workspaces). ✅ Faza 0
+- [x] Skonfigurować TS strict + ESLint flat config + Prettier + Vitest. ✅ Faza 0
 - [ ] CI pipeline (GitHub Actions): lint + typecheck + test.
-- [ ] Pakiet `shared`: DTO, Zod schemas, AppError, events, IPC contracts.
+- [x] Pakiet `shared`: DTO, Zod schemas, AppError, events, IPC contracts. ✅ Faza 0
 - [ ] Pakiet `core`: SQLite + migracje + query/mutation layer.
 - [ ] Pakiet `data-pipeline`: ETL skeleton + feature engineering stubs.
 - [ ] Pakiet `ml`: model registry + training pipeline stubs.
-- [ ] App `desktop`: Electron main + preload (security hardened).
-- [ ] App `ui`: React + Zustand + TanStack Query skeleton.
+- [x] App `desktop`: Electron main + preload (security hardened). ✅ Faza 0
+- [x] App `ui`: React + Zustand + TanStack Query skeleton. ✅ Faza 0
 - [ ] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries`.
 - [ ] Fake mode + realistyczne fixture data (90 dni, 50 filmów).
 - [ ] Pierwszy dashboard na fixture data.
-- [ ] Dokumenty: `AGENTS.md`, `architecture/overview.md`, `architecture/data-flow.md`.
+- [x] Dokumenty: `AGENTS.md`, `architecture/overview.md`, `architecture/data-flow.md`. ✅ Faza 0
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---
