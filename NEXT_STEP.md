@@ -10,10 +10,11 @@
 | 1 | Data Core | DONE |
 | 2 | Desktop Backend + IPC | DONE |
 | 3 | Data Modes + Fixtures | DONE |
-| 4 | Data Pipeline + Feature Engineering | **NASTEPNA** |
-| 5-19 | Reszta | Oczekuje |
+| 4 | Data Pipeline + Feature Engineering | DONE |
+| 5 | Sync Orchestrator | **NASTEPNA** |
+| 6-19 | Reszta | Oczekuje |
 
-## Co zostalo zrobione (Faza 0 + 1 + 2 + 3)
+## Co zostalo zrobione (Faza 0 + 1 + 2 + 3 + 4)
 
 - Monorepo pnpm workspaces: 10 pakietow + 2 aplikacje.
 - TypeScript 5.9 strict, ESLint 9, Prettier, Vitest 4.
@@ -59,54 +60,68 @@
       - `MOZE_RECORDING_OUTPUT_PATH`
   - UI:
     - sekcja "Tryb danych (Faza 3)" z podgladem trybu i przyciskami przełączania/probe.
+- `core` + `data-pipeline` (Faza 4):
+  - Migracja `002-data-pipeline-schema`:
+    - `stg_channels`
+    - `stg_videos`
+    - `ml_features`
+    - `data_lineage`
+  - ETL runner `runDataPipeline()`:
+    - ingestion z `dim_channel` / `dim_video` / `fact_channel_day`
+    - validation (schema + range + freshness)
+    - staging do `stg_*`
+    - feature generation do `ml_features` (m.in. `views_7d`, `views_30d`, `subscriber_delta_7d`, `engagement_rate_7d`, `publish_frequency_30d`, `days_since_last_video`)
+    - lineage entries dla etapow: `ingest`, `validation`, `staging`, `feature-generation`
+  - Deterministycznosc:
+    - pipeline usuwa poprzedni feature set (`channel_id + feature_set_version`) i zapisuje wynik stabilnie.
 - Testy:
-  - 43 testy pass:
+  - 47 testow pass:
     - integracyjne IPC (w tym nowe handlery data mode),
-    - integracyjne sync data modes (fake/real/record, rate limit, cache TTL).
+    - integracyjne sync data modes (fake/real/record, rate limit, cache TTL),
+    - integracyjne data-pipeline (end-to-end, deterministycznosc, validation range, validation freshness).
 - Build/runtime:
   - Desktop runtime bundlowany przez `esbuild` (`apps/desktop/scripts/build-desktop.mjs`), co umozliwia runtime import `@moze/core`/`@moze/shared`.
 - Standard regresji: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 
-## Co robic teraz — Faza 4: Data Pipeline + Feature Engineering
+## Co robic teraz — Faza 5: Sync Orchestrator
 
-**Cel:** Zbudowac deterministyczny pipeline ETL, ktory przetwarza dane z warstwy RAW do warstwy features pod ML.
+**Cel:** Kontrolowany sync z checkpointami i gotowym wywolaniem pipeline po sync.
 
 **Zakres:**
-1. ETL orchestration:
-   - etapowanie: ingestion -> validation -> staging -> transform -> feature generation.
-2. Validation step:
-   - schema checks (Zod), range checks, freshness checks.
-3. Staging model:
-   - przygotowanie tabel/stubow i mapowan dla danych kanalu/filmow.
-4. Feature engineering:
-   - pierwsze features velocity/engagement/growth/temporal.
-5. Data lineage:
-   - metadata "skad i kiedy" dla rekordow przechodzacych przez pipeline.
-6. Integracja z sync:
-   - gotowy punkt pod post-sync hook (Faza 5), bez lamania kontraktow IPC.
-7. Testy:
-   - testy integracyjne pipeline na `fixtures/seed-data.json`.
+1. Sync stage machine:
+   - etapy, statusy i checkpointy wznowienia.
+2. Blokada rownoleglego sync:
+   - mutex, jeden aktywny sync na raz.
+3. Retry/backoff:
+   - odpornosc na bledy providerow API.
+4. Integracja z pipeline:
+   - po sync uruchamiane `runDataPipeline()` (Faza 4).
+5. Eventy progress:
+   - `sync:progress`, `sync:complete`, `sync:error` do UI.
+6. Testy integracyjne:
+   - przerwanie/wznowienie + kontrola statusow + post-sync pipeline.
 
-**Definition of Done (Faza 4):**
-- [ ] Pipeline przetwarza fixture data end-to-end i zapisuje wynik deterministycznie.
-- [ ] Validation odrzuca niepoprawne dane z czytelnym `AppError`.
-- [ ] Powstaja pierwsze features gotowe do dalszego ML.
-- [ ] Data lineage umozliwia audyt pochodzenia danych.
-- [ ] Testy integracyjne dla pipeline przechodza.
+**Definition of Done (Faza 5):**
+- [ ] Sync ma etapy i checkpointy oraz zapis do `sync_runs`.
+- [ ] Rownolegly sync jest blokowany.
+- [ ] Retry/backoff dziala dla bledow providera.
+- [ ] Po sync uruchamia sie pipeline i generuje swieze features.
+- [ ] Eventy progress/complete/error sa emitowane poprawnie.
+- [ ] Testy integracyjne sync orchestratora przechodza.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` — 0 errors.
 - [ ] Wpis w `CHANGELOG_AI.md`.
 - [ ] Aktualizacja tego pliku (`NEXT_STEP.md`).
 
 **Pliki do modyfikacji/stworzenia:**
 ```
-packages/data-pipeline/src/            — ETL orchestrator + walidacja + transform + features
-packages/core/src/                     — ewentualne tabele pomocnicze/staging/lineage (migracja forward-only)
-packages/sync/src/                     — punkt integracji pod uruchamianie pipeline
-fixtures/                              — fixture data do testow pipeline
-docs/architecture/data-flow.md         — aktualizacja przeplywu po implementacji Fazy 4
+packages/sync/src/                    — orchestrator sync + retry/checkpoint/mutex
+packages/core/src/                    — ewentualne rozszerzenia statusow/stage w `sync_runs`
+apps/desktop/src/                     — podpiecie orchestratora i eventow IPC sync
+apps/ui/src/                          — konsumpcja eventow progress sync (bez lamania granic modulu)
+packages/data-pipeline/src/           — wywolanie `runDataPipeline()` po zakonczeniu sync
 ```
 
-**Szczegoly:** `docs/PLAN_REALIZACJI.md` -> Faza 4.
+**Szczegoly:** `docs/PLAN_REALIZACJI.md` -> Faza 5.
 
 ## Krytyczne zasady (nie pomijaj)
 

@@ -4,7 +4,7 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 
 ## Postęp realizacji
 
-> Aktualny status: **Faza 3 ukończona.** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+> Aktualny status: **Faza 4 ukończona.** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
 | Faza | Nazwa | Status | Co powinno działać (prosty opis) |
 |------|-------|--------|-----------------------------------|
@@ -12,8 +12,8 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | 1 | Data Core (SQLite, migracje, query layer) | DONE | Aplikacja ma stabilną bazę danych i potrafi zapisywać/odczytywać podstawowe dane kanału i filmów. |
 | 2 | Desktop Backend + IPC | DONE | Interfejs bezpiecznie rozmawia z backendem i pokazuje dane z bazy przez IPC. |
 | 3 | Data Modes + Fixtures | DONE | Można pracować na danych testowych albo prawdziwych i przełączać tryb pracy (fake/real/record). |
-| 4 | Data Pipeline + Feature Engineering | **NASTĘPNA** | Dane są automatycznie czyszczone i przeliczane na metryki do analiz i ML. |
-| 5 | Sync Orchestrator | — | Jest kontrolowany sync z postępem, retry i możliwością wznowienia po przerwaniu. |
+| 4 | Data Pipeline + Feature Engineering | DONE | Działa deterministyczny ETL: staging, walidacja danych, feature engineering i lineage. |
+| 5 | Sync Orchestrator | **NASTĘPNA** | Jest kontrolowany sync z postępem, retry i możliwością wznowienia po przerwaniu. |
 | 6 | Bazowy ML Framework | — | Pojawiają się pierwsze prognozy (np. wyświetlenia/subskrypcje) z oceną jakości modelu. |
 | 7 | Dashboard + Raporty + Eksport | — | Działa dashboard KPI, wykresy i eksport raportów (np. PDF/CSV). |
 | 8 | Auth + Profile + Settings | — | Można podłączyć konto, mieć kilka profili i osobne ustawienia. |

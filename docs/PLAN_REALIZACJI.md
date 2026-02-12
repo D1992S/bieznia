@@ -818,7 +818,7 @@ Task jest zamknięty **dopiero** gdy:
 - [x] CI pipeline (GitHub Actions): lint + typecheck + test. ✅ Faza 0
 - [x] Pakiet `shared`: DTO, Zod schemas, AppError, events, IPC contracts. ✅ Faza 0
 - [x] Pakiet `core`: SQLite + migracje + query/mutation layer. ✅ Faza 1
-- [ ] Pakiet `data-pipeline`: ETL skeleton + feature engineering stubs.
+- [x] Pakiet `data-pipeline`: ETL skeleton + feature engineering stubs. ✅ Faza 4
 - [ ] Pakiet `ml`: model registry + training pipeline stubs.
 - [x] App `desktop`: Electron main + preload (security hardened). ✅ Faza 0
 - [x] App `ui`: React + Zustand + TanStack Query skeleton. ✅ Faza 0

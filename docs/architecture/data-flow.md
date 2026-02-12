@@ -2,6 +2,12 @@
 
 > Szczegółowy opis przepływu danych od ingestion do prezentacji.
 
+## Status implementacji
+
+- Faza 4: **DONE** (minimum pipeline w kodzie).
+- Zaimplementowany runner: `packages/data-pipeline/src/pipeline-runner.ts`.
+- Zaimplementowane tabele: `stg_channels`, `stg_videos`, `ml_features`, `data_lineage`.
+
 ## Pełny pipeline
 
 ```
@@ -16,7 +22,7 @@
      ▼               ▼                ▼               ▼               ▼              ▼             ▼
  raw_api_       (reject +        stg_videos     ml_features     agg_kpi_daily   ml_models     IPC → UI
  responses      log reason)      stg_channels                  agg_trends      ml_predictions PDF/CSV
- raw_csv_                        stg_metrics                   agg_quality_    ml_anomalies
+ raw_csv_                                                     agg_quality_    ml_anomalies
  imports                                                        scores         ml_backtests
 ```
 
@@ -53,13 +59,13 @@
 ### 3. Staging
 
 **Input:** Validated data
-**Output:** `stg_videos`, `stg_channels`, `stg_metrics`
+**Output:** `stg_videos`, `stg_channels`
 
 **Operacje:**
 - Normalizacja nazw kolumn (camelCase → snake_case w DB).
 - Deduplikacja (upsert by natural key).
 - Type casting (string dates → ISO timestamps).
-- Data lineage entry: `data_lineage(source_table, source_id, target_table, target_id, transform, timestamp)`.
+- Data lineage entry per stage: `ingest`, `validation`, `staging`, `feature-generation`.
 
 ### 4. Transform
 
@@ -152,18 +158,19 @@ fact_video_day
 
 ## Data Lineage
 
-Każdy przetransformowany rekord ma wpis w `data_lineage`:
+Każdy uruchomiony etap pipeline ma wpis w `data_lineage`:
 
 ```sql
 CREATE TABLE data_lineage (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pipeline_stage TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
     source_table TEXT NOT NULL,
-    source_id TEXT NOT NULL,
-    target_table TEXT NOT NULL,
-    target_id TEXT NOT NULL,
-    transform_name TEXT NOT NULL,
-    sync_run_id INTEGER REFERENCES sync_runs(id),
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    source_record_count INTEGER NOT NULL,
+    metadata_json TEXT NOT NULL,
+    source_sync_run_id INTEGER REFERENCES sync_runs(id),
+    produced_at TEXT NOT NULL
 );
 ```
 

@@ -395,3 +395,54 @@ Dziennik zmian wykonywanych przez modele AI.
   - Przeglad diffow dokumentacji i spojnosc opisow miedzy README, NEXT_STEP, PLAN_REALIZACJI i architecture/overview.
 - Nastepny krok:
   - Kontynuowac Faze 4 wedlug nowego scope solo.
+
+## 2026-02-12 (v14)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/core/src/migrations/002-data-pipeline-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/data-pipeline/src/pipeline-runner.ts`
+  - `packages/data-pipeline/src/pipeline-runner.integration.test.ts`
+  - `packages/data-pipeline/src/index.ts`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `docs/architecture/data-flow.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Zaimplementowano Faze 4 (Data Pipeline + Feature Engineering) bez wychodzenia poza zakres faz 1-4.
+  - Dodano migracje `002-data-pipeline-schema` tworząca tabele:
+    - `stg_channels`
+    - `stg_videos`
+    - `ml_features`
+    - `data_lineage`
+  - Dodano runner ETL `runDataPipeline()` w `data-pipeline`:
+    - ingestion z `dim_channel`/`dim_video`/`fact_channel_day`,
+    - validation (schema + range + freshness),
+    - staging do `stg_*`,
+    - feature generation do `ml_features`,
+    - zapis lineage dla etapow `ingest`, `validation`, `staging`, `feature-generation`.
+  - Dodano testy integracyjne pipeline:
+    - end-to-end na `fixtures/seed-data.json`,
+    - deterministycznosc kolejnych uruchomien,
+    - reject dla niepoprawnego range,
+    - reject dla stale data.
+  - Zaktualizowano dokumentacje statusu:
+    - Faza 4 = DONE,
+    - Faza 5 = NASTEPNA,
+    - data-flow dopasowany do faktycznie zaimplementowanego schematu lineage/staging.
+- Dlaczego:
+  - Celem bylo domkniecie Fazy 4 i przygotowanie technicznego punktu pod post-sync pipeline z Fazy 5.
+- Ryzyko/regresja:
+  - Runner pipeline aktualnie operuje na jednym `channelId` na uruchomienie.
+  - Integracja automatycznego wywolania po sync pozostaje na Fazę 5 (celowo).
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`47/47`, w tym nowe testy integracyjne data-pipeline).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 5: Sync Orchestrator (checkpointy, retry/backoff, mutex, eventy progress i wywolanie `runDataPipeline()` po sync).

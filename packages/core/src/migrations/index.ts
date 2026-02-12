@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { AppError, err, ok, type Result } from '@moze/shared';
 import { initialSchemaMigration } from './001-initial-schema.ts';
+import { dataPipelineSchemaMigration } from './002-data-pipeline-schema.ts';
 import type { MigrationDefinition } from './types.ts';
 
 export type { MigrationDefinition } from './types.ts';
@@ -10,7 +11,10 @@ export interface RunMigrationsResult {
   alreadyApplied: string[];
 }
 
-export const MIGRATIONS: ReadonlyArray<MigrationDefinition> = [initialSchemaMigration];
+export const MIGRATIONS: ReadonlyArray<MigrationDefinition> = [
+  initialSchemaMigration,
+  dataPipelineSchemaMigration,
+];
 
 function toError(cause: unknown): Error {
   if (cause instanceof Error) {

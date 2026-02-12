@@ -9,3 +9,9 @@ export {
   type ProviderFixture,
   type SaveProviderFixtureInput,
 } from './provider-fixture.ts';
+
+export {
+  runDataPipeline,
+  type DataPipelineRunResult,
+  type RunDataPipelineInput,
+} from './pipeline-runner.ts';

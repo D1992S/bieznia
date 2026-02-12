@@ -51,6 +51,10 @@ describe('Data Core integration', () => {
       'dim_video',
       'fact_channel_day',
       'fact_video_day',
+      'stg_channels',
+      'stg_videos',
+      'ml_features',
+      'data_lineage',
     ]) {
       expect(tableNames.has(tableName)).toBe(true);
     }
