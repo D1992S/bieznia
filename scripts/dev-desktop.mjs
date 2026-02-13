@@ -69,7 +69,20 @@ function waitForHttp(url, timeoutMs) {
 
   return new Promise((resolve, reject) => {
     const tryFetch = () => {
-      void fetch(url, { method: 'GET' })
+      const elapsedMs = Date.now() - started;
+      if (elapsedMs > timeoutMs) {
+        reject(new Error(`Timeout: endpoint ${url} nie odpowiada.`));
+        return;
+      }
+
+      const remainingMs = timeoutMs - elapsedMs;
+      const requestTimeoutMs = Math.max(1, Math.min(remainingMs, 5_000));
+      const controller = new AbortController();
+      const abortTimer = setTimeout(() => {
+        controller.abort();
+      }, requestTimeoutMs);
+
+      void fetch(url, { method: 'GET', signal: controller.signal })
         .then((response) => {
           if (response.ok) {
             resolve();
@@ -87,6 +100,9 @@ function waitForHttp(url, timeoutMs) {
             return;
           }
           setTimeout(tryFetch, 250);
+        })
+        .finally(() => {
+          clearTimeout(abortTimer);
         });
     };
 
