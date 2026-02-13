@@ -73,7 +73,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const logger = createLogger({ baseContext: { module: 'desktop-main' } });
 
 const IS_DEV = process.env.NODE_ENV !== 'production';
-const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://127.0.0.1:5173';
+const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173';
 const UI_ENTRY_PATH = path.join(__dirname, '../../ui/dist/index.html');
 const REPO_ROOT_PATH = path.resolve(__dirname, '../../..');
 const PROFILE_RUNTIME_DIRNAME = 'profiles-runtime';
