@@ -51,6 +51,21 @@
   - `pnpm test` PASS (72/72)
   - `pnpm build` PASS
 
+## Stan techniczny po sesji (2026-02-13)
+
+- Naprawiono uruchamianie pelnej aplikacji desktop w trybie dev:
+  - preload bundlowany jest jako `cjs`, wiec Electron nie rzuca juz bledu:
+    - `Cannot use import statement outside a module`
+  - launcher dev (`scripts/dev-desktop.mjs`) uzywa jednego hosta:
+    - `127.0.0.1:5173` dla UI i `VITE_DEV_SERVER_URL`
+- Rekomendacja runtime:
+  - uzywaj `corepack pnpm ...` (nie globalnego `pnpm`), zeby native moduly (`better-sqlite3`) budowaly sie pod aktywny Node 22 i nie powodowaly ABI mismatch.
+- Stan checkow po poprawkach:
+  - `corepack pnpm lint` PASS
+  - `corepack pnpm typecheck` PASS
+  - `corepack pnpm test` PASS (72/72)
+  - `corepack pnpm build` PASS
+
 ## Co robic teraz - Faza 9: Import + Enrichment + Search
 
 **Cel:** pozwolic na lokalny import danych CSV i ich natychmiastowe wlaczenie do analityki + dodac pelnotekstowe wyszukiwanie tresci.

@@ -10,7 +10,6 @@ const isWatch = process.argv.includes('--watch');
 
 const sharedOptions = {
   bundle: true,
-  format: 'esm',
   platform: 'node',
   target: 'node22',
   outdir: outDir,
@@ -23,11 +22,13 @@ const sharedOptions = {
 const buildConfigs = [
   {
     ...sharedOptions,
+    format: 'esm',
     entryPoints: [path.join(srcDir, 'main.ts')],
     outbase: srcDir,
   },
   {
     ...sharedOptions,
+    format: 'cjs',
     entryPoints: [path.join(srcDir, 'preload.ts')],
     outbase: srcDir,
   },

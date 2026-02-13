@@ -8,6 +8,9 @@ const repoRoot = path.resolve(__dirname, '..');
 const pnpmCmd = 'pnpm';
 const useShell = process.platform === 'win32';
 const children = new Set();
+const DEV_SERVER_HOST = '127.0.0.1';
+const DEV_SERVER_PORT = 5173;
+const DEV_SERVER_URL = `http://${DEV_SERVER_HOST}:${String(DEV_SERVER_PORT)}`;
 
 function spawnProcess(args, env = {}) {
   const child = spawn(pnpmCmd, args, {
@@ -85,9 +88,9 @@ async function main() {
     'dev',
     '--',
     '--host',
-    'localhost',
+    DEV_SERVER_HOST,
     '--port',
-    '5173',
+    String(DEV_SERVER_PORT),
   ]);
 
   uiProcess.on('exit', (code) => {
@@ -96,15 +99,15 @@ async function main() {
     }
   });
 
-  console.log('[dev] Wait for UI at http://localhost:5173 ...');
-  await waitForPort('localhost', 5173, 60_000);
+  console.log(`[dev] Wait for UI at ${DEV_SERVER_URL} ...`);
+  await waitForPort(DEV_SERVER_HOST, DEV_SERVER_PORT, 60_000);
 
   console.log('[dev] Start Electron...');
   const electronProcess = spawnProcess(
     ['--filter', '@moze/desktop', 'run', 'start'],
     {
       NODE_ENV: 'development',
-      VITE_DEV_SERVER_URL: 'http://localhost:5173',
+      VITE_DEV_SERVER_URL: DEV_SERVER_URL,
     },
   );
 

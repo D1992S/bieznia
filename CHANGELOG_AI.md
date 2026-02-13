@@ -677,3 +677,38 @@ Dziennik zmian wykonywanych przez modele AI.
   - `pnpm build` - PASS.
 - Nastepny krok:
   - Faza 9: Import + Enrichment + Search (CSV import + walidacja + trigger pipeline + FTS5 search z snippet/relevance).
+
+## 2026-02-13 (v20)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/desktop/scripts/build-desktop.mjs`
+  - `scripts/dev-desktop.mjs`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Naprawiono preload desktop w dev:
+    - build `main.ts` zostal jako `esm`,
+    - build `preload.ts` zostal przelaczony na `cjs`, zeby preload byl ladowany poprawnie przez Electron sandbox.
+  - Ujednolicono host dev servera w launcherze desktop:
+    - `127.0.0.1:5173` dla UI i `VITE_DEV_SERVER_URL`.
+  - Ujednolicono dokumentacje uruchamiania:
+    - rekomendowane komendy przez `corepack pnpm ...` (README + PLAN + NEXT_STEP).
+  - Dopisano aktualny stan techniczny i handoff do kolejnej sesji w `NEXT_STEP.md`.
+- Dlaczego:
+  - Aplikacja uruchamiala tylko webowy fallback, bo preload nie ladowal sie poprawnie (`Cannot use import statement outside a module`).
+  - Dodatkowo wystepowal rozjazd hosta (`localhost` vs `127.0.0.1`) oraz ryzyko ABI mismatch przy globalnym `pnpm` odpalanym na Node 20.
+- Ryzyko/regresja:
+  - Niskie; zmiana dotyczy sposobu bundlowania preload i skryptu dev.
+  - W trybie dev trzeba utrzymac spojnosc hosta (`127.0.0.1`) przy ewentualnych przyszlych zmianach.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS.
+  - `corepack pnpm typecheck` - PASS.
+  - `corepack pnpm test` - PASS (72/72).
+  - `corepack pnpm build` - PASS.
+  - Manualnie: uruchomienie UI (`http://127.0.0.1:5173` -> 200) i desktop (okno Electron z dzialajacym IPC).
+- Nastepny krok:
+  - Rozpoczac Faze 9 (Import + Enrichment + Search) na stabilnym runtime desktop.

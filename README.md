@@ -46,11 +46,11 @@ Electron + React + TypeScript strict + SQLite + Zod + Zustand + TanStack Query +
 
 ## Uruchomienie (Foundation)
 
-1. `pnpm install`
-2. `pnpm dev` (UI + Electron)
+1. `corepack pnpm install`
+2. `corepack pnpm dev` (UI + Electron)
 
-Skrót do samego UI: `pnpm dev:ui`  
-Skrót do samego desktop runtime: `pnpm dev:desktop`
+Skrót do samego UI: `corepack pnpm dev:ui`  
+Skrót do samego desktop runtime: `corepack pnpm dev:desktop`
 
 ## Zasada pracy z PR
 

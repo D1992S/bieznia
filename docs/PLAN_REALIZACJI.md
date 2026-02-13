@@ -686,6 +686,7 @@ Każdy feature w tej kolejności (bez wyjątków):
 - `pnpm test` — all pass.
 - `pnpm build` — succeeds.
 - Żadne istniejące IPC kontrakty nie zostały złamane (backwards compatible).
+- Lokalnie uruchamiaj komendy przez `corepack pnpm ...`, aby natywne zależności (np. `better-sqlite3`) były budowane pod aktywną wersję Node (w projekcie `>=22`).
 
 ---
 
