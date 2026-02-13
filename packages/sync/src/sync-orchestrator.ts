@@ -153,6 +153,15 @@ function dedupeVideoIds(videos: readonly ProviderVideoSnapshot[]): string[] {
   return [...ids];
 }
 
+function computeNonNegativeDelta(currentValue: number, previousValue: number | null | undefined): number {
+  const baseline = previousValue ?? currentValue;
+  const delta = currentValue - baseline;
+  if (!Number.isFinite(delta) || delta <= 0) {
+    return 0;
+  }
+  return Math.floor(delta);
+}
+
 function defaultSleep(delayMs: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, delayMs);
@@ -389,8 +398,62 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
 
     const syncTimestamp = now().toISOString();
     const syncDate = toIsoDate(now());
-    const likeSum = collected.videoStats.reduce((total, video) => total + video.likeCount, 0);
-    const commentSum = collected.videoStats.reduce((total, video) => total + video.commentCount, 0);
+
+    const uniqueVideoStatsById = new Map<string, ProviderVideoSnapshot>();
+    for (const video of collected.videoStats) {
+      uniqueVideoStatsById.set(video.videoId, video);
+    }
+    const uniqueVideoStats = [...uniqueVideoStatsById.values()];
+
+    const channelSnapshotResult = repository.getChannelSnapshot({
+      channelId: collected.channel.channelId,
+    });
+    if (!channelSnapshotResult.ok) {
+      return channelSnapshotResult;
+    }
+
+    const previousVideoSnapshotById = new Map<
+      string,
+      {
+        viewCount: number;
+        likeCount: number;
+        commentCount: number;
+      }
+    >();
+    if (uniqueVideoStats.length > 0) {
+      const previousVideoSnapshotsResult = repository.getVideoSnapshots({
+        videoIds: dedupeVideoIds(uniqueVideoStats),
+      });
+      if (!previousVideoSnapshotsResult.ok) {
+        return previousVideoSnapshotsResult;
+      }
+
+      for (const snapshot of previousVideoSnapshotsResult.value) {
+        previousVideoSnapshotById.set(snapshot.videoId, snapshot);
+      }
+    }
+    const videoDayInputs = uniqueVideoStats.map((video) => {
+      const previous = previousVideoSnapshotById.get(video.videoId);
+      return {
+        videoId: video.videoId,
+        channelId: video.channelId,
+        date: syncDate,
+        views: computeNonNegativeDelta(video.viewCount, previous?.viewCount),
+        likes: computeNonNegativeDelta(video.likeCount, previous?.likeCount),
+        comments: computeNonNegativeDelta(video.commentCount, previous?.commentCount),
+        watchTimeMinutes: null,
+        impressions: null,
+        ctr: null,
+        updatedAt: syncTimestamp,
+      };
+    });
+
+    const likeDeltaSum = videoDayInputs.reduce((total, video) => total + video.likes, 0);
+    const commentDeltaSum = videoDayInputs.reduce((total, video) => total + video.comments, 0);
+    const channelViewsDelta = computeNonNegativeDelta(
+      collected.channel.viewCount,
+      channelSnapshotResult.value?.viewCount,
+    );
 
     const upsertChannelResult = repository.upsertChannel({
       channelId: collected.channel.channelId,
@@ -410,7 +473,7 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
     }
 
     const upsertVideosResult = repository.upsertVideos(
-      collected.videoStats.map((video) => ({
+      uniqueVideoStats.map((video) => ({
         videoId: video.videoId,
         channelId: video.channelId,
         title: video.title,
@@ -433,10 +496,10 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
         channelId: collected.channel.channelId,
         date: syncDate,
         subscribers: collected.channel.subscriberCount,
-        views: collected.channel.viewCount,
+        views: channelViewsDelta,
         videos: collected.channel.videoCount,
-        likes: likeSum,
-        comments: commentSum,
+        likes: likeDeltaSum,
+        comments: commentDeltaSum,
         watchTimeMinutes: null,
         updatedAt: syncTimestamp,
       },
@@ -445,20 +508,7 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
       return upsertChannelDayResult;
     }
 
-    const upsertVideoDayResult = repository.upsertVideoDays(
-      collected.videoStats.map((video) => ({
-        videoId: video.videoId,
-        channelId: video.channelId,
-        date: syncDate,
-        views: video.viewCount,
-        likes: video.likeCount,
-        comments: video.commentCount,
-        watchTimeMinutes: null,
-        impressions: null,
-        ctr: null,
-        updatedAt: syncTimestamp,
-      })),
-    );
+    const upsertVideoDayResult = repository.upsertVideoDays(videoDayInputs);
     if (!upsertVideoDayResult.ok) {
       return upsertVideoDayResult;
     }
@@ -484,9 +534,9 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
       {
         endpoint: 'getVideoStats',
         requestParamsJson: JSON.stringify({
-          videoIds: dedupeVideoIds(collected.videoStats),
+          videoIds: dedupeVideoIds(uniqueVideoStats),
         }),
-        responseBodyJson: JSON.stringify(collected.videoStats),
+        responseBodyJson: JSON.stringify(uniqueVideoStats),
       },
     ];
 
@@ -507,7 +557,7 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
 
     return ok({
       channelId: collected.channel.channelId,
-      recordsProcessed: 2 + collected.videoStats.length * 2,
+      recordsProcessed: 2 + uniqueVideoStats.length * 2,
     });
   };
 

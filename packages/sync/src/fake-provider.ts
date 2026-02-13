@@ -28,6 +28,8 @@ export function createFakeDataProvider(input: CreateFakeDataProviderInput): Resu
 
   const provider: DataProvider = {
     name: 'fake-data-provider',
+    configured: true,
+    requiresAuth: false,
     getChannelStats: (query) => {
       if (query.channelId !== fixtureResult.value.channel.channelId) {
         return err(

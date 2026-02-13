@@ -167,6 +167,15 @@ function createProfileReloadFailedError(details: Record<string, unknown>): AppEr
   );
 }
 
+function createProfileSwitchBlockedError(details: Record<string, unknown>): AppError {
+  return AppError.create(
+    'APP_PROFILE_SWITCH_BLOCKED_SYNC_RUNNING',
+    'Nie mozna przelaczyc aktywnego profilu podczas trwajacej synchronizacji.',
+    'error',
+    details,
+  );
+}
+
 function resolvePathFromEnv(value: string | undefined, fallbackPath: string): string {
   if (!value) {
     return fallbackPath;
@@ -189,7 +198,9 @@ function createSafeStorageAdapter(): SecretCryptoAdapter {
 
 function initializeDataModes(): Result<DataModeManager, AppError> {
   const fakeFixturePath = resolvePathFromEnv(process.env.MOZE_FAKE_FIXTURE_PATH, DEFAULT_FAKE_FIXTURE_PATH);
-  const realFixturePath = resolvePathFromEnv(process.env.MOZE_REAL_FIXTURE_PATH, fakeFixturePath);
+  const realFixturePath = process.env.MOZE_REAL_FIXTURE_PATH
+    ? resolvePathFromEnv(process.env.MOZE_REAL_FIXTURE_PATH, DEFAULT_FAKE_FIXTURE_PATH)
+    : null;
   const recordingOutputPath = resolvePathFromEnv(process.env.MOZE_RECORDING_OUTPUT_PATH, DEFAULT_RECORDING_PATH);
 
   const fakeProviderResult = createFakeDataProvider({ fixturePath: fakeFixturePath });
@@ -204,10 +215,14 @@ function initializeDataModes(): Result<DataModeManager, AppError> {
     );
   }
 
-  const realProviderResult = createRealDataProvider({
-    fixturePath: realFixturePath,
-    providerName: 'real-fixture-provider',
-  });
+  const realProviderResult = realFixturePath
+    ? createRealDataProvider({
+        fixturePath: realFixturePath,
+        providerName: 'real-fixture-provider',
+      })
+    : createRealDataProvider({
+        providerName: 'real-provider-unconfigured',
+      });
   if (!realProviderResult.ok) {
     return err(
       AppError.create(
@@ -238,13 +253,42 @@ function initializeDataModes(): Result<DataModeManager, AppError> {
     realProvider,
     recordProvider: recordingProvider,
     source: 'desktop-runtime',
+    canActivateMode: ({ mode, provider }) => {
+      if (mode !== 'real' || provider.requiresAuth !== true) {
+        return ok(undefined);
+      }
+
+      const profileManagerResult = ensureProfileManager();
+      if (!profileManagerResult.ok) {
+        return profileManagerResult;
+      }
+
+      const authStatusResult = profileManagerResult.value.getAuthStatus();
+      if (!authStatusResult.ok) {
+        return authStatusResult;
+      }
+
+      if (!authStatusResult.value.connected) {
+        return err(
+          AppError.create(
+            'SYNC_REAL_AUTH_REQUIRED',
+            'Tryb real wymaga podlaczonego konta YouTube.',
+            'error',
+            { providerName: provider.name },
+          ),
+        );
+      }
+
+      return ok(undefined);
+    },
   });
 
   logger.info('Data modes gotowe.', {
     fakeFixturePath,
-    realFixturePath,
+    realFixturePath: realFixturePath ?? 'UNCONFIGURED',
     recordingOutputPath,
     mode: manager.getStatus().mode,
+    availableModes: manager.getStatus().availableModes,
   });
 
   return ok(manager);
@@ -437,6 +481,51 @@ function readActiveProfile(): Result<ProfileSummaryDTO, AppError> {
   return profileManagerResult.value.getActiveProfile();
 }
 
+function ensureProfileSwitchAllowed(): Result<void, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return ok(undefined);
+  }
+
+  try {
+    const activeRunRow = db
+      .prepare<[], { syncRunId: number; stage: string | null }>(
+        `
+          SELECT
+            id AS syncRunId,
+            stage
+          FROM sync_runs
+          WHERE finished_at IS NULL
+            AND status = 'running'
+          ORDER BY started_at DESC, id DESC
+          LIMIT 1
+        `,
+      )
+      .get();
+
+    if (!activeRunRow) {
+      return ok(undefined);
+    }
+
+    return err(
+      createProfileSwitchBlockedError({
+        activeSyncRunId: activeRunRow.syncRunId,
+        activeSyncStage: activeRunRow.stage ?? null,
+      }),
+    );
+  } catch (cause) {
+    return err(
+      AppError.create(
+        'APP_PROFILE_SWITCH_GUARD_FAILED',
+        'Nie udalo sie sprawdzic stanu synchronizacji przed zmiana profilu.',
+        'error',
+        {},
+        toError(cause),
+      ),
+    );
+  }
+}
+
 function readAppStatus(): Result<AppStatusDTO, AppError> {
   const activeProfileResult = readActiveProfile();
   if (!activeProfileResult.ok) {
@@ -578,6 +667,13 @@ function createProfileCommand(input: ProfileCreateInputDTO): Result<ProfileListR
     return previousActiveProfileResult;
   }
 
+  if (input.setActive) {
+    const switchGuardResult = ensureProfileSwitchAllowed();
+    if (!switchGuardResult.ok) {
+      return switchGuardResult;
+    }
+  }
+
   const createResult = profileManagerResult.value.createProfile(input);
   if (!createResult.ok) {
     return createResult;
@@ -605,6 +701,13 @@ function setActiveProfileCommand(input: ProfileSetActiveInputDTO): Result<Profil
   const previousActiveProfileResult = profileManagerResult.value.getActiveProfile();
   if (!previousActiveProfileResult.ok) {
     return previousActiveProfileResult;
+  }
+
+  if (input.profileId !== previousActiveProfileResult.value.id) {
+    const switchGuardResult = ensureProfileSwitchAllowed();
+    if (!switchGuardResult.ok) {
+      return switchGuardResult;
+    }
   }
 
   const setActiveResult = profileManagerResult.value.setActiveProfile(input);

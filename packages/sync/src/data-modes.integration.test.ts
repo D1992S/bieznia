@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { ok } from '@moze/shared';
+import { AppError, err, ok } from '@moze/shared';
 import { createCachedDataProvider } from './cache-provider.ts';
 import { createDataModeManager } from './data-mode-manager.ts';
 import type { DataProvider } from './data-provider.ts';
@@ -205,5 +205,110 @@ describe('Data modes integration', () => {
     const third = cachedProvider.getChannelStats({ channelId: 'UC-CACHE-001' });
     expect(third.ok).toBe(true);
     expect(callCount).toBe(2);
+  });
+
+  it('hides unavailable real mode and falls back to available initial mode', () => {
+    const fakeProviderResult = createFakeDataProvider({ fixturePath: seedFixturePath });
+    expect(fakeProviderResult.ok).toBe(true);
+    if (!fakeProviderResult.ok) {
+      return;
+    }
+
+    const realProviderResult = createRealDataProvider({
+      providerName: 'real-provider-unconfigured',
+    });
+    expect(realProviderResult.ok).toBe(true);
+    if (!realProviderResult.ok) {
+      return;
+    }
+
+    const recordingProvider = createRecordingDataProvider({
+      provider: fakeProviderResult.value,
+      outputFilePath: path.join(os.tmpdir(), `mode-record-${Date.now()}.json`),
+    });
+
+    const manager = createDataModeManager({
+      initialMode: 'real',
+      fakeProvider: fakeProviderResult.value,
+      realProvider: realProviderResult.value,
+      recordProvider: recordingProvider,
+      source: 'availability-test',
+    });
+
+    const status = manager.getStatus();
+    expect(status.mode).toBe('fake');
+    expect(status.availableModes).toContain('fake');
+    expect(status.availableModes).toContain('record');
+    expect(status.availableModes).not.toContain('real');
+
+    const setRealResult = manager.setMode({ mode: 'real' });
+    expect(setRealResult.ok).toBe(false);
+    if (!setRealResult.ok) {
+      expect(setRealResult.error.code).toBe('SYNC_MODE_UNAVAILABLE');
+    }
+  });
+
+  it('keeps real mode unavailable until auth guard allows activation', () => {
+    const fakeProviderResult = createFakeDataProvider({ fixturePath: seedFixturePath });
+    expect(fakeProviderResult.ok).toBe(true);
+    if (!fakeProviderResult.ok) {
+      return;
+    }
+
+    const realProviderResult = createRealDataProvider({
+      fixturePath: seedFixturePath,
+      providerName: 'real-fixture-provider',
+      requiresAuth: true,
+    });
+    expect(realProviderResult.ok).toBe(true);
+    if (!realProviderResult.ok) {
+      return;
+    }
+
+    const recordingProvider = createRecordingDataProvider({
+      provider: realProviderResult.value,
+      outputFilePath: path.join(os.tmpdir(), `mode-auth-record-${Date.now()}.json`),
+    });
+
+    let authConnected = false;
+    const manager = createDataModeManager({
+      initialMode: 'fake',
+      fakeProvider: fakeProviderResult.value,
+      realProvider: realProviderResult.value,
+      recordProvider: recordingProvider,
+      source: 'auth-guard-test',
+      canActivateMode: ({ mode, provider }) => {
+        if (mode === 'real' && provider.requiresAuth === true && !authConnected) {
+          return err(
+            AppError.create(
+              'SYNC_REAL_AUTH_REQUIRED',
+              'Tryb real wymaga podlaczonego konta.',
+              'error',
+              {},
+            ),
+          );
+        }
+        return ok(undefined);
+      },
+    });
+
+    const blockedStatus = manager.getStatus();
+    expect(blockedStatus.availableModes).not.toContain('real');
+
+    const blockedSetResult = manager.setMode({ mode: 'real' });
+    expect(blockedSetResult.ok).toBe(false);
+    if (!blockedSetResult.ok) {
+      expect(blockedSetResult.error.code).toBe('SYNC_REAL_AUTH_REQUIRED');
+    }
+
+    authConnected = true;
+    const allowedStatus = manager.getStatus();
+    expect(allowedStatus.availableModes).toContain('real');
+
+    const allowedSetResult = manager.setMode({ mode: 'real' });
+    expect(allowedSetResult.ok).toBe(true);
+    if (allowedSetResult.ok) {
+      expect(allowedSetResult.value.mode).toBe('real');
+    }
   });
 });

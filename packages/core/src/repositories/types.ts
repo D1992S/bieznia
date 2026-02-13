@@ -50,6 +50,28 @@ export interface GetLatestOpenSyncRunInput {
   profileId?: string | null;
 }
 
+export interface GetChannelSnapshotInput {
+  channelId: string;
+}
+
+export interface ChannelSnapshotRecord {
+  channelId: string;
+  subscriberCount: number;
+  videoCount: number;
+  viewCount: number;
+}
+
+export interface GetVideoSnapshotsInput {
+  videoIds: readonly string[];
+}
+
+export interface VideoSnapshotRecord {
+  videoId: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+}
+
 export interface SyncRunRecord {
   id: number;
   profileId: string | null;

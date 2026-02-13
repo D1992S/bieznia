@@ -22,6 +22,7 @@ export interface CreateDataModeManagerInput {
   realProvider: DataProvider;
   recordProvider: RecordingDataProvider;
   source?: string;
+  canActivateMode?: (input: { mode: DataMode; provider: DataProvider }) => Result<void, AppError>;
 }
 
 export interface ActiveDataProvider {
@@ -58,21 +59,90 @@ function pickProvider(mode: DataMode, input: CreateDataModeManagerInput): DataPr
   }
 }
 
+function isProviderConfigured(provider: DataProvider): boolean {
+  return provider.configured !== false;
+}
+
+function createModeUnavailableError(mode: DataMode, provider: DataProvider): AppError {
+  return AppError.create(
+    'SYNC_MODE_UNAVAILABLE',
+    'Wybrany tryb danych nie jest dostepny w aktualnej konfiguracji.',
+    'error',
+    {
+      mode,
+      providerName: provider.name,
+      configured: provider.configured ?? true,
+    },
+  );
+}
+
 export function createDataModeManager(input: CreateDataModeManagerInput): DataModeManager {
   const parsedMode = DataModeSchema.safeParse(input.initialMode ?? 'fake');
   let currentMode: DataMode = parsedMode.success ? parsedMode.data : 'fake';
   const source = input.source ?? 'desktop-runtime';
 
-  const getStatus = (): DataModeStatusDTO => ({
-    mode: currentMode,
-    availableModes: AVAILABLE_MODES,
-    source,
-  });
+  const validateModeActivation = (mode: DataMode): Result<void, AppError> => {
+    const provider = pickProvider(mode, input);
+    if (!isProviderConfigured(provider)) {
+      return err(createModeUnavailableError(mode, provider));
+    }
 
-  const getActiveProvider = (): ActiveDataProvider => ({
-    mode: currentMode,
-    provider: pickProvider(currentMode, input),
-  });
+    if (input.canActivateMode) {
+      const activationResult = input.canActivateMode({ mode, provider });
+      if (!activationResult.ok) {
+        return activationResult;
+      }
+    }
+
+    return ok(undefined);
+  };
+
+  const computeAvailableModes = (): DataMode[] => {
+    const availableModes: DataMode[] = [];
+    for (const mode of AVAILABLE_MODES) {
+      const activationResult = validateModeActivation(mode);
+      if (activationResult.ok) {
+        availableModes.push(mode);
+      }
+    }
+    if (availableModes.length === 0) {
+      availableModes.push(currentMode);
+    }
+    return availableModes;
+  };
+
+  const normalizeCurrentMode = (availableModes: readonly DataMode[]): void => {
+    if (availableModes.length === 0) {
+      return;
+    }
+
+    if (!availableModes.includes(currentMode)) {
+      const fallbackMode = availableModes[0];
+      if (fallbackMode) {
+        currentMode = fallbackMode;
+      }
+    }
+  };
+
+  const getStatus = (): DataModeStatusDTO => {
+    const availableModes = computeAvailableModes();
+    normalizeCurrentMode(availableModes);
+    return {
+      mode: currentMode,
+      availableModes: [...availableModes],
+      source,
+    };
+  };
+
+  normalizeCurrentMode(computeAvailableModes());
+
+  const getActiveProvider = (): ActiveDataProvider => {
+    normalizeCurrentMode(computeAvailableModes());
+    return {
+      mode: currentMode,
+      provider: pickProvider(currentMode, input),
+    };
+  };
 
   return {
     getStatus,
@@ -81,6 +151,11 @@ export function createDataModeManager(input: CreateDataModeManagerInput): DataMo
       const parsedInput = SetDataModeInputDTOSchema.safeParse(setModeInput);
       if (!parsedInput.success) {
         return err(createValidationError('SYNC_MODE_SET_INVALID', parsedInput.error.issues));
+      }
+
+      const activationResult = validateModeActivation(parsedInput.data.mode);
+      if (!activationResult.ok) {
+        return activationResult;
       }
 
       currentMode = parsedInput.data.mode;

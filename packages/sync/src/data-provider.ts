@@ -16,6 +16,8 @@ export interface GetRecentVideosInput {
 
 export interface DataProvider {
   readonly name: string;
+  readonly configured?: boolean;
+  readonly requiresAuth?: boolean;
   getChannelStats: (input: GetChannelStatsInput) => Result<ProviderChannelSnapshot, AppError>;
   getVideoStats: (input: GetVideoStatsInput) => Result<ProviderVideoSnapshot[], AppError>;
   getRecentVideos: (input: GetRecentVideosInput) => Result<ProviderVideoSnapshot[], AppError>;

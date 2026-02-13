@@ -84,6 +84,8 @@ export function createRateLimitedDataProvider(
 
   return {
     name: `${provider.name}:rate-limited`,
+    configured: provider.configured ?? true,
+    requiresAuth: provider.requiresAuth ?? false,
     getChannelStats: (query) => {
       const rateError = consumeToken('getChannelStats', query);
       if (rateError) {

@@ -156,6 +156,195 @@ describe('Sync orchestrator integration', () => {
     expect(closeResult.ok).toBe(true);
   });
 
+  it('persists non-negative daily deltas and accumulates them within the same day', async () => {
+    const connection = createMigratedDb();
+    let channelViewCount = 80_000;
+    let channelSubscriberCount = 4_000;
+    let channelVideoCount = 1;
+    let videoViewCount = 12_000;
+    let videoLikeCount = 640;
+    let videoCommentCount = 48;
+    const videoId = 'VID-DELTA-001';
+    const fixedDate = '2026-02-10';
+    let nowIso = `${fixedDate}T08:00:00.000Z`;
+
+    const buildVideoSnapshot = () => ({
+      videoId,
+      channelId,
+      title: 'Delta test',
+      description: 'Delta test',
+      thumbnailUrl: null,
+      publishedAt: '2026-01-01T00:00:00.000Z',
+      durationSeconds: 600,
+      viewCount: videoViewCount,
+      likeCount: videoLikeCount,
+      commentCount: videoCommentCount,
+    });
+
+    const provider: DataProvider = {
+      name: 'delta-test-provider',
+      configured: true,
+      requiresAuth: false,
+      getChannelStats: () =>
+        ok({
+          channelId,
+          name: 'Kanal delta',
+          description: 'Opis delta',
+          thumbnailUrl: null,
+          subscriberCount: channelSubscriberCount,
+          videoCount: channelVideoCount,
+          viewCount: channelViewCount,
+          createdAt: '2020-01-01T00:00:00.000Z',
+          lastSyncAt: null,
+        }),
+      getRecentVideos: () => ok([buildVideoSnapshot()]),
+      getVideoStats: () => ok([buildVideoSnapshot()]),
+    };
+
+    const dataModeManager = createDataModeManager({
+      initialMode: 'fake',
+      fakeProvider: provider,
+      realProvider: provider,
+      recordProvider: createRecordingDataProvider({
+        provider,
+        outputFilePath: fixturePath,
+      }),
+      source: 'delta-test',
+    });
+
+    const orchestrator = createSyncOrchestrator({
+      db: connection.db,
+      dataModeManager,
+      now: () => new Date(nowIso),
+    });
+
+    const firstRun = await orchestrator.startSync({ channelId, recentLimit: 1 });
+    expect(firstRun.ok).toBe(true);
+    if (!firstRun.ok) {
+      const closeResult = connection.close();
+      expect(closeResult.ok).toBe(true);
+      return;
+    }
+
+    const firstChannelDay = connection.db
+      .prepare<{ channelId: string; date: string }, { views: number; likes: number; comments: number; subscribers: number }>(
+        `
+          SELECT
+            views,
+            likes,
+            comments,
+            subscribers
+          FROM fact_channel_day
+          WHERE channel_id = @channelId
+            AND date = @date
+          ORDER BY date ASC
+          LIMIT 1
+        `,
+      )
+      .get({ channelId, date: fixedDate });
+
+    const firstVideoDay = connection.db
+      .prepare<{ videoId: string; date: string }, { views: number; likes: number; comments: number }>(
+        `
+          SELECT
+            views,
+            likes,
+            comments
+          FROM fact_video_day
+          WHERE video_id = @videoId
+            AND date = @date
+          ORDER BY date ASC
+          LIMIT 1
+        `,
+      )
+      .get({ videoId, date: fixedDate });
+
+    expect(firstChannelDay?.views).toBe(0);
+    expect(firstChannelDay?.likes).toBe(0);
+    expect(firstChannelDay?.comments).toBe(0);
+    expect(firstChannelDay?.subscribers).toBe(channelSubscriberCount);
+    expect(firstVideoDay?.views).toBe(0);
+    expect(firstVideoDay?.likes).toBe(0);
+    expect(firstVideoDay?.comments).toBe(0);
+
+    channelViewCount += 150;
+    channelSubscriberCount += 12;
+    channelVideoCount += 1;
+    videoViewCount += 120;
+    videoLikeCount += 11;
+    videoCommentCount += 3;
+    nowIso = `${fixedDate}T12:00:00.000Z`;
+
+    const secondRun = await orchestrator.startSync({ channelId, recentLimit: 1 });
+    expect(secondRun.ok).toBe(true);
+    if (!secondRun.ok) {
+      const closeResult = connection.close();
+      expect(closeResult.ok).toBe(true);
+      return;
+    }
+
+    channelViewCount += 40;
+    videoViewCount += 30;
+    videoLikeCount += 2;
+    videoCommentCount += 1;
+    nowIso = `${fixedDate}T18:00:00.000Z`;
+
+    const thirdRun = await orchestrator.startSync({ channelId, recentLimit: 1 });
+    expect(thirdRun.ok).toBe(true);
+    if (!thirdRun.ok) {
+      const closeResult = connection.close();
+      expect(closeResult.ok).toBe(true);
+      return;
+    }
+
+    const finalChannelDay = connection.db
+      .prepare<{ channelId: string; date: string }, { views: number; likes: number; comments: number; subscribers: number; videos: number }>(
+        `
+          SELECT
+            views,
+            likes,
+            comments,
+            subscribers,
+            videos
+          FROM fact_channel_day
+          WHERE channel_id = @channelId
+            AND date = @date
+          ORDER BY date ASC
+          LIMIT 1
+        `,
+      )
+      .get({ channelId, date: fixedDate });
+
+    const finalVideoDay = connection.db
+      .prepare<{ videoId: string; date: string }, { views: number; likes: number; comments: number }>(
+        `
+          SELECT
+            views,
+            likes,
+            comments
+          FROM fact_video_day
+          WHERE video_id = @videoId
+            AND date = @date
+          ORDER BY date ASC
+          LIMIT 1
+        `,
+      )
+      .get({ videoId, date: fixedDate });
+
+    expect(finalChannelDay?.views).toBe(190);
+    expect(finalChannelDay?.likes).toBe(13);
+    expect(finalChannelDay?.comments).toBe(4);
+    expect(finalChannelDay?.subscribers).toBe(channelSubscriberCount);
+    expect(finalChannelDay?.videos).toBe(channelVideoCount);
+
+    expect(finalVideoDay?.views).toBe(150);
+    expect(finalVideoDay?.likes).toBe(13);
+    expect(finalVideoDay?.comments).toBe(4);
+
+    const closeResult = connection.close();
+    expect(closeResult.ok).toBe(true);
+  });
+
   it('blocks parallel sync runs with in-process mutex', async () => {
     const connection = createMigratedDb();
     let channelAttempts = 0;

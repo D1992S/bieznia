@@ -181,6 +181,7 @@ export function useConnectAuthMutation() {
     }) => connectAuth(input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['auth', 'status'] });
+      void queryClient.invalidateQueries({ queryKey: ['app', 'data-mode'] });
     },
   });
 }
@@ -191,6 +192,7 @@ export function useDisconnectAuthMutation() {
     mutationFn: () => disconnectAuth(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['auth', 'status'] });
+      void queryClient.invalidateQueries({ queryKey: ['app', 'data-mode'] });
     },
   });
 }

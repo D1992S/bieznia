@@ -2,10 +2,13 @@ import type Database from 'better-sqlite3';
 import { AppError, err, ok, type Result } from '@moze/shared';
 import type {
   AppMetaEntryInput,
+  ChannelSnapshotRecord,
   CreateSyncRunInput,
+  GetChannelSnapshotInput,
   FinishSyncRunInput,
   GetLatestOpenSyncRunInput,
   GetSyncRunByIdInput,
+  GetVideoSnapshotsInput,
   RawApiResponseInput,
   ResumeSyncRunInput,
   SyncRunRecord,
@@ -15,6 +18,7 @@ import type {
   UpsertProfileInput,
   UpsertVideoDayInput,
   UpsertVideoInput,
+  VideoSnapshotRecord,
 } from './types.ts';
 
 export interface CoreRepository {
@@ -26,6 +30,8 @@ export interface CoreRepository {
   finishSyncRun: (input: FinishSyncRunInput) => Result<void, AppError>;
   getSyncRunById: (input: GetSyncRunByIdInput) => Result<SyncRunRecord | null, AppError>;
   getLatestOpenSyncRun: (input: GetLatestOpenSyncRunInput) => Result<SyncRunRecord | null, AppError>;
+  getChannelSnapshot: (input: GetChannelSnapshotInput) => Result<ChannelSnapshotRecord | null, AppError>;
+  getVideoSnapshots: (input: GetVideoSnapshotsInput) => Result<VideoSnapshotRecord[], AppError>;
   recordRawApiResponse: (input: RawApiResponseInput) => Result<number, AppError>;
   upsertChannel: (input: UpsertChannelInput) => Result<void, AppError>;
   upsertVideos: (inputs: readonly UpsertVideoInput[]) => Result<void, AppError>;
@@ -189,6 +195,34 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
         AND finished_at IS NULL
         AND (@profileId IS NULL OR profile_id = @profileId)
       ORDER BY started_at DESC, id DESC
+      LIMIT 1
+    `,
+  );
+
+  const getChannelSnapshotStmt = db.prepare<{ channelId: string }, ChannelSnapshotRecord>(
+    `
+      SELECT
+        channel_id AS channelId,
+        subscriber_count AS subscriberCount,
+        video_count AS videoCount,
+        view_count AS viewCount
+      FROM dim_channel
+      WHERE channel_id = @channelId
+      ORDER BY channel_id ASC
+      LIMIT 1
+    `,
+  );
+
+  const getVideoSnapshotStmt = db.prepare<{ videoId: string }, VideoSnapshotRecord>(
+    `
+      SELECT
+        video_id AS videoId,
+        view_count AS viewCount,
+        like_count AS likeCount,
+        comment_count AS commentCount
+      FROM dim_video
+      WHERE video_id = @videoId
+      ORDER BY video_id ASC
       LIMIT 1
     `,
   );
@@ -368,11 +402,11 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
       )
       ON CONFLICT(channel_id, date) DO UPDATE SET
         subscribers = excluded.subscribers,
-        views = excluded.views,
+        views = fact_channel_day.views + excluded.views,
         videos = excluded.videos,
-        likes = excluded.likes,
-        comments = excluded.comments,
-        watch_time_minutes = excluded.watch_time_minutes,
+        likes = fact_channel_day.likes + excluded.likes,
+        comments = fact_channel_day.comments + excluded.comments,
+        watch_time_minutes = COALESCE(excluded.watch_time_minutes, fact_channel_day.watch_time_minutes),
         updated_at = excluded.updated_at
     `,
   );
@@ -416,12 +450,12 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
       )
       ON CONFLICT(video_id, date) DO UPDATE SET
         channel_id = excluded.channel_id,
-        views = excluded.views,
-        likes = excluded.likes,
-        comments = excluded.comments,
-        watch_time_minutes = excluded.watch_time_minutes,
-        impressions = excluded.impressions,
-        ctr = excluded.ctr,
+        views = fact_video_day.views + excluded.views,
+        likes = fact_video_day.likes + excluded.likes,
+        comments = fact_video_day.comments + excluded.comments,
+        watch_time_minutes = COALESCE(excluded.watch_time_minutes, fact_video_day.watch_time_minutes),
+        impressions = COALESCE(excluded.impressions, fact_video_day.impressions),
+        ctr = COALESCE(excluded.ctr, fact_video_day.ctr),
         updated_at = excluded.updated_at
     `,
   );
@@ -626,6 +660,44 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
             'DB_SYNC_RUN_OPEN_GET_FAILED',
             'Nie udalo sie odczytac aktywnego sync run.',
             { profileId: input.profileId ?? null },
+            cause,
+          ),
+        );
+      }
+    },
+
+    getChannelSnapshot: (input) => {
+      try {
+        return ok(getChannelSnapshotStmt.get({ channelId: input.channelId }) ?? null);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_CHANNEL_SNAPSHOT_GET_FAILED',
+            'Nie udalo sie odczytac snapshotu kanalu.',
+            { channelId: input.channelId },
+            cause,
+          ),
+        );
+      }
+    },
+
+    getVideoSnapshots: (input) => {
+      try {
+        const uniqueVideoIds = [...new Set(input.videoIds)];
+        const snapshots: VideoSnapshotRecord[] = [];
+        for (const videoId of uniqueVideoIds) {
+          const row = getVideoSnapshotStmt.get({ videoId });
+          if (row) {
+            snapshots.push(row);
+          }
+        }
+        return ok(snapshots);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_VIDEO_SNAPSHOTS_GET_FAILED',
+            'Nie udalo sie odczytac snapshotow filmow.',
+            { requestedItems: input.videoIds.length },
             cause,
           ),
         );

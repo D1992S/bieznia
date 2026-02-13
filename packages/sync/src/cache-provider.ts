@@ -77,6 +77,8 @@ export function createCachedDataProvider(
 
   return {
     name: `${provider.name}:cached`,
+    configured: provider.configured ?? true,
+    requiresAuth: provider.requiresAuth ?? false,
     getChannelStats: (query) => {
       const key = getCacheKey(query);
       const cached = readCacheEntry(channelStatsCache, key, now);

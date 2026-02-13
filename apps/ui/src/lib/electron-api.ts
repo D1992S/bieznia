@@ -1,4 +1,5 @@
 import type {
+  AppErrorDTO,
   DataModeProbeInputDTO,
   DataModeProbeResultDTO,
   DataModeStatusDTO,
@@ -32,6 +33,18 @@ import type {
 } from '@moze/shared';
 import type { ElectronAPI } from './electron-api.types.ts';
 
+class IpcInvokeError extends Error {
+  readonly code: string;
+  readonly context: Record<string, unknown>;
+
+  constructor(error: AppErrorDTO) {
+    super(`[${error.code}] ${error.message}`);
+    this.name = 'IpcInvokeError';
+    this.code = error.code;
+    this.context = error.context ?? {};
+  }
+}
+
 function ensureElectronApi(): ElectronAPI {
   if (!window.electronAPI) {
     throw new Error('Brak mostu Electron. Uruchom aplikacje przez desktop runtime.');
@@ -45,8 +58,7 @@ function unwrapResult<T>(result: IpcResult<T>): T {
     return result.value;
   }
 
-  const message = result.error.message;
-  throw new Error(message);
+  throw new IpcInvokeError(result.error);
 }
 
 export async function fetchAppStatus(): Promise<AppStatusDTO> {

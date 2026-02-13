@@ -66,6 +66,8 @@ export function createRecordingDataProvider(input: CreateRecordingDataProviderIn
 
   return {
     name: `${input.provider.name}:recording`,
+    configured: input.provider.configured ?? true,
+    requiresAuth: input.provider.requiresAuth ?? false,
     getLastRecordPath: () => lastRecordPath,
     getChannelStats: (query) => {
       const result = input.provider.getChannelStats(query);

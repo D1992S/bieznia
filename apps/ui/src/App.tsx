@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import type {
+  DataMode,
   MlForecastPointDTO,
   MlTargetMetric,
   ReportExportFormat,
@@ -56,6 +57,7 @@ interface KpiCardData {
 const CHART_WIDTH = 980;
 const CHART_HEIGHT = 320;
 const CHART_PADDING = 34;
+const ALL_DATA_MODES: DataMode[] = ['fake', 'real', 'record'];
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('pl-PL').format(Math.round(value));
@@ -72,12 +74,30 @@ function deltaLabel(value: number): string {
 
 function trendSymbol(value: number): string {
   if (value > 0) {
-    return '↑';
+    return '^';
   }
   if (value < 0) {
-    return '↓';
+    return 'v';
   }
-  return '→';
+  return '-';
+}
+
+function readMutationErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function dataModeLabel(mode: DataMode): string {
+  switch (mode) {
+    case 'fake':
+      return 'fake';
+    case 'real':
+      return 'real';
+    case 'record':
+      return 'record';
+  }
 }
 
 function mergeSeriesWithForecast(
@@ -411,6 +431,18 @@ export function App() {
       { label: 'Śr. wyświetleń / film', value: kpis.avgViewsPerVideo, delta: 0, tone: 'neutral' },
     ]
     : [];
+  const availableModes = new Set(modeStatus?.availableModes ?? []);
+  const syncRunning = appStatus.syncRunning || startSyncMutation.isPending || resumeSyncMutation.isPending;
+  const profileSwitchBlocked = syncRunning;
+  const createProfileErrorMessage = createProfileMutation.isError
+    ? readMutationErrorMessage(createProfileMutation.error, 'Nie udało się utworzyć profilu.')
+    : null;
+  const setActiveProfileErrorMessage = setActiveProfileMutation.isError
+    ? readMutationErrorMessage(setActiveProfileMutation.error, 'Nie udało się przełączyć aktywnego profilu.')
+    : null;
+  const setModeErrorMessage = setModeMutation.isError
+    ? readMutationErrorMessage(setModeMutation.error, 'Nie udało się przełączyć trybu danych.')
+    : null;
 
   return (
     <main
@@ -425,7 +457,7 @@ export function App() {
       <header style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ marginBottom: 6 }}>Mozetobedzieto - Dashboard (Faza 8)</h1>
         <p style={{ marginTop: 0, color: '#475569' }}>
-          Status DB: {appStatus.dbReady ? 'Gotowa' : 'Niegotowa'} | Profil: {appStatus.profileId ?? 'Brak'} | Sync: {appStatus.syncRunning ? 'w trakcie' : 'bez aktywnego procesu'}
+          Status DB: {appStatus.dbReady ? 'Gotowa' : 'Niegotowa'} | Profil: {appStatus.profileId ?? 'Brak'} | Sync: {syncRunning ? 'w trakcie' : 'bez aktywnego procesu'}
         </p>
         <p style={{ marginTop: 0, color: '#475569' }}>
           Ostatni sync: {appStatus.lastSyncAt ?? 'Brak'}
@@ -461,13 +493,18 @@ export function App() {
                   onClick={() => {
                     setActiveProfileMutation.mutate({ profileId: profile.id });
                   }}
-                  disabled={profile.isActive || setActiveProfileMutation.isPending}
+                  disabled={profile.isActive || setActiveProfileMutation.isPending || profileSwitchBlocked}
                 >
                   Ustaw jako aktywny
                 </button>
               </div>
             ))}
           </div>
+        )}
+        {profileSwitchBlocked && (
+          <p style={{ marginTop: 0, color: '#b45309' }}>
+            Przełączanie aktywnego profilu jest chwilowo zablokowane podczas trwającego syncu.
+          </p>
         )}
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -496,14 +533,14 @@ export function App() {
                 },
               );
             }}
-            disabled={createProfileMutation.isPending || newProfileName.trim().length === 0}
+            disabled={createProfileMutation.isPending || profileSwitchBlocked || newProfileName.trim().length === 0}
           >
             Dodaj profil i aktywuj
           </button>
         </div>
 
-        {createProfileMutation.isError && <p>Nie udało się utworzyć profilu.</p>}
-        {setActiveProfileMutation.isError && <p>Nie udało się przełączyć aktywnego profilu.</p>}
+        {createProfileErrorMessage && <p>{createProfileErrorMessage}</p>}
+        {setActiveProfileErrorMessage && <p>{setActiveProfileErrorMessage}</p>}
 
         <h3 style={{ marginBottom: 8 }}>Połączenie konta YouTube</h3>
         {authStatusQuery.isLoading && <p>Odczyt statusu konta...</p>}
@@ -877,7 +914,7 @@ export function App() {
                 recentLimit: 10,
               });
             }}
-            disabled={startSyncMutation.isPending || appStatus.syncRunning}
+            disabled={startSyncMutation.isPending || syncRunning}
             style={{ marginRight: '0.5rem' }}
           >
             Uruchom sync
@@ -894,7 +931,7 @@ export function App() {
                 recentLimit: 10,
               });
             }}
-            disabled={resumeSyncMutation.isPending || resumeSyncRunId === null}
+            disabled={resumeSyncMutation.isPending || syncRunning || resumeSyncRunId === null}
           >
             Wznów ostatni nieudany sync
           </button>
@@ -949,36 +986,25 @@ export function App() {
           {modeStatus && (
             <>
               <p>Aktualny tryb: {modeStatus.mode}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setModeMutation.mutate('fake');
-                }}
-                disabled={setModeMutation.isPending}
-                style={{ marginRight: '0.5rem' }}
-              >
-                Ustaw fake
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setModeMutation.mutate('real');
-                }}
-                disabled={setModeMutation.isPending}
-                style={{ marginRight: '0.5rem' }}
-              >
-                Ustaw real
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setModeMutation.mutate('record');
-                }}
-                disabled={setModeMutation.isPending}
-                style={{ marginRight: '0.5rem' }}
-              >
-                Ustaw record
-              </button>
+              <p style={{ marginTop: 0, color: '#475569' }}>
+                Dostępne tryby: {modeStatus.availableModes.map((mode) => dataModeLabel(mode)).join(', ')}
+              </p>
+              {ALL_DATA_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setModeMutation.mutate(mode);
+                  }}
+                  disabled={setModeMutation.isPending || !availableModes.has(mode)}
+                  style={{
+                    marginRight: '0.5rem',
+                    opacity: availableModes.has(mode) ? 1 : 0.45,
+                  }}
+                >
+                  Ustaw {dataModeLabel(mode)}
+                </button>
+              ))}
               <button
                 type="button"
                 onClick={() => {
@@ -994,7 +1020,7 @@ export function App() {
               </button>
             </>
           )}
-          {setModeMutation.isError && <p>Nie udało się przełączyć trybu danych.</p>}
+          {setModeErrorMessage && <p>{setModeErrorMessage}</p>}
           {probeModeMutation.isError && <p>Probe trybu danych zakończył się błędem.</p>}
           {probeModeMutation.data && (
             <p>
@@ -1012,3 +1038,4 @@ export function App() {
     </main>
   );
 }
+
