@@ -7,6 +7,7 @@ import type {
   GetChannelSnapshotInput,
   FinishSyncRunInput,
   GetLatestOpenSyncRunInput,
+  GetPersistedSyncBatchInput,
   GetSyncRunByIdInput,
   GetVideoSnapshotsInput,
   RawApiResponseInput,
@@ -30,6 +31,7 @@ export interface CoreRepository {
   finishSyncRun: (input: FinishSyncRunInput) => Result<void, AppError>;
   getSyncRunById: (input: GetSyncRunByIdInput) => Result<SyncRunRecord | null, AppError>;
   getLatestOpenSyncRun: (input: GetLatestOpenSyncRunInput) => Result<SyncRunRecord | null, AppError>;
+  hasPersistedSyncBatch: (input: GetPersistedSyncBatchInput) => Result<boolean, AppError>;
   getChannelSnapshot: (input: GetChannelSnapshotInput) => Result<ChannelSnapshotRecord | null, AppError>;
   getVideoSnapshots: (input: GetVideoSnapshotsInput) => Result<VideoSnapshotRecord[], AppError>;
   recordRawApiResponse: (input: RawApiResponseInput) => Result<number, AppError>;
@@ -196,6 +198,16 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
         AND (@profileId IS NULL OR profile_id = @profileId)
       ORDER BY started_at DESC, id DESC
       LIMIT 1
+    `,
+  );
+
+  const getPersistedSyncBatchCountStmt = db.prepare<{ syncRunId: number }, { total: number }>(
+    `
+      SELECT
+        COUNT(*) AS total
+      FROM raw_api_responses
+      WHERE sync_run_id = @syncRunId
+        AND endpoint IN ('getChannelStats', 'getRecentVideos', 'getVideoStats')
     `,
   );
 
@@ -660,6 +672,22 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
             'DB_SYNC_RUN_OPEN_GET_FAILED',
             'Nie udalo sie odczytac aktywnego sync run.',
             { profileId: input.profileId ?? null },
+            cause,
+          ),
+        );
+      }
+    },
+
+    hasPersistedSyncBatch: (input) => {
+      try {
+        const row = getPersistedSyncBatchCountStmt.get({ syncRunId: input.syncRunId });
+        return ok((row?.total ?? 0) >= 3);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_SYNC_PERSIST_MARKER_GET_FAILED',
+            'Nie udalo sie sprawdzic stanu persist batch dla sync run.',
+            { syncRunId: input.syncRunId },
             cause,
           ),
         );

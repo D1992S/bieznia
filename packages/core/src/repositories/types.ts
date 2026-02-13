@@ -50,6 +50,10 @@ export interface GetLatestOpenSyncRunInput {
   profileId?: string | null;
 }
 
+export interface GetPersistedSyncBatchInput {
+  syncRunId: number;
+}
+
 export interface GetChannelSnapshotInput {
   channelId: string;
 }

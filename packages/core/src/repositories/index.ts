@@ -6,6 +6,7 @@ export type {
   GetChannelSnapshotInput,
   FinishSyncRunInput,
   GetLatestOpenSyncRunInput,
+  GetPersistedSyncBatchInput,
   GetSyncRunByIdInput,
   GetVideoSnapshotsInput,
   RawApiResponseInput,

@@ -345,6 +345,88 @@ describe('Sync orchestrator integration', () => {
     expect(closeResult.ok).toBe(true);
   });
 
+  it('skips persist stage when batch marker already exists for resumed run', async () => {
+    const connection = createMigratedDb();
+    const dataModeManager = createDataModeManagerForTests();
+
+    const orchestrator = createSyncOrchestrator({
+      db: connection.db,
+      dataModeManager,
+    });
+
+    const firstRun = await orchestrator.startSync({
+      channelId,
+      recentLimit: 5,
+    });
+
+    expect(firstRun.ok).toBe(true);
+    if (!firstRun.ok) {
+      const closeResult = connection.close();
+      expect(closeResult.ok).toBe(true);
+      return;
+    }
+
+    const syncRunId = firstRun.value.syncRunId;
+    const rawCountBeforeResume = connection.db
+      .prepare<{ syncRunId: number }, { total: number }>(
+        `
+          SELECT COUNT(*) AS total
+          FROM raw_api_responses
+          WHERE sync_run_id = @syncRunId
+          ORDER BY total ASC
+          LIMIT 1
+        `,
+      )
+      .get({ syncRunId });
+
+    expect(rawCountBeforeResume?.total ?? 0).toBe(3);
+
+    connection.db
+      .prepare<{ syncRunId: number }>(
+        `
+          UPDATE sync_runs
+          SET
+            status = 'failed',
+            stage = 'persist-warehouse',
+            finished_at = datetime('now'),
+            error_code = 'TEST_FORCE_RESUME',
+            error_message = 'Forced test resume from persist stage.'
+          WHERE id = @syncRunId
+        `,
+      )
+      .run({ syncRunId });
+
+    const resumedRun = await orchestrator.resumeSync({
+      syncRunId,
+      channelId,
+      recentLimit: 5,
+    });
+
+    expect(resumedRun.ok).toBe(true);
+    if (!resumedRun.ok) {
+      const closeResult = connection.close();
+      expect(closeResult.ok).toBe(true);
+      return;
+    }
+
+    const rawCountAfterResume = connection.db
+      .prepare<{ syncRunId: number }, { total: number }>(
+        `
+          SELECT COUNT(*) AS total
+          FROM raw_api_responses
+          WHERE sync_run_id = @syncRunId
+          ORDER BY total ASC
+          LIMIT 1
+        `,
+      )
+      .get({ syncRunId });
+
+    expect(rawCountAfterResume?.total ?? 0).toBe(3);
+
+    const closeResult = connection.close();
+    expect(closeResult.ok).toBe(true);
+  });
+
   it('blocks parallel sync runs with in-process mutex', async () => {
     const connection = createMigratedDb();
     let channelAttempts = 0;
