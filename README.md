@@ -39,6 +39,7 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | [`docs/architecture/overview.md`](docs/architecture/overview.md) | Mapa modułów i dependency graph |
 | [`docs/architecture/data-flow.md`](docs/architecture/data-flow.md) | Pipeline danych: ingestion → ML → prezentacja |
 | [`CHANGELOG_AI.md`](CHANGELOG_AI.md) | Dziennik zmian AI |
+| [`docs/runbooks/test-plan-faza-0-8.md`](docs/runbooks/test-plan-faza-0-8.md) | Runbook testów manualnych + prompty LLM dla funkcji z Faz 0-8 |
 
 ## Stack technologiczny
 

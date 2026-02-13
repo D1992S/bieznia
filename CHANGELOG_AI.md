@@ -712,3 +712,62 @@ Dziennik zmian wykonywanych przez modele AI.
   - Manualnie: uruchomienie UI (`http://127.0.0.1:5173` -> 200) i desktop (okno Electron z dzialajacym IPC).
 - Nastepny krok:
   - Rozpoczac Faze 9 (Import + Enrichment + Search) na stabilnym runtime desktop.
+
+## 2026-02-13 (v21)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `docs/runbooks/test-plan-faza-0-8.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Dodano nowy runbook testowy obejmujacy funkcje dostepne po Fazie 8:
+    - scenariusze manualne,
+    - gotowe prompty LLM do audytu,
+    - kryteria PASS/FAIL,
+    - kryterium gotowosci do rozpoczecia Fazy 9.
+  - Zaktualizowano README o link do runbooka testowego.
+  - Zaktualizowano NEXT_STEP o aktualny stan sesji i rekomendacje: najpierw domkniecie testow funkcji 0-8.
+- Dlaczego:
+  - Potrzebny byl szeroki, operacyjny plan testow (manual + AI) przed rozpoczeciem Fazy 9.
+- Ryzyko/regresja:
+  - Niskie; zmiany tylko dokumentacyjne.
+  - Ryzyko operacyjne: bez konsekwentnego wykonania runbooka mozna przeniesc defekty do Fazy 9.
+- Jak zweryfikowano:
+  - Przeglad dokumentacji i spojnosc linkow w README.
+  - `corepack pnpm lint` - PASS.
+  - `corepack pnpm typecheck` - PASS.
+  - `corepack pnpm test` - PASS.
+  - `corepack pnpm build` - PASS.
+- Nastepny krok:
+  - Wykonac runbook `docs/runbooks/test-plan-faza-0-8.md`, zebrac bugi/P0-P1 i dopiero potem wejsc w implementacje Fazy 9.
+
+## 2026-02-13 (v22)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `docs/runbooks/test-plan-faza-0-8.md`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Doprecyzowano runbook testowy po feedbacku uzytkownika:
+    - dodano sekcje `0. Instrukcja krok po kroku (dla osoby bez doswiadczenia)`,
+    - dodano jednoznaczna kolejnosc dzialan,
+    - dodano gotowy szablon raportu testow (PASS/FAIL + buglista + decyzja GO/NO-GO).
+  - Zaktualizowano `NEXT_STEP.md` o stan sesji i rekomendacje operacyjna.
+- Dlaczego:
+  - Wczesniejsza wersja runbooka nie dawala wystarczajaco jasnej odpowiedzi "co mam zrobic" dla poczatkujacego uzytkownika.
+- Ryzyko/regresja:
+  - Niskie; zmiany dokumentacyjne.
+  - Ryzyko operacyjne: pomijanie sekcji 0 moze ponownie utrudnic przeprowadzenie testow.
+- Jak zweryfikowano:
+  - Przeglad runbooka pod katem krokow wykonywalnych przez osobe poczatkujaca.
+  - `corepack pnpm lint` - PASS.
+  - `corepack pnpm typecheck` - PASS.
+  - `corepack pnpm test` - PASS.
+  - `corepack pnpm build` - PASS.
+- Nastepny krok:
+  - Uzytkownik wykonuje testy wedlug sekcji 0 i raportuje wynik szablonem z runbooka; po zamknieciu P0/P1 rozpoczynamy Faze 9.

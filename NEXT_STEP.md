@@ -144,3 +144,26 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
 | 17 | Plugins (Insights/Alerts) - SKIP (solo) | M6 |
 | 18 | Diagnostics + Recovery | M6 |
 | 19 | Polish + Local UX (bez packaging/telemetry) | M6 |
+
+
+## Stan techniczny po sesji (2026-02-13, test-plan)
+
+- Dodano dedykowany runbook testowy przed wejsciem w Faze 9:
+  - `docs/runbooks/test-plan-faza-0-8.md`
+- Runbook zawiera:
+  - manualne scenariusze testowe dla kazdej dostepnej funkcji (Fazy 0-8),
+  - gotowe prompty dla AI/LLM do audytu jakosci i spojnosci,
+  - kryteria PASS/FAIL i warunki wejscia do Fazy 9.
+- Rekomendacja operacyjna:
+  - wykonac pelny runbook i dopiero po zamknieciu bledow P0/P1 rozpoczac implementacje Fazy 9.
+
+
+## Stan techniczny po sesji (2026-02-13, test-plan UX)
+
+- Doprecyzowano runbook testowy dla osob bez doswiadczenia:
+  - dodano sekcje "Instrukcja krok po kroku" (co uruchomic, co klikac, jak raportowac PASS/FAIL),
+  - dodano gotowy szablon raportu testow do wypelnienia (copy/paste).
+- Cel zmiany:
+  - usuniecie niejasnosci "co mam zrobic" przed startem Fazy 9.
+- Rekomendacja:
+  - wykonac testy wg sekcji 0 + 2 + 3 w `docs/runbooks/test-plan-faza-0-8.md` i podjac decyzje GO/NO-GO.
