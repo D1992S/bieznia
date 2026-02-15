@@ -7,6 +7,12 @@ import {
   DataModeStatusDTOSchema,
   MlForecastQueryInputDTOSchema,
   MlForecastResultDTOSchema,
+  MlDetectAnomaliesInputDTOSchema,
+  MlDetectAnomaliesResultDTOSchema,
+  MlAnomalyQueryInputDTOSchema,
+  MlAnomalyListResultDTOSchema,
+  MlTrendQueryInputDTOSchema,
+  MlTrendResultDTOSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   AuthConnectInputDTOSchema,
@@ -281,6 +287,105 @@ describe('IPC Contracts', () => {
       });
 
       expect(result.points).toHaveLength(1);
+    });
+
+    it('validates anomaly detection payloads', () => {
+      const detectInput = MlDetectAnomaliesInputDTOSchema.parse({
+        channelId: 'UC123',
+      });
+      expect(detectInput.targetMetric).toBe('views');
+
+      const detectResult = MlDetectAnomaliesResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        analyzedPoints: 90,
+        anomaliesDetected: 4,
+        changePointsDetected: 2,
+        generatedAt: '2026-02-15T10:00:00.000Z',
+      });
+      expect(detectResult.anomaliesDetected).toBe(4);
+
+      const anomaliesQuery = MlAnomalyQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        severities: ['high', 'critical'],
+      });
+      expect(anomaliesQuery.severities).toHaveLength(2);
+
+      const anomaliesResult = MlAnomalyListResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        total: 1,
+        items: [
+          {
+            id: 1,
+            channelId: 'UC123',
+            targetMetric: 'views',
+            date: '2026-01-11',
+            value: 9500,
+            baseline: 3200,
+            deviationRatio: 1.96,
+            zScore: 4.2,
+            method: 'consensus',
+            confidence: 'high',
+            severity: 'critical',
+            explanation: 'Wyswietlenia wzrosly znaczaco wzgledem bazowej sredniej.',
+            detectedAt: '2026-02-15T10:00:00.000Z',
+          },
+        ],
+      });
+      expect(anomaliesResult.items[0]?.method).toBe('consensus');
+    });
+
+    it('validates trend query and result payloads', () => {
+      const trendQuery = MlTrendQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(trendQuery.seasonalityPeriodDays).toBe(7);
+
+      const trendResult = MlTrendResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        seasonalityPeriodDays: 7,
+        summary: {
+          trendDirection: 'up',
+          trendDelta: 420,
+        },
+        points: [
+          {
+            date: '2026-01-01',
+            value: 1200,
+            trend: 1180,
+            seasonal: 30,
+            residual: -10,
+            isChangePoint: false,
+          },
+          {
+            date: '2026-01-16',
+            value: 2100,
+            trend: 1750,
+            seasonal: 200,
+            residual: 150,
+            isChangePoint: true,
+          },
+        ],
+        changePoints: [
+          {
+            date: '2026-01-16',
+            direction: 'up',
+            magnitude: 620,
+            score: 4.7,
+          },
+        ],
+      });
+      expect(trendResult.changePoints[0]?.direction).toBe('up');
     });
 
     it('rejects invalid target metric', () => {
@@ -562,6 +667,9 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.SYNC_RESUME).toBe('sync:resume');
       expect(IPC_CHANNELS.ML_RUN_BASELINE).toBe('ml:runBaseline');
       expect(IPC_CHANNELS.ML_GET_FORECAST).toBe('ml:getForecast');
+      expect(IPC_CHANNELS.ML_DETECT_ANOMALIES).toBe('ml:detectAnomalies');
+      expect(IPC_CHANNELS.ML_GET_ANOMALIES).toBe('ml:getAnomalies');
+      expect(IPC_CHANNELS.ML_GET_TREND).toBe('ml:getTrend');
       expect(IPC_CHANNELS.REPORTS_GENERATE).toBe('reports:generate');
       expect(IPC_CHANNELS.REPORTS_EXPORT).toBe('reports:export');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');

@@ -16,7 +16,8 @@
 | 7 | Dashboard + Raporty + Eksport | DONE |
 | 8 | Auth + Profile + Settings | DONE |
 | 9 | Import + Enrichment + Search | DONE |
-| 10-19 | Reszta | Oczekuje |
+| 10 | Anomaly Detection + Trend Analysis | DONE |
+| 11-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -51,31 +52,66 @@
   - `pnpm test` PASS (80/80)
   - `pnpm build` PASS
 
-## Co robic teraz - Faza 10: Anomaly Detection + Trend Analysis
+## Co zostalo zrobione (Faza 10)
 
-**Cel:** wykrywac automatycznie anomalie i zmiany trendu oraz pokazac je czytelnie w UI.
+- Kontrakty `shared` rozszerzono o anomaly/trend:
+  - `ml:detectAnomalies`,
+  - `ml:getAnomalies`,
+  - `ml:getTrend`,
+  - DTO + result schemas dla anomalii, trendu i change points.
+- `core` dostal nowa migracje `005-ml-anomaly-trend-schema`:
+  - tabela `ml_anomalies`,
+  - indeksy pod odczyt po `channel_id/target_metric/date` i `severity`.
+- `ml` dostal nowy serwis `anomaly-trend`:
+  - detekcja anomalii: `Z-score + IQR` z confidence/severity,
+  - dekompozycja szeregu: trend/seasonality/residual (STL-like),
+  - change point detection: CUSUM,
+  - zapisywanie anomalii do `ml_anomalies`.
+- Desktop runtime i IPC:
+  - nowe handlery i bridge preload dla analizy Fazy 10.
+- UI:
+  - overlay anomalii i change points na wykresie statystyk,
+  - feed anomalii z filtrem severity,
+  - osobny panel analizy trendu (delta, kierunek, lista change points),
+  - auto-trigger analizy dla aktywnego zakresu dat + reczne odswiezenie.
+- Testy:
+  - `packages/ml/src/anomaly-trend.integration.test.ts` (planted outliers + planted change points),
+  - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`.
+- Regresja:
+  - `pnpm lint` PASS
+  - `pnpm typecheck` PASS
+  - `pnpm test` PASS (84/84)
+  - `pnpm build` PASS
+
+## Co robic teraz - Faza 11: LLM Assistant
+
+**Cel:** odpowiedzi asystenta AI oparte na danych z DB i evidence, bez halucynacji.
 
 **Zakres:**
-1. Anomaly detection:
-   - Z-score + IQR,
-   - severity + confidence,
-   - zapis do tabeli `ml_anomalies`.
-2. Trend analysis:
-   - trend decomposition (trend/seasonality/residual),
-   - change point detection (CUSUM lub rownowazne).
-3. Integracja UI:
-   - oznaczenia anomalii na wykresach,
-   - feed anomalii z filtrowaniem.
-4. IPC + backend:
-   - nowe komendy do pobierania anomalii/trendow.
-5. Testy:
-   - planted outliers + planted change points (fixtures),
-   - testy integracyjne query/IPC.
+1. Orkiestrator LLM:
+   - planner -> executor -> summarizer,
+   - output JSON: `answer`, `evidence[]`, `confidence`, `follow_up_questions[]`.
+2. Provider registry:
+   - OpenAI, Anthropic, Ollama/local + LocalStub fallback.
+3. Persist historii:
+   - tabele rozmow i wiadomosci w SQLite,
+   - przypiecie evidence do odpowiedzi.
+4. IPC + desktop:
+   - komendy chatowe i pobieranie historii rozmow.
+5. UI:
+   - zakladka asystenta,
+   - czat + historia + widok evidence.
+6. Testy:
+   - pytanie o wyniki miesiaca zwraca liczby z DB,
+   - LocalStub dziala bez zewnetrznego API,
+   - evidence wskazuje konkretne rekordy.
 
-**Definition of Done (Faza 10):**
-- [ ] Anomalie sa wykrywane i zapisywane z severity/confidence.
-- [ ] Zmiany trendu sa wykrywane i prezentowane w UI.
-- [ ] UI pokazuje punkty anomalii na szeregu czasowym.
+**Definition of Done (Faza 11):**
+- [ ] Asystent odpowiada na pytania na podstawie danych z bazy.
+- [ ] Kazda odpowiedz ma evidence (linki/odwolania do danych).
+- [ ] LocalStub mode dziala offline.
+- [ ] IPC i UI dla asystenta dzialaja stabilnie.
 - [ ] Testy fazy przechodza.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
 - [ ] Wpis w `CHANGELOG_AI.md`.

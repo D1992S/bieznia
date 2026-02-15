@@ -2,6 +2,7 @@
 import type {
   CsvImportColumnMappingDTO,
   DataMode,
+  MlAnomalySeverity,
   MlTargetMetric,
   ReportExportFormat,
   TimeseriesQueryDTO,
@@ -9,6 +10,7 @@ import type {
 import {
   connectAuth,
   createProfile,
+  detectMlAnomalies,
   disconnectAuth,
   exportDashboardReport,
   fetchAppStatus,
@@ -16,8 +18,10 @@ import {
   fetchChannelInfo,
   fetchDashboardReport,
   fetchDataModeStatus,
+  fetchMlAnomalies,
   fetchKpis,
   fetchMlForecast,
+  fetchMlTrend,
   fetchProfileSettings,
   fetchProfiles,
   fetchTimeseries,
@@ -279,6 +283,8 @@ export function useCsvImportRunMutation() {
     onSuccess: (_result, input) => {
       void queryClient.invalidateQueries({ queryKey: ['db'] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'forecast', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'trend', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['search', 'content', input.channelId] });
     },
@@ -312,6 +318,8 @@ export function useStartSyncMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['app'] });
       void queryClient.invalidateQueries({ queryKey: ['db'] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies'] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -325,6 +333,8 @@ export function useResumeSyncMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['app'] });
       void queryClient.invalidateQueries({ queryKey: ['db'] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies'] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -350,9 +360,80 @@ export function useRunMlBaselineMutation() {
       runMlBaseline(input),
     onSuccess: (_result, input) => {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'forecast', input.channelId, input.targetMetric] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies', input.channelId, input.targetMetric] });
+      void queryClient.invalidateQueries({ queryKey: ['ml', 'trend', input.channelId, input.targetMetric] });
       void queryClient.invalidateQueries({ queryKey: ['db', 'timeseries', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
     },
+  });
+}
+
+export function useDetectMlAnomaliesMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      channelId: string;
+      targetMetric: MlTargetMetric;
+      dateFrom: string;
+      dateTo: string;
+    }) =>
+      detectMlAnomalies({
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+      }),
+    onSuccess: (_result, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['ml', 'anomalies', input.channelId, input.targetMetric, input.dateFrom, input.dateTo],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['ml', 'trend', input.channelId, input.targetMetric, input.dateFrom, input.dateTo],
+      });
+    },
+  });
+}
+
+export function useMlAnomaliesQuery(
+  channelId: string,
+  targetMetric: MlTargetMetric,
+  range: DateRange,
+  severities: MlAnomalySeverity[],
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['ml', 'anomalies', channelId, targetMetric, range.dateFrom, range.dateTo, severities.join(',')],
+    queryFn: () =>
+      fetchMlAnomalies({
+        channelId,
+        targetMetric,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        severities: severities.length > 0 ? severities : undefined,
+      }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useMlTrendQuery(
+  channelId: string,
+  targetMetric: MlTargetMetric,
+  range: DateRange,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['ml', 'trend', channelId, targetMetric, range.dateFrom, range.dateTo],
+    queryFn: () =>
+      fetchMlTrend({
+        channelId,
+        targetMetric,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        seasonalityPeriodDays: 7,
+      }),
+    enabled,
+    staleTime: 30_000,
   });
 }
 

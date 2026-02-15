@@ -23,6 +23,9 @@ import {
   handleDbGetKpis,
   handleDbGetTimeseries,
   handleMlGetForecast,
+  handleMlGetAnomalies,
+  handleMlGetTrend,
+  handleMlDetectAnomalies,
   handleMlRunBaseline,
   handleProfileCreate,
   handleProfileList,
@@ -347,6 +350,78 @@ function createTestContext(): TestContext {
           { date: '2026-02-14', horizonDays: 2, predicted: 110, p10: 95, p50: 110, p90: 125 },
         ],
       }),
+    detectMlAnomalies: (input) =>
+      ok({
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        analyzedPoints: 60,
+        anomaliesDetected: 3,
+        changePointsDetected: 1,
+        generatedAt: '2026-02-12T22:05:00.000Z',
+      }),
+    getMlAnomalies: (input) =>
+      ok({
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        total: 1,
+        items: [
+          {
+            id: 1,
+            channelId: input.channelId,
+            targetMetric: input.targetMetric,
+            date: '2026-02-10',
+            value: 5000,
+            baseline: 2500,
+            deviationRatio: 1,
+            zScore: 4.3,
+            method: 'consensus',
+            confidence: 'high',
+            severity: 'high',
+            explanation: 'Wyswietlenia wzrosly o 100% wzgledem sredniej.',
+            detectedAt: '2026-02-12T22:05:00.000Z',
+          },
+        ],
+      }),
+    getMlTrend: (input) =>
+      ok({
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        seasonalityPeriodDays: input.seasonalityPeriodDays,
+        summary: {
+          trendDirection: 'up',
+          trendDelta: 320,
+        },
+        points: [
+          {
+            date: input.dateFrom,
+            value: 1000,
+            trend: 980,
+            seasonal: 30,
+            residual: -10,
+            isChangePoint: false,
+          },
+          {
+            date: input.dateTo,
+            value: 1300,
+            trend: 1250,
+            seasonal: 20,
+            residual: 30,
+            isChangePoint: true,
+          },
+        ],
+        changePoints: [
+          {
+            date: input.dateTo,
+            direction: 'up',
+            magnitude: 220,
+            score: 3.5,
+          },
+        ],
+      }),
     generateReport: (input) =>
       ok({
         generatedAt: '2026-02-12T22:30:00.000Z',
@@ -612,6 +687,41 @@ describe('Desktop IPC handlers integration', () => {
       expect(mlForecastResult.value.points.length).toBeGreaterThan(0);
     }
 
+    const mlDetectResult = await handleMlDetectAnomalies(ctx.backend, {
+      channelId: ctx.channelId,
+      targetMetric: 'views',
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+    });
+    expect(mlDetectResult.ok).toBe(true);
+    if (mlDetectResult.ok) {
+      expect(mlDetectResult.value.anomaliesDetected).toBeGreaterThan(0);
+    }
+
+    const mlAnomaliesResult = await handleMlGetAnomalies(ctx.backend, {
+      channelId: ctx.channelId,
+      targetMetric: 'views',
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      severities: ['high'],
+    });
+    expect(mlAnomaliesResult.ok).toBe(true);
+    if (mlAnomaliesResult.ok) {
+      expect(mlAnomaliesResult.value.total).toBeGreaterThan(0);
+    }
+
+    const mlTrendResult = await handleMlGetTrend(ctx.backend, {
+      channelId: ctx.channelId,
+      targetMetric: 'views',
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      seasonalityPeriodDays: 7,
+    });
+    expect(mlTrendResult.ok).toBe(true);
+    if (mlTrendResult.ok) {
+      expect(mlTrendResult.value.summary.trendDirection).toBe('up');
+    }
+
     const reportGenerateResult = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -778,6 +888,29 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidMlRun.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidMlDetect = await handleMlDetectAnomalies(ctx.backend, {
+      channelId: '',
+      targetMetric: 'views',
+      dateFrom: '2026-12-01',
+      dateTo: '2026-01-01',
+    });
+    expect(invalidMlDetect.ok).toBe(false);
+    if (!invalidMlDetect.ok) {
+      expect(invalidMlDetect.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidMlTrend = await handleMlGetTrend(ctx.backend, {
+      channelId: ctx.channelId,
+      targetMetric: 'views',
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      seasonalityPeriodDays: 100,
+    });
+    expect(invalidMlTrend.ok).toBe(false);
+    if (!invalidMlTrend.ok) {
+      expect(invalidMlTrend.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidReportGenerate = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: '2026-01-01',
@@ -823,6 +956,9 @@ describe('Desktop IPC handlers integration', () => {
       resumeSync: (input) => ctx.backend.resumeSync(input),
       runMlBaseline: (input) => ctx.backend.runMlBaseline(input),
       getMlForecast: (input) => ctx.backend.getMlForecast(input),
+      detectMlAnomalies: (input) => ctx.backend.detectMlAnomalies(input),
+      getMlAnomalies: (input) => ctx.backend.getMlAnomalies(input),
+      getMlTrend: (input) => ctx.backend.getMlTrend(input),
       generateReport: (input) => ctx.backend.generateReport(input),
       exportReport: (input) => ctx.backend.exportReport(input),
       getKpis: (query) => ctx.backend.getKpis(query),

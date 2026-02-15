@@ -16,10 +16,16 @@ import type {
   IpcResult,
   KpiQueryDTO,
   KpiResultDTO,
+  MlAnomalyListResultDTO,
+  MlAnomalyQueryInputDTO,
+  MlDetectAnomaliesInputDTO,
+  MlDetectAnomaliesResultDTO,
   MlForecastQueryInputDTO,
   MlForecastResultDTO,
   MlRunBaselineInputDTO,
   MlRunBaselineResultDTO,
+  MlTrendQueryInputDTO,
+  MlTrendResultDTO,
   ProfileListResultDTO,
   ProfileCreateInputDTO,
   ProfileSetActiveInputDTO,
@@ -178,6 +184,24 @@ export async function runMlBaseline(input: MlRunBaselineInputDTO): Promise<MlRun
 export async function fetchMlForecast(input: MlForecastQueryInputDTO): Promise<MlForecastResultDTO> {
   const api = ensureElectronApi();
   const result = await api.mlGetForecast(input);
+  return unwrapResult(result);
+}
+
+export async function detectMlAnomalies(input: MlDetectAnomaliesInputDTO): Promise<MlDetectAnomaliesResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.mlDetectAnomalies(input);
+  return unwrapResult(result);
+}
+
+export async function fetchMlAnomalies(input: MlAnomalyQueryInputDTO): Promise<MlAnomalyListResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.mlGetAnomalies(input);
+  return unwrapResult(result);
+}
+
+export async function fetchMlTrend(input: MlTrendQueryInputDTO): Promise<MlTrendResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.mlGetTrend(input);
   return unwrapResult(result);
 }
 

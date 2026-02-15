@@ -9,12 +9,14 @@
 - Faza 6: **DONE** (bazowy framework ML + backtesting + quality gate + predictions).
 - Faza 7: **DONE** (dashboard KPI + wykres forecast overlay + raporty + eksport lokalny).
 - Faza 8: **DONE** (profile manager + osobne DB per profil + auth/connect/disconnect/status + settings per profil).
+- Faza 9: **DONE** (CSV import + mapowanie kolumn + FTS5 search + automatyczny pipeline post-import).
+- Faza 10: **DONE** (anomaly detection Z-score/IQR + trend decomposition + CUSUM + UI overlay/feed).
 - Zaimplementowany runner: `packages/data-pipeline/src/pipeline-runner.ts`.
 - Zaimplementowany orchestrator: `packages/sync/src/sync-orchestrator.ts`.
 - Zaimplementowany baseline ML: `packages/ml/src/ml-baseline.ts`.
 - Zaimplementowany raport i eksport: `packages/reports/src/report-service.ts`.
 - Zaimplementowany manager profili: `apps/desktop/src/profile-manager.ts`.
-- Zaimplementowane tabele: `stg_channels`, `stg_videos`, `ml_features`, `data_lineage`, `ml_models`, `ml_backtests`, `ml_predictions`.
+- Zaimplementowane tabele: `stg_channels`, `stg_videos`, `ml_features`, `data_lineage`, `ml_models`, `ml_backtests`, `ml_predictions`, `raw_csv_imports`, `dim_content_documents`, `fts_content_documents`, `ml_anomalies`.
 
 ## Pełny pipeline
 

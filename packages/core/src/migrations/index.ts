@@ -4,6 +4,7 @@ import { initialSchemaMigration } from './001-initial-schema.ts';
 import { dataPipelineSchemaMigration } from './002-data-pipeline-schema.ts';
 import { mlFrameworkSchemaMigration } from './003-ml-framework-schema.ts';
 import { importSearchSchemaMigration } from './004-import-search-schema.ts';
+import { mlAnomalyTrendSchemaMigration } from './005-ml-anomaly-trend-schema.ts';
 import type { MigrationDefinition } from './types.ts';
 
 export type { MigrationDefinition } from './types.ts';
@@ -18,6 +19,7 @@ export const MIGRATIONS: ReadonlyArray<MigrationDefinition> = [
   dataPipelineSchemaMigration,
   mlFrameworkSchemaMigration,
   importSearchSchemaMigration,
+  mlAnomalyTrendSchemaMigration,
 ];
 
 function toError(cause: unknown): Error {

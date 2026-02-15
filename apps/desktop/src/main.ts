@@ -13,7 +13,7 @@
   type SettingsQueries,
 } from '@moze/core';
 import { runDataPipeline } from '@moze/data-pipeline';
-import { getLatestMlForecast, runMlBaseline } from '@moze/ml';
+import { getLatestMlForecast, getMlAnomalies, getMlTrend, runAnomalyTrendAnalysis, runMlBaseline } from '@moze/ml';
 import { exportDashboardReport, generateDashboardReport } from '@moze/reports';
 import {
   createCachedDataProvider,
@@ -44,10 +44,16 @@ import {
   type CsvImportRunResultDTO,
   type KpiQueryDTO,
   type KpiResultDTO,
+  type MlAnomalyListResultDTO,
+  type MlAnomalyQueryInputDTO,
+  type MlDetectAnomaliesInputDTO,
+  type MlDetectAnomaliesResultDTO,
   type MlForecastQueryInputDTO,
   type MlForecastResultDTO,
   type MlRunBaselineInputDTO,
   type MlRunBaselineResultDTO,
+  type MlTrendQueryInputDTO,
+  type MlTrendResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResultDTO,
   type ProfileSetActiveInputDTO,
@@ -889,6 +895,53 @@ function getMlForecastCommand(input: MlForecastQueryInputDTO): Result<MlForecast
   });
 }
 
+function detectMlAnomaliesCommand(input: MlDetectAnomaliesInputDTO): Result<MlDetectAnomaliesResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runAnomalyTrendAnalysis({
+    db,
+    channelId: input.channelId,
+    targetMetric: input.targetMetric,
+    dateFrom: input.dateFrom ?? null,
+    dateTo: input.dateTo ?? null,
+  });
+}
+
+function getMlAnomaliesCommand(input: MlAnomalyQueryInputDTO): Result<MlAnomalyListResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return getMlAnomalies({
+    db,
+    channelId: input.channelId,
+    targetMetric: input.targetMetric,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    severities: input.severities,
+  });
+}
+
+function getMlTrendCommand(input: MlTrendQueryInputDTO): Result<MlTrendResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return getMlTrend({
+    db,
+    channelId: input.channelId,
+    targetMetric: input.targetMetric,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    seasonalityPeriodDays: input.seasonalityPeriodDays,
+  });
+}
+
 function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGenerateResultDTO, AppError> {
   const db = backendState.connection?.db;
   if (!db) {
@@ -943,6 +996,9 @@ const ipcBackend: DesktopIpcBackend = {
   resumeSync: (input) => resumeSync(input),
   runMlBaseline: (input) => runMlBaselineCommand(input),
   getMlForecast: (input) => getMlForecastCommand(input),
+  detectMlAnomalies: (input) => detectMlAnomaliesCommand(input),
+  getMlAnomalies: (input) => getMlAnomaliesCommand(input),
+  getMlTrend: (input) => getMlTrendCommand(input),
   generateReport: (input) => generateReportCommand(input),
   exportReport: (input) => exportReportCommand(input),
   getKpis: (query) => readKpis(query),
