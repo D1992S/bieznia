@@ -17,6 +17,7 @@
 | 8 | Auth + Profile + Settings | DONE |
 | 9 | Import + Enrichment + Search | DONE |
 | 10 | Anomaly Detection + Trend Analysis | DONE |
+| 10.5 | Hardening (spojnosc liczb + regresje + trace + semantic layer) | **NASTEPNA** |
 | 11-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
@@ -84,35 +85,34 @@
   - `pnpm test` PASS (84/84)
   - `pnpm build` PASS
 
-## Co robic teraz - Faza 11: LLM Assistant
+## Co robic teraz - Faza 10.5: Hardening
 
-**Cel:** odpowiedzi asystenta AI oparte na danych z DB i evidence, bez halucynacji.
+**Cel:** ustabilizowac liczby i debugowalnosc analityki przed startem asystenta LLM.
 
 **Zakres:**
-1. Orkiestrator LLM:
-   - planner -> executor -> summarizer,
-   - output JSON: `answer`, `evidence[]`, `confidence`, `follow_up_questions[]`.
-2. Provider registry:
-   - OpenAI, Anthropic, Ollama/local + LocalStub fallback.
-3. Persist historii:
-   - tabele rozmow i wiadomosci w SQLite,
-   - przypiecie evidence do odpowiedzi.
-4. IPC + desktop:
-   - komendy chatowe i pobieranie historii rozmow.
-5. UI:
-   - zakladka asystenta,
-   - czat + historia + widok evidence.
-6. Testy:
-   - pytanie o wyniki miesiaca zwraca liczby z DB,
-   - LocalStub dziala bez zewnetrznego API,
-   - evidence wskazuje konkretne rekordy.
+1. Golden DB:
+   - `fixtures/insight_golden.db` (3 kanaly, ~20 filmow, 90 dni + edge-case).
+2. Snapshot tests analityki:
+   - minimum 20 contract queries,
+   - komendy: `pnpm test:snapshots` oraz `pnpm test:snapshots:update`.
+3. Trace ID + lineage (MVP):
+   - `trace_id` dla kluczowych operacji,
+   - log operacji, parametrow, czasu i liczby rekordow,
+   - lineage: tabela, klucze glowne, zakres czasu, filtry.
+4. Semantic Layer (step 1):
+   - katalog 15-25 metryk + wspolny interfejs,
+   - migracja starego kodu tylko dla krytycznych ekranow.
+5. ADR mini + scope freeze:
+   - `docs/adr/000-template.md`,
+   - min. 2 ADR (evidence/lineage + model metryk),
+   - 10-min scope freeze "robimy / nie robimy" przed faza.
 
-**Definition of Done (Faza 11):**
-- [ ] Asystent odpowiada na pytania na podstawie danych z bazy.
-- [ ] Kazda odpowiedz ma evidence (linki/odwolania do danych).
-- [ ] LocalStub mode dziala offline.
-- [ ] IPC i UI dla asystenta dzialaja stabilnie.
-- [ ] Testy fazy przechodza.
+**Definition of Done (Faza 10.5):**
+- [ ] Snapshot tests przechodza local/CI i lapia regresje liczb.
+- [ ] `trace_id` jest generowany i zapisany dla kluczowych operacji analitycznych.
+- [ ] Semantic Layer ma 15-25 metryk i jest podpiety pod min. 2 krytyczne miejsca UI.
+- [ ] Jest template ADR i min. 2 ADR w repo.
+- [ ] Przygotowana gotowosc do Fazy 11 Lite (evidence-first, liczby z DB).
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
 - [ ] Wpis w `CHANGELOG_AI.md`.
 - [ ] Aktualizacja `README.md` i `NEXT_STEP.md`.
@@ -127,6 +127,7 @@
 6. Przeczytaj `AGENTS.md` przed rozpoczeciem pracy.
 7. Na koniec sesji: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 8. Na koniec sesji: wpis w `CHANGELOG_AI.md` + aktualizacja tego pliku.
+9. Przed startem kazdej fazy: mini ADR + 10-min scope freeze ("robimy / nie robimy").
 
 ## Pelna mapa faz
 
@@ -145,8 +146,9 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
 | 8 | Auth + Profile + Settings | M4 |
 | 9 | Import + Enrichment + Search | M4 |
 | 10 | Anomaly Detection + Trend Analysis | M5 |
-| 11 | LLM Assistant | M5 |
-| 12 | LLM Guardrails + Cost Control | M5 |
+| 10.5 | Hardening (spojnosc liczb + regresje + trace) | M5 |
+| 11 | LLM Assistant (Lite) | M5 |
+| 12 | Performance i stabilnosc (cache + inkrementalnosc) | M5 |
 | 13 | Quality Scoring | M5 |
 | 14 | Competitor Intelligence | M5 |
 | 15 | Topic Intelligence | M5 |
