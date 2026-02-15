@@ -378,7 +378,7 @@ export function App() {
     >
       <style>{STUDIO_CSS}</style>
       <header style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ marginBottom: 6, color: STUDIO_THEME.text }}>Mozetobedzieto - Dashboard</h1>
+        <h1 style={{ marginBottom: 6, color: STUDIO_THEME.text }}>Mozetobedzieto - Panel</h1>
         <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
           Status DB: {appStatus.dbReady ? 'Gotowa' : 'Niegotowa'} | Profil: {appStatus.profileId ?? 'Brak'} | Sync: {syncRunning ? 'w trakcie' : 'bez aktywnego procesu'}
         </p>
