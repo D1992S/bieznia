@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type {
   DataMode,
   MlForecastPointDTO,
@@ -54,10 +54,70 @@ interface KpiCardData {
   tone: 'primary' | 'accent' | 'neutral';
 }
 
-const CHART_WIDTH = 980;
-const CHART_HEIGHT = 320;
-const CHART_PADDING = 34;
+type AppTab = 'stats' | 'reports' | 'settings';
+
 const ALL_DATA_MODES: DataMode[] = ['fake', 'real', 'record'];
+const STUDIO_THEME = {
+  bg: '#0c0d10',
+  panel: '#191b20',
+  panelElevated: '#1f232b',
+  border: '#2a2f37',
+  text: '#f8fafc',
+  title: '#b4bac3',
+  muted: '#8c949f',
+  accent: '#96c5ff',
+  forecast: '#cfadff',
+  success: '#1dbf73',
+  warning: '#ffbf75',
+  danger: '#ff7d9f',
+};
+
+const STUDIO_CSS = `
+.studio-app button {
+  border-radius: 8px;
+  border: 1px solid #3a4452;
+  background: #222830;
+  color: #f8fafc;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+}
+
+.studio-app button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.studio-app input,
+.studio-app select,
+.studio-app textarea {
+  border: 1px solid #3a4452;
+  background: #11151b;
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+}
+
+.studio-app section,
+.studio-app details {
+  background: #191b20 !important;
+  border: 1px solid #2a2f37 !important;
+  border-radius: 16px !important;
+}
+
+.studio-app table {
+  color: #f8fafc;
+}
+
+.studio-app th,
+.studio-app td {
+  border-color: #2a2f37 !important;
+}
+`;
+
+const StudioForecastChart = lazy(async () => {
+  const module = await import('./components/studio-forecast-chart.tsx');
+  return { default: module.StudioForecastChart };
+});
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('pl-PL').format(Math.round(value));
@@ -67,19 +127,19 @@ function formatPercent(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
 }
 
-function deltaLabel(value: number): string {
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${formatNumber(value)}`;
+function formatCompactNumber(value: number): string {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1).replace('.', ',')} mln`;
+  }
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1).replace('.', ',')} tys.`;
+  }
+  return formatNumber(value);
 }
 
-function trendSymbol(value: number): string {
-  if (value > 0) {
-    return '^';
-  }
-  if (value < 0) {
-    return 'v';
-  }
-  return '-';
+function formatDateTick(dateIso: string): string {
+  const parsed = new Date(`${dateIso}T00:00:00`);
+  return parsed.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' });
 }
 
 function readMutationErrorMessage(error: unknown, fallback: string): string {
@@ -140,150 +200,10 @@ function mergeSeriesWithForecast(
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function buildLinePath(
-  points: ChartPoint[],
-  picker: (point: ChartPoint) => number | null,
-  valueToY: (value: number) => number,
-  xForIndex: (index: number) => number,
-): string {
-  const filtered = points
-    .map((point, index) => ({ x: xForIndex(index), y: picker(point) }))
-    .filter((point): point is { x: number; y: number } => point.y !== null);
-
-  if (filtered.length === 0) {
-    return '';
-  }
-
-  return filtered
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${valueToY(point.y)}`)
-    .join(' ');
-}
-
-function buildBandPolygon(
-  points: ChartPoint[],
-  valueToY: (value: number) => number,
-  xForIndex: (index: number) => number,
-): string {
-  const forecast = points
-    .map((point, index) => ({
-      x: xForIndex(index),
-      p10: point.p10,
-      p90: point.p90,
-    }))
-    .filter((point): point is { x: number; p10: number; p90: number } => point.p10 !== null && point.p90 !== null);
-
-  if (forecast.length < 2) {
-    return '';
-  }
-
-  const upper = forecast.map((point) => `${point.x},${valueToY(point.p90)}`);
-  const lower = [...forecast].reverse().map((point) => `${point.x},${valueToY(point.p10)}`);
-  return [...upper, ...lower].join(' ');
-}
-
-function ForecastChart(props: {
-  points: ChartPoint[];
-  metricLabel: string;
-}) {
-  const values = props.points.flatMap((point) => [
-    point.actual,
-    point.p10,
-    point.p50,
-    point.p90,
-  ]).filter((value): value is number => value !== null);
-
-  if (props.points.length === 0 || values.length === 0) {
-    return <p>Brak danych wykresu dla wybranego zakresu.</p>;
-  }
-
-  const minimum = Math.min(...values);
-  const maximum = Math.max(...values);
-  const minValue = Math.max(0, minimum * 0.9);
-  const maxValue = maximum === minimum ? maximum + 1 : maximum * 1.1;
-  const valueSpan = maxValue - minValue;
-  const plotWidth = CHART_WIDTH - CHART_PADDING * 2;
-  const plotHeight = CHART_HEIGHT - CHART_PADDING * 2;
-
-  const xForIndex = (index: number): number => {
-    if (props.points.length <= 1) {
-      return CHART_PADDING + plotWidth / 2;
-    }
-    return CHART_PADDING + (plotWidth * index) / (props.points.length - 1);
-  };
-
-  const valueToY = (value: number): number => {
-    return CHART_PADDING + plotHeight - ((value - minValue) / valueSpan) * plotHeight;
-  };
-
-  const actualPath = buildLinePath(props.points, (point) => point.actual, valueToY, xForIndex);
-  const forecastPath = buildLinePath(props.points, (point) => point.p50, valueToY, xForIndex);
-  const bandPolygon = buildBandPolygon(props.points, valueToY, xForIndex);
-
-  const firstDate = props.points[0]?.date ?? '';
-  const lastDate = props.points[props.points.length - 1]?.date ?? '';
-
-  return (
-    <div style={{ border: '1px solid #d2dae6', borderRadius: 12, background: '#ffffff', padding: 12 }}>
-      <svg
-        viewBox={`0 0 ${String(CHART_WIDTH)} ${String(CHART_HEIGHT)}`}
-        style={{ width: '100%', height: 'auto', display: 'block' }}
-        role="img"
-        aria-label={`Wykres ${props.metricLabel} z prognozą`}
-      >
-        <rect x={0} y={0} width={CHART_WIDTH} height={CHART_HEIGHT} fill="#f8fbff" />
-        <line
-          x1={CHART_PADDING}
-          y1={CHART_HEIGHT - CHART_PADDING}
-          x2={CHART_WIDTH - CHART_PADDING}
-          y2={CHART_HEIGHT - CHART_PADDING}
-          stroke="#c8d2df"
-          strokeWidth={1}
-        />
-        <line
-          x1={CHART_PADDING}
-          y1={CHART_PADDING}
-          x2={CHART_PADDING}
-          y2={CHART_HEIGHT - CHART_PADDING}
-          stroke="#c8d2df"
-          strokeWidth={1}
-        />
-        {bandPolygon && (
-          <polygon
-            points={bandPolygon}
-            fill="rgba(255, 122, 89, 0.18)"
-            stroke="rgba(255, 122, 89, 0.35)"
-            strokeWidth={1}
-          />
-        )}
-        {actualPath && (
-          <path d={actualPath} fill="none" stroke="#0e7490" strokeWidth={2.5} />
-        )}
-        {forecastPath && (
-          <path d={forecastPath} fill="none" stroke="#ef4444" strokeWidth={2} strokeDasharray="6 4" />
-        )}
-        <text x={CHART_PADDING} y={CHART_PADDING - 10} fontSize={12} fill="#334155">
-          max: {formatNumber(maximum)}
-        </text>
-        <text x={CHART_PADDING} y={CHART_HEIGHT - 10} fontSize={12} fill="#334155">
-          min: {formatNumber(minimum)}
-        </text>
-        <text x={CHART_PADDING} y={CHART_HEIGHT - CHART_PADDING + 20} fontSize={12} fill="#334155">
-          {firstDate}
-        </text>
-        <text x={CHART_WIDTH - CHART_PADDING - 70} y={CHART_HEIGHT - CHART_PADDING + 20} fontSize={12} fill="#334155">
-          {lastDate}
-        </text>
-      </svg>
-      <p style={{ marginTop: 10, marginBottom: 0, color: '#475569', fontSize: 13 }}>
-        Linia niebieska: dane rzeczywiste, linia czerwona: prognoza p50, pas czerwony: przedział p10-p90.
-      </p>
-    </div>
-  );
-}
-
 export function App() {
   const setInitialized = useAppStore((state) => state.setInitialized);
   const isDesktopRuntime = typeof window !== 'undefined' && Boolean(window.electronAPI);
+  const [activeTab, setActiveTab] = useState<AppTab>('stats');
   const [lastProgressEvent, setLastProgressEvent] = useState<SyncProgressEvent | null>(null);
   const [lastCompleteEvent, setLastCompleteEvent] = useState<SyncCompleteEvent | null>(null);
   const [lastErrorEvent, setLastErrorEvent] = useState<SyncErrorEvent | null>(null);
@@ -390,7 +310,7 @@ export function App() {
 
   if (!isDesktopRuntime) {
     return (
-      <main style={{ padding: '2rem', fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif' }}>
+      <main style={{ minHeight: '100vh', padding: '2rem', background: STUDIO_THEME.bg, color: STUDIO_THEME.text, fontFamily: '"Segoe UI", "Trebuchet MS", sans-serif' }}>
         <h1>Mozetobedzieto</h1>
         <p>Uruchomiono sam interfejs web. Dane z backendu IPC są niedostępne.</p>
       </main>
@@ -399,7 +319,7 @@ export function App() {
 
   if (statusQuery.isLoading) {
     return (
-      <main style={{ padding: '2rem', fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif' }}>
+      <main style={{ minHeight: '100vh', padding: '2rem', background: STUDIO_THEME.bg, color: STUDIO_THEME.text, fontFamily: '"Segoe UI", "Trebuchet MS", sans-serif' }}>
         <h1>Mozetobedzieto</h1>
         <p>Odczyt statusu aplikacji...</p>
       </main>
@@ -408,7 +328,7 @@ export function App() {
 
   if (statusQuery.isError || !statusQuery.data) {
     return (
-      <main style={{ padding: '2rem', fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif' }}>
+      <main style={{ minHeight: '100vh', padding: '2rem', background: STUDIO_THEME.bg, color: STUDIO_THEME.text, fontFamily: '"Segoe UI", "Trebuchet MS", sans-serif' }}>
         <h1>Mozetobedzieto</h1>
         <p>Nie udało się odczytać statusu aplikacji.</p>
       </main>
@@ -446,25 +366,56 @@ export function App() {
 
   return (
     <main
+      className="studio-app"
       style={{
         minHeight: '100vh',
         padding: '2rem',
-        background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 45%, #eefcf8 100%)',
-        fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif',
-        color: '#1f2937',
+        background: STUDIO_THEME.bg,
+        fontFamily: '"Segoe UI", "Trebuchet MS", sans-serif',
+        color: STUDIO_THEME.text,
+        colorScheme: 'dark',
       }}
     >
+      <style>{STUDIO_CSS}</style>
       <header style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{ marginBottom: 6 }}>Mozetobedzieto - Dashboard (Faza 8)</h1>
-        <p style={{ marginTop: 0, color: '#475569' }}>
+        <h1 style={{ marginBottom: 6, color: STUDIO_THEME.text }}>Mozetobedzieto - Panel</h1>
+        <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
           Status DB: {appStatus.dbReady ? 'Gotowa' : 'Niegotowa'} | Profil: {appStatus.profileId ?? 'Brak'} | Sync: {syncRunning ? 'w trakcie' : 'bez aktywnego procesu'}
         </p>
-        <p style={{ marginTop: 0, color: '#475569' }}>
+        <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
           Ostatni sync: {appStatus.lastSyncAt ?? 'Brak'}
         </p>
       </header>
 
-      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #d7e2ef', borderRadius: 12, background: '#fff' }}>
+      <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: '1rem' }}>
+        {([
+          { id: 'stats', label: 'Statystyki' },
+          { id: 'reports', label: 'Raporty i eksport' },
+          { id: 'settings', label: 'Ustawienia' },
+        ] as const).map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => {
+              setActiveTab(tab.id);
+            }}
+            style={{
+              borderRadius: 10,
+              border: `1px solid ${activeTab === tab.id ? STUDIO_THEME.accent : STUDIO_THEME.border}`,
+              background: activeTab === tab.id ? 'linear-gradient(145deg, #1e4f73 0%, #19395b 100%)' : STUDIO_THEME.panel,
+              color: activeTab === tab.id ? '#f0f8ff' : STUDIO_THEME.title,
+              padding: '0.58rem 0.9rem',
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      {activeTab === 'settings' && (
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <h2 style={{ marginTop: 0 }}>Profile i konto YouTube</h2>
         {profilesQuery.isLoading && <p>Odczyt profili...</p>}
         {profilesQuery.isError && <p>Nie udało się odczytać listy profili.</p>}
@@ -474,10 +425,10 @@ export function App() {
               <div
                 key={profile.id}
                 style={{
-                  border: '1px solid #d7e2ef',
+                  border: `1px solid ${profile.isActive ? STUDIO_THEME.accent : STUDIO_THEME.border}`,
                   borderRadius: 10,
                   padding: '0.6rem',
-                  background: profile.isActive ? '#ecfeff' : '#ffffff',
+                  background: profile.isActive ? '#1f2f46' : STUDIO_THEME.panelElevated,
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
@@ -502,7 +453,7 @@ export function App() {
           </div>
         )}
         {profileSwitchBlocked && (
-          <p style={{ marginTop: 0, color: '#b45309' }}>
+          <p style={{ marginTop: 0, color: STUDIO_THEME.warning }}>
             Przełączanie aktywnego profilu jest chwilowo zablokowane podczas trwającego syncu.
           </p>
         )}
@@ -618,8 +569,10 @@ export function App() {
         {connectAuthMutation.isError && <p>Nie udało się podłączyć konta.</p>}
         {disconnectAuthMutation.isError && <p>Nie udało się rozłączyć konta.</p>}
       </section>
+      )}
 
-      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #d7e2ef', borderRadius: 12, background: '#fff' }}>
+      {activeTab === 'settings' && (
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <h2 style={{ marginTop: 0 }}>Ustawienia profilu</h2>
         {settingsQuery.isLoading && <p>Odczyt ustawień profilu...</p>}
         {settingsQuery.isError && <p>Nie udało się odczytać ustawień profilu.</p>}
@@ -661,8 +614,8 @@ export function App() {
                   disabled={updateSettingsMutation.isPending}
                   style={{
                     borderRadius: 8,
-                    border: settingsQuery.data.defaultDatePreset === preset ? '2px solid #0f766e' : '1px solid #cbd5e1',
-                    background: settingsQuery.data.defaultDatePreset === preset ? '#e6fffa' : '#ffffff',
+                    border: settingsQuery.data.defaultDatePreset === preset ? `2px solid ${STUDIO_THEME.accent}` : `1px solid ${STUDIO_THEME.border}`,
+                    background: settingsQuery.data.defaultDatePreset === preset ? '#1f2f46' : STUDIO_THEME.panelElevated,
                   }}
                 >
                   Domyślny zakres: {preset}
@@ -715,8 +668,10 @@ export function App() {
         )}
         {updateSettingsMutation.isError && <p>Nie udało się zapisać ustawień profilu.</p>}
       </section>
+      )}
 
-      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #d7e2ef', borderRadius: 12, background: '#fff' }}>
+      {activeTab === 'stats' && (
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <h2 style={{ marginTop: 0 }}>Zakres dat</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
           {(['7d', '30d', '90d', 'custom'] as const).map((preset) => (
@@ -728,9 +683,9 @@ export function App() {
               }}
               style={{
                 borderRadius: 8,
-                border: datePreset === preset ? '2px solid #0f766e' : '1px solid #cbd5e1',
-                background: datePreset === preset ? '#e6fffa' : '#ffffff',
-                color: '#0f172a',
+                border: datePreset === preset ? `2px solid ${STUDIO_THEME.accent}` : `1px solid ${STUDIO_THEME.border}`,
+                background: datePreset === preset ? '#1f2f46' : STUDIO_THEME.panelElevated,
+                color: STUDIO_THEME.text,
                 padding: '0.45rem 0.75rem',
                 cursor: 'pointer',
               }}
@@ -765,59 +720,111 @@ export function App() {
             </label>
           </div>
         )}
-        <p style={{ marginTop: 10, color: validRange ? '#0f766e' : '#b91c1c' }}>
+        <p style={{ marginTop: 10, color: validRange ? STUDIO_THEME.success : STUDIO_THEME.danger }}>
           Aktywny zakres: {dateRange.dateFrom} - {dateRange.dateTo} {validRange ? '' : '(niepoprawny)'}
         </p>
       </section>
+      )}
 
-      <section style={{ marginBottom: '1.5rem' }}>
-        <h2>KPI</h2>
-        {kpisQuery.isLoading && <p>Liczenie KPI...</p>}
-        {kpisQuery.isError && <p>Nie udało się pobrać KPI dla wybranego zakresu.</p>}
+      {activeTab === 'stats' && (
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
+        <h2 style={{ marginTop: 0, marginBottom: 12 }}>Statystyki</h2>
+        {kpisQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Liczenie KPI...</p>}
+        {kpisQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się pobrać KPI dla wybranego zakresu.</p>}
         {kpiCards.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
-            {kpiCards.map((card) => {
-              const background = card.tone === 'primary'
-                ? 'linear-gradient(160deg, #dff6ff 0%, #f4fbff 100%)'
-                : card.tone === 'accent'
-                  ? 'linear-gradient(160deg, #ebfff7 0%, #f8fffc 100%)'
-                  : 'linear-gradient(160deg, #f5f7fa 0%, #ffffff 100%)';
-              return (
-                <article
-                  key={card.label}
-                  style={{
-                    border: '1px solid #d2dae6',
-                    borderRadius: 12,
-                    padding: 12,
-                    background,
-                  }}
-                >
-                  <p style={{ margin: 0, color: '#475569', fontSize: 13 }}>{card.label}</p>
-                  <p style={{ margin: '6px 0', fontSize: 24, fontWeight: 700 }}>{formatNumber(card.value)}</p>
-                  <p style={{ margin: 0, color: card.delta > 0 ? '#0f766e' : card.delta < 0 ? '#b91c1c' : '#64748b' }}>
-                    {trendSymbol(card.delta)} {deltaLabel(card.delta)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 14 }}>
+            {kpiCards.map((card) => (
+              <article
+                key={card.label}
+                style={{
+                  background: STUDIO_THEME.panelElevated,
+                  border: `1px solid ${STUDIO_THEME.border}`,
+                  borderRadius: 16,
+                  padding: 14,
+                }}
+              >
+                <p style={{ margin: 0, color: STUDIO_THEME.title, fontSize: 13 }}>{card.label}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, margin: '10px 0 8px' }}>
+                  <p style={{ margin: 0, fontSize: 29, fontWeight: 700, color: STUDIO_THEME.text }}>
+                    {formatCompactNumber(card.value)}
                   </p>
-                </article>
-              );
-            })}
+                  <span
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 999,
+                      border: `1px solid ${card.delta >= 0 ? STUDIO_THEME.success : STUDIO_THEME.danger}`,
+                      background: card.delta >= 0 ? 'rgba(29, 191, 115, 0.18)' : 'rgba(255, 125, 159, 0.18)',
+                      color: card.delta >= 0 ? STUDIO_THEME.success : STUDIO_THEME.danger,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                    aria-label={card.delta >= 0 ? 'Wzrost' : 'Spadek'}
+                  >
+                    {card.delta >= 0 ? '↑' : '↓'}
+                  </span>
+                </div>
+                <p style={{ margin: 0, color: STUDIO_THEME.muted, fontSize: 13 }}>
+                  {card.delta === 0
+                    ? 'Bez zmian względem typowego poziomu'
+                    : `${card.delta > 0 ? 'O' : 'O'} ${formatCompactNumber(Math.abs(card.delta))} ${card.delta > 0 ? 'więcej' : 'mniej'} niż zwykle`}
+                </p>
+              </article>
+            ))}
           </div>
         )}
+        <div
+          style={{
+            border: `1px solid ${STUDIO_THEME.border}`,
+            borderRadius: 16,
+            background: STUDIO_THEME.panelElevated,
+            padding: 14,
+          }}
+        >
+          <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Szereg czasowy + prognoza ML</h3>
+          <p style={{ marginTop: 6, marginBottom: 10, color: STUDIO_THEME.muted }}>
+            Widok w stylu Studio dla metryki: {mlTargetMetric === 'views' ? 'wyświetlenia' : 'subskrypcje'}
+          </p>
+          {timeseriesQuery.isLoading || mlForecastQuery.isLoading ? <p style={{ color: STUDIO_THEME.muted }}>Ładowanie wykresu...</p> : null}
+          {timeseriesQuery.isError ? <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać szeregu czasowego.</p> : null}
+          {mlForecastQuery.isError ? <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać prognozy ML.</p> : null}
+          {chartPoints.length > 0 && (
+            <Suspense fallback={<p style={{ color: STUDIO_THEME.muted }}>Ładowanie modułu wykresu...</p>}>
+              <StudioForecastChart
+                points={chartPoints}
+                metricLabel={mlTargetMetric === 'views' ? 'wyświetleń' : 'subskrypcji'}
+              />
+            </Suspense>
+          )}
+          {mlForecast && mlForecast.points.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ marginTop: 0, marginBottom: 8, color: STUDIO_THEME.title }}>Następne predykcje (p50)</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
+                {mlForecast.points.slice(0, 8).map((point) => (
+                  <div
+                    key={`pred-${point.date}`}
+                    style={{
+                      border: `1px solid ${STUDIO_THEME.border}`,
+                      borderRadius: 12,
+                      padding: '0.55rem',
+                      background: STUDIO_THEME.panel,
+                    }}
+                  >
+                    <p style={{ margin: 0, color: STUDIO_THEME.muted }}>{formatDateTick(point.date)}</p>
+                    <p style={{ margin: '4px 0 0', fontWeight: 700, color: STUDIO_THEME.text }}>{formatNumber(point.p50)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </section>
+      )}
 
-      <section style={{ marginBottom: '1.5rem' }}>
-        <h2>Szereg czasowy + prognoza ML</h2>
-        {timeseriesQuery.isLoading || mlForecastQuery.isLoading ? <p>Ładowanie wykresu...</p> : null}
-        {timeseriesQuery.isError ? <p>Nie udało się odczytać szeregu czasowego.</p> : null}
-        {mlForecastQuery.isError ? <p>Nie udało się odczytać prognozy ML.</p> : null}
-        {chartPoints.length > 0 && (
-          <ForecastChart
-            points={chartPoints}
-            metricLabel={mlTargetMetric === 'views' ? 'wyświetleń' : 'subskrypcji'}
-          />
-        )}
-      </section>
-
-      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid #d7e2ef', borderRadius: 12, background: '#fff' }}>
+      {activeTab === 'reports' && (
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <h2 style={{ marginTop: 0 }}>Raport i eksport</h2>
         <button
           type="button"
@@ -878,19 +885,19 @@ export function App() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ borderBottom: '1px solid #d7e2ef', textAlign: 'left', padding: '0.4rem' }}>Tytuł</th>
-                    <th style={{ borderBottom: '1px solid #d7e2ef', textAlign: 'right', padding: '0.4rem' }}>Wyświetlenia</th>
-                    <th style={{ borderBottom: '1px solid #d7e2ef', textAlign: 'right', padding: '0.4rem' }}>Polubienia</th>
-                    <th style={{ borderBottom: '1px solid #d7e2ef', textAlign: 'right', padding: '0.4rem' }}>Komentarze</th>
+                    <th style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'left', padding: '0.4rem' }}>Tytuł</th>
+                    <th style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'right', padding: '0.4rem' }}>Wyświetlenia</th>
+                    <th style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'right', padding: '0.4rem' }}>Polubienia</th>
+                    <th style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'right', padding: '0.4rem' }}>Komentarze</th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.topVideos.map((video) => (
                     <tr key={video.videoId}>
-                      <td style={{ borderBottom: '1px solid #eef2f7', padding: '0.4rem' }}>{video.title}</td>
-                      <td style={{ borderBottom: '1px solid #eef2f7', textAlign: 'right', padding: '0.4rem' }}>{formatNumber(video.viewCount)}</td>
-                      <td style={{ borderBottom: '1px solid #eef2f7', textAlign: 'right', padding: '0.4rem' }}>{formatNumber(video.likeCount)}</td>
-                      <td style={{ borderBottom: '1px solid #eef2f7', textAlign: 'right', padding: '0.4rem' }}>{formatNumber(video.commentCount)}</td>
+                      <td style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, padding: '0.4rem' }}>{video.title}</td>
+                      <td style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'right', padding: '0.4rem' }}>{formatNumber(video.viewCount)}</td>
+                      <td style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'right', padding: '0.4rem' }}>{formatNumber(video.likeCount)}</td>
+                      <td style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'right', padding: '0.4rem' }}>{formatNumber(video.commentCount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -899,8 +906,10 @@ export function App() {
           </>
         )}
       </section>
+      )}
 
-      <details style={{ padding: '1rem', border: '1px solid #d7e2ef', borderRadius: 12, background: '#ffffff' }}>
+      {activeTab === 'settings' && (
+      <details style={{ padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Narzędzia techniczne (Faza 3/5/6)</summary>
 
         <div style={{ marginTop: 12 }}>
@@ -986,7 +995,7 @@ export function App() {
           {modeStatus && (
             <>
               <p>Aktualny tryb: {modeStatus.mode}</p>
-              <p style={{ marginTop: 0, color: '#475569' }}>
+              <p style={{ marginTop: 0, color: STUDIO_THEME.muted }}>
                 Dostępne tryby: {modeStatus.availableModes.map((mode) => dataModeLabel(mode)).join(', ')}
               </p>
               {ALL_DATA_MODES.map((mode) => (
@@ -1029,8 +1038,9 @@ export function App() {
           )}
         </div>
       </details>
+      )}
 
-      <footer style={{ marginTop: '1.5rem', color: '#64748b' }}>
+      <footer style={{ marginTop: '1.5rem', color: STUDIO_THEME.title }}>
         {channelInfoQuery.data
           ? `Kanał: ${channelInfoQuery.data.name} | Subskrypcje: ${formatNumber(channelInfoQuery.data.subscriberCount)} | Filmy: ${formatNumber(channelInfoQuery.data.videoCount)} | ER: ${kpis ? formatPercent(kpis.engagementRate) : 'brak danych'}`
           : 'Kanał testowy nie został jeszcze zsynchronizowany.'}
@@ -1038,4 +1048,6 @@ export function App() {
     </main>
   );
 }
+
+
 

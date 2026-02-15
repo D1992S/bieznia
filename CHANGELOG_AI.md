@@ -799,3 +799,47 @@ Dziennik zmian wykonywanych przez modele AI.
   - `corepack pnpm build` - PASS.
 - Nastepny krok:
   - Wykonac runbook w nowej, uproszczonej wersji i podjac decyzje GO/NO-GO przed startem Fazy 9.
+
+## 2026-02-15 (v24)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/ui/src/App.tsx`
+  - `apps/ui/src/components/studio-forecast-chart.tsx`
+  - `apps/ui/package.json`
+  - `packages/core/src/queries/metrics-queries.ts`
+  - `pnpm-lock.yaml`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Przywrocono zakladki dashboardu:
+    - `Statystyki`, `Raporty i eksport`, `Ustawienia`.
+  - W sekcji `Statystyki` wdrozono layout Studio:
+    - kafle KPI,
+    - panel szeregu czasowego + prognoza ML,
+    - lista najblizszych predykcji (p50).
+  - Ujednolicono kolorystyke dark na poziomie calego UI.
+  - Wydzielono wykres Recharts do osobnego komponentu i podlaczono lazy loading:
+    - dynamiczny import przez `React.lazy` + `Suspense`,
+    - osobny chunk `studio-forecast-chart`.
+  - Naprawiono drobny problem lint w `metrics-queries` (warunek `undefined`).
+  - Naprawiono lokalny problem testowy z ABI natywnego modulu:
+    - zatrzymanie procesow `node/electron`,
+    - `pnpm --filter @moze/core rebuild better-sqlite3`.
+- Dlaczego:
+  - Celem bylo utrzymanie uzgodnionego UX (zakladki + podzial sekcji) oraz podniesienie czytelnosci i spojnosc UI.
+  - Dodatkowo celem bylo zmniejszenie rozmiaru startowego bundla przez odroczenie ladowania ciezkiego modulu wykresu.
+- Ryzyko/regresja:
+  - Wykres jest ladowany leniwie; przy slabym IO pojawi sie krotki fallback "Ladowanie modulu wykresu...".
+  - Natywne moduly (`better-sqlite3`) pozostaja wrazliwe na zmiane wersji Node; po zmianie runtime moze byc potrzebny rebuild.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`76/76`).
+  - `pnpm build` - PASS.
+  - Build UI po optymalizacji:
+    - `assets/index-*.js` ~265.75 kB,
+    - `assets/studio-forecast-chart-*.js` ~350.61 kB.
+- Nastepny krok:
+  - Kontynuowac Faze 9 (`Import + Enrichment + Search`) z zachowaniem obecnego podzialu zakladek i stylu dark.

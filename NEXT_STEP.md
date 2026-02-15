@@ -66,6 +66,29 @@
   - `corepack pnpm test` PASS (72/72)
   - `corepack pnpm build` PASS
 
+## Stan techniczny po sesji (2026-02-15)
+
+- Dashboard UI zostal uporzadkowany zgodnie z ustaleniami:
+  - przywrocone zakladki (`Statystyki`, `Raporty i eksport`, `Ustawienia`),
+  - layout Studio osadzony w sekcji `Statystyki` (KPI + szereg czasowy + prognoza ML + predykcje),
+  - globalna kolorystyka dark dla calej aplikacji.
+- Optymalizacja frontendu:
+  - wykres Studio (Recharts) zostal wydzielony do lazy-loaded chunku:
+    - `apps/ui/src/components/studio-forecast-chart.tsx`,
+    - dynamiczny import w `apps/ui/src/App.tsx`.
+  - efekt buildu UI:
+    - chunk glowny: ~265.75 kB,
+    - chunk wykresu: ~350.61 kB,
+    - usuniete ostrzezenie o pojedynczym chunku > 500 kB.
+- W trakcie regresji wykryto i naprawiono lokalny problem ABI natywnego modulu:
+  - `better-sqlite3` byl zbudowany pod inna wersje Node (`NODE_MODULE_VERSION 143`),
+  - naprawa: zatrzymanie procesow `node/electron` + `pnpm --filter @moze/core rebuild better-sqlite3`.
+- Stan checkow po poprawkach:
+  - `pnpm lint` PASS
+  - `pnpm typecheck` PASS
+  - `pnpm test` PASS (76/76)
+  - `pnpm build` PASS
+
 ## Co robic teraz - Faza 9: Import + Enrichment + Search
 
 **Cel:** pozwolic na lokalny import danych CSV i ich natychmiastowe wlaczenie do analityki + dodac pelnotekstowe wyszukiwanie tresci.

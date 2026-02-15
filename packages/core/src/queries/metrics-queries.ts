@@ -12,6 +12,12 @@ interface LatestSnapshotRow {
   videos: number;
 }
 
+interface ChannelSnapshotRow {
+  subscriberCount: number;
+  videoCount: number;
+  viewCount: number;
+}
+
 interface TimeseriesRow {
   pointDate: string;
   value: number;
@@ -129,6 +135,19 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
     `,
   );
 
+  const channelSnapshotStmt = db.prepare<{ channelId: string }, ChannelSnapshotRow>(
+    `
+      SELECT
+        subscriber_count AS subscriberCount,
+        video_count AS videoCount,
+        view_count AS viewCount
+      FROM dim_channel
+      WHERE channel_id = @channelId
+      ORDER BY channel_id ASC
+      LIMIT 1
+    `,
+  );
+
   return {
     getKpis: (query) => {
       const rangeValidation = validateDateRange(query.dateFrom, query.dateTo);
@@ -143,10 +162,29 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
           comments: 0,
         };
 
-        const currentLatest = latestSnapshotStmt.get(query) ?? {
+        const currentLatestRow = latestSnapshotStmt.get(query);
+        const currentLatest = currentLatestRow ?? {
           subscribers: 0,
           videos: 0,
         };
+
+        const channelSnapshot = channelSnapshotStmt.get({ channelId: query.channelId });
+        const shouldUseSnapshotFallback = currentLatestRow === undefined;
+
+        const effectiveSubscribers =
+          currentLatest.subscribers > 0 || !shouldUseSnapshotFallback
+            ? currentLatest.subscribers
+            : (channelSnapshot?.subscriberCount ?? currentLatest.subscribers);
+
+        const effectiveVideos =
+          currentLatest.videos > 0 || !shouldUseSnapshotFallback
+            ? currentLatest.videos
+            : (channelSnapshot?.videoCount ?? currentLatest.videos);
+
+        const effectiveViews =
+          currentTotals.views > 0 || !shouldUseSnapshotFallback
+            ? currentTotals.views
+            : (channelSnapshot?.viewCount ?? currentTotals.views);
 
         const daySpan = inclusiveDaySpan(query.dateFrom, query.dateTo);
         const previousDateTo = shiftDays(query.dateFrom, -1);
@@ -171,18 +209,18 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
           videos: 0,
         };
 
-        const avgViewsPerVideo = currentLatest.videos > 0 ? currentTotals.views / currentLatest.videos : 0;
-        const engagementRate = currentTotals.views > 0
-          ? (currentTotals.likes + currentTotals.comments) / currentTotals.views
+        const avgViewsPerVideo = effectiveVideos > 0 ? effectiveViews / effectiveVideos : 0;
+        const engagementRate = effectiveViews > 0
+          ? (currentTotals.likes + currentTotals.comments) / effectiveViews
           : 0;
 
         return ok({
-          subscribers: currentLatest.subscribers,
-          subscribersDelta: currentLatest.subscribers - previousLatest.subscribers,
-          views: currentTotals.views,
+          subscribers: effectiveSubscribers,
+          subscribersDelta: effectiveSubscribers - previousLatest.subscribers,
+          views: effectiveViews,
           viewsDelta: currentTotals.views - previousTotals.views,
-          videos: currentLatest.videos,
-          videosDelta: currentLatest.videos - previousLatest.videos,
+          videos: effectiveVideos,
+          videosDelta: effectiveVideos - previousLatest.videos,
           avgViewsPerVideo,
           engagementRate,
         });
