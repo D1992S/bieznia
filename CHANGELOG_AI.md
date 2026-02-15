@@ -843,3 +843,72 @@ Dziennik zmian wykonywanych przez modele AI.
     - `assets/studio-forecast-chart-*.js` ~350.61 kB.
 - Nastepny krok:
   - Kontynuowac Faze 9 (`Import + Enrichment + Search`) z zachowaniem obecnego podzialu zakladek i stylu dark.
+
+## 2026-02-15 (v25)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/004-import-search-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/queries/import-search-queries.ts`
+  - `packages/core/src/queries/index.ts`
+  - `packages/core/src/index.ts`
+  - `packages/core/src/import-search.integration.test.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/package.json`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `pnpm-lock.yaml`
+- Co zmieniono:
+  - Domknieto Faze 9 end-to-end:
+    - nowe kontrakty IPC/DTO dla importu CSV i wyszukiwania FTS,
+    - nowe komendy IPC: `import:previewCsv`, `import:runCsv`, `search:content`.
+  - Dodano migracje `004-import-search-schema`:
+    - tabela `raw_csv_imports`,
+    - tabela `dim_content_documents`,
+    - indeks FTS5 `fts_content_documents` + triggery synchronizujace indeks.
+  - Dodano `createImportSearchQueries` w `core`:
+    - parser CSV (delimiter auto/comma/semicolon/tab, quoted values),
+    - podglad CSV + sugerowane mapowanie,
+    - walidacja wiersz/kolumna z raportem problemow,
+    - import danych dziennych do `fact_channel_day`,
+    - zapis dokumentow tresci do indeksu FTS,
+    - wyszukiwanie z `snippet` i rankingiem `bm25`.
+  - W runtime desktop:
+    - podlaczono nowe handlery/bridge preload,
+    - po imporcie automatycznie uruchamiany `runDataPipeline`.
+  - W UI:
+    - dodano zakladke `Import i wyszukiwanie`,
+    - podglad CSV, mapowanie kolumn, import + wynik walidacji,
+    - wyszukiwarka FTS i prezentacja wynikow.
+  - Dodano testy integracyjne fazy:
+    - `packages/core/src/import-search.integration.test.ts`,
+    - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+    - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`.
+- Dlaczego:
+  - Celem bylo zakonczone wdrozenie Fazy 9 (Import + Enrichment + Search) zgodnie z planem i DoD:
+    import CSV musi zasilac analityke, a wyszukiwarka ma dzialac na tytulach/opisach/transkrypcjach.
+- Ryzyko/regresja:
+  - Import oczekuje poprawnego mapowania wymaganych kolumn (`date`, `views`, `subscribers`, `videos`).
+  - Dane tekstowe z importu sa wyswietlane jako zwykly tekst (bez renderowania HTML) dla bezpieczenstwa.
+  - FTS opiera sie na SQLite FTS5; w razie niestandardowego buildu SQLite bez FTS5 funkcja wyszukiwania nie bedzie dostepna.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS (`80/80`)
+  - `pnpm build` - PASS
+- Nastepny krok:
+  - Rozpoczac Faze 10: `Anomaly Detection + Trend Analysis`.

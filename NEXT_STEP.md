@@ -15,120 +15,71 @@
 | 6 | Bazowy ML Framework | DONE |
 | 7 | Dashboard + Raporty + Eksport | DONE |
 | 8 | Auth + Profile + Settings | DONE |
-| 9 | Import + Enrichment + Search | **NASTEPNA** |
+| 9 | Import + Enrichment + Search | DONE |
 | 10-19 | Reszta | Oczekuje |
 
-## Co zostalo zrobione (Faza 8)
+## Co zostalo zrobione (Faza 9)
 
-- Rozszerzono kontrakty IPC i DTO o profile/settings/auth:
-  - `profile:list`, `profile:create`, `profile:setActive`
-  - `settings:get`, `settings:update`
-  - `auth:getStatus`, `auth:connect`, `auth:disconnect`
-- Dodano `packages/core/src/queries/settings-queries.ts`:
-  - odczyt ustawien profilu z `app_meta`
-  - patch update z walidacja przez Zod
-- Dodano `apps/desktop/src/profile-manager.ts`:
-  - registry profili na dysku
-  - oddzielne katalogi i oddzielna DB per profil
-  - auth metadata + szyfrowany sekret auth
-- Podlaczono faze 8 do runtime desktop (`apps/desktop/src/main.ts`):
-  - `safeStorage` adapter
-  - init profile managera przy starcie
-  - automatyczny wybor/sciezka DB aktywnego profilu
-  - przeladowanie backendu po zmianie aktywnego profilu
-  - profile row synchronizowany do DB aktywnego profilu
-- Rozszerzono handlery IPC i preload bridge o nowe komendy fazy 8.
-- Rozszerzono UI (React + TanStack Query):
-  - lista profili + tworzenie + przelaczanie aktywnego profilu
-  - status/connect/disconnect konta YouTube
-  - ustawienia profilu (default channel, preset dat, metryka forecast, auto sync/ML)
-- Dodano testy:
-  - `apps/desktop/src/profile-manager.integration.test.ts`
-  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`
+- Kontrakty `shared` rozszerzono o import/search:
+  - `import:previewCsv`, `import:runCsv`, `search:content`,
+  - DTO + result schemas dla preview/import/search.
+- `core` dostal nowa migracje `004-import-search-schema`:
+  - `raw_csv_imports`,
+  - `dim_content_documents`,
+  - indeks FTS5 `fts_content_documents` + triggery sync.
+- Dodano query service `createImportSearchQueries`:
+  - parser CSV (quoted fields + auto delimiter),
+  - walidacja i mapowanie kolumn z raportem bledow (wiersz/kolumna),
+  - zapis danych dziennych do `fact_channel_day`,
+  - zapis dokumentow tresci do FTS,
+  - wyszukiwanie z `snippet` + `score` (bm25).
+- Desktop runtime i IPC:
+  - nowe handlery i bridge preload dla import/search,
+  - po imporcie CSV automatycznie uruchamiany `runDataPipeline`.
+- UI:
+  - nowa zakladka `Import i wyszukiwanie`,
+  - podglad CSV, mapowanie kolumn, uruchomienie importu,
+  - lista problemow walidacji,
+  - wyszukiwarka FTS z wynikami i snippetami.
+- Testy:
+  - `packages/core/src/import-search.integration.test.ts`,
+  - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`.
 - Regresja:
   - `pnpm lint` PASS
   - `pnpm typecheck` PASS
-  - `pnpm test` PASS (72/72)
+  - `pnpm test` PASS (80/80)
   - `pnpm build` PASS
 
-## Stan techniczny po sesji (2026-02-13)
+## Co robic teraz - Faza 10: Anomaly Detection + Trend Analysis
 
-- Naprawiono uruchamianie pelnej aplikacji desktop w trybie dev:
-  - preload bundlowany jest jako `cjs`, wiec Electron nie rzuca juz bledu:
-    - `Cannot use import statement outside a module`
-  - launcher dev (`scripts/dev-desktop.mjs`) uzywa jednego hosta:
-    - `127.0.0.1:5173` dla UI i `VITE_DEV_SERVER_URL`
-- Rekomendacja runtime:
-  - uzywaj `corepack pnpm ...` (nie globalnego `pnpm`), zeby native moduly (`better-sqlite3`) budowaly sie pod aktywny Node 22 i nie powodowaly ABI mismatch.
-- Stan checkow po poprawkach:
-  - `corepack pnpm lint` PASS
-  - `corepack pnpm typecheck` PASS
-  - `corepack pnpm test` PASS (72/72)
-  - `corepack pnpm build` PASS
-
-## Stan techniczny po sesji (2026-02-15)
-
-- Dashboard UI zostal uporzadkowany zgodnie z ustaleniami:
-  - przywrocone zakladki (`Statystyki`, `Raporty i eksport`, `Ustawienia`),
-  - layout Studio osadzony w sekcji `Statystyki` (KPI + szereg czasowy + prognoza ML + predykcje),
-  - globalna kolorystyka dark dla calej aplikacji.
-- Optymalizacja frontendu:
-  - wykres Studio (Recharts) zostal wydzielony do lazy-loaded chunku:
-    - `apps/ui/src/components/studio-forecast-chart.tsx`,
-    - dynamiczny import w `apps/ui/src/App.tsx`.
-  - efekt buildu UI:
-    - chunk glowny: ~265.75 kB,
-    - chunk wykresu: ~350.61 kB,
-    - usuniete ostrzezenie o pojedynczym chunku > 500 kB.
-- W trakcie regresji wykryto i naprawiono lokalny problem ABI natywnego modulu:
-  - `better-sqlite3` byl zbudowany pod inna wersje Node (`NODE_MODULE_VERSION 143`),
-  - naprawa: zatrzymanie procesow `node/electron` + `pnpm --filter @moze/core rebuild better-sqlite3`.
-- Stan checkow po poprawkach:
-  - `pnpm lint` PASS
-  - `pnpm typecheck` PASS
-  - `pnpm test` PASS (76/76)
-  - `pnpm build` PASS
-
-## Co robic teraz - Faza 9: Import + Enrichment + Search
-
-**Cel:** pozwolic na lokalny import danych CSV i ich natychmiastowe wlaczenie do analityki + dodac pelnotekstowe wyszukiwanie tresci.
+**Cel:** wykrywac automatycznie anomalie i zmiany trendu oraz pokazac je czytelnie w UI.
 
 **Zakres:**
-1. Import CSV:
-   - parser CSV + mapowanie kolumn + preview
-   - walidacja schema/range (Zod) z raportem bledow (wiersz/kolumna)
-   - zapis importu do warstwy RAW/STAGING
-2. Integracja z pipeline:
-   - po poprawnym imporcie uruchomienie `runDataPipeline`
-   - odswiezenie KPI/timeseries/raportow
-3. Search:
-   - SQLite FTS5 (transkrypcje/opisy/tytuly)
-   - query + snippet + ranking
-4. IPC + UI:
-   - nowe komendy import/search po stronie desktop
-   - ekran importu i wyszukiwarki po stronie UI
+1. Anomaly detection:
+   - Z-score + IQR,
+   - severity + confidence,
+   - zapis do tabeli `ml_anomalies`.
+2. Trend analysis:
+   - trend decomposition (trend/seasonality/residual),
+   - change point detection (CUSUM lub rownowazne).
+3. Integracja UI:
+   - oznaczenia anomalii na wykresach,
+   - feed anomalii z filtrowaniem.
+4. IPC + backend:
+   - nowe komendy do pobierania anomalii/trendow.
 5. Testy:
-   - integracje importu (happy path + invalid CSV)
-   - integracje search (relevance + snippet)
+   - planted outliers + planted change points (fixtures),
+   - testy integracyjne query/IPC.
 
-**Definition of Done (Faza 9):**
-- [ ] Import CSV dziala z mapowaniem i walidacja.
-- [ ] Import triggeruje pipeline i dane sa widoczne na dashboardzie.
-- [ ] Search zwraca wynik + snippet + ranking.
-- [ ] Invalid CSV zwraca czytelny blad z numerem wiersza/kolumny.
+**Definition of Done (Faza 10):**
+- [ ] Anomalie sa wykrywane i zapisywane z severity/confidence.
+- [ ] Zmiany trendu sa wykrywane i prezentowane w UI.
+- [ ] UI pokazuje punkty anomalii na szeregu czasowym.
 - [ ] Testy fazy przechodza.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
 - [ ] Wpis w `CHANGELOG_AI.md`.
 - [ ] Aktualizacja `README.md` i `NEXT_STEP.md`.
-
-**Pliki do modyfikacji/stworzenia (start):**
-```
-packages/shared/src/                  - DTO/IPC contracts import/search
-packages/core/src/                    - migracje + query/repository dla import/search
-packages/data-pipeline/src/           - podpiecie import source
-apps/desktop/src/                     - handlery IPC import/search
-apps/ui/src/                          - widok importu + widok search
-```
 
 ## Krytyczne zasady (nie pomijaj)
 

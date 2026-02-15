@@ -432,11 +432,138 @@ export const AuthConnectInputDTOSchema = z.object({
 
 export type AuthConnectInputDTO = z.infer<typeof AuthConnectInputDTOSchema>;
 
+export const CsvDelimiterSchema = z.enum(['auto', 'comma', 'semicolon', 'tab']);
+export type CsvDelimiter = z.infer<typeof CsvDelimiterSchema>;
+
+export const CsvImportColumnMappingDTOSchema = z.object({
+  date: z.string().min(1),
+  views: z.string().min(1),
+  subscribers: z.string().min(1),
+  videos: z.string().min(1),
+  likes: z.string().min(1).optional(),
+  comments: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  transcript: z.string().min(1).optional(),
+  videoId: z.string().min(1).optional(),
+  publishedAt: z.string().min(1).optional(),
+});
+
+export type CsvImportColumnMappingDTO = z.infer<typeof CsvImportColumnMappingDTOSchema>;
+
+export const CsvImportPreviewInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  sourceName: z.string().min(1).max(200).default('manual-csv'),
+  csvText: z.string().min(1),
+  delimiter: CsvDelimiterSchema.default('auto'),
+  hasHeader: z.boolean().default(true),
+  previewRowsLimit: z.number().int().min(1).max(50).default(10),
+});
+
+export type CsvImportPreviewInputDTO = z.infer<typeof CsvImportPreviewInputDTOSchema>;
+
+export const CsvDetectedDelimiterSchema = z.enum(['comma', 'semicolon', 'tab']);
+export type CsvDetectedDelimiter = z.infer<typeof CsvDetectedDelimiterSchema>;
+
+export const CsvImportPreviewRowDTOSchema = z.record(z.string(), z.string());
+export type CsvImportPreviewRowDTO = z.infer<typeof CsvImportPreviewRowDTOSchema>;
+
+export const CsvImportPreviewResultDTOSchema = z.object({
+  channelId: z.string(),
+  sourceName: z.string(),
+  detectedDelimiter: CsvDetectedDelimiterSchema,
+  headers: z.array(z.string()).min(1),
+  rowsTotal: z.number().int().nonnegative(),
+  sampleRows: z.array(CsvImportPreviewRowDTOSchema),
+  suggestedMapping: CsvImportColumnMappingDTOSchema.partial(),
+});
+
+export type CsvImportPreviewResultDTO = z.infer<typeof CsvImportPreviewResultDTOSchema>;
+export const CsvImportPreviewResultSchema = IpcResultSchema(CsvImportPreviewResultDTOSchema);
+export type CsvImportPreviewResult = z.infer<typeof CsvImportPreviewResultSchema>;
+
+export const CsvImportValidationIssueDTOSchema = z.object({
+  rowNumber: z.number().int().positive(),
+  column: z.string().min(1),
+  code: z.string().min(1),
+  message: z.string().min(1),
+  value: z.string().nullable(),
+});
+
+export type CsvImportValidationIssueDTO = z.infer<typeof CsvImportValidationIssueDTOSchema>;
+
+export const CsvImportRunInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  sourceName: z.string().min(1).max(200).default('manual-csv'),
+  csvText: z.string().min(1),
+  delimiter: CsvDelimiterSchema.default('auto'),
+  hasHeader: z.boolean().default(true),
+  mapping: CsvImportColumnMappingDTOSchema,
+});
+
+export type CsvImportRunInputDTO = z.infer<typeof CsvImportRunInputDTOSchema>;
+
+export const CsvImportRunResultDTOSchema = z.object({
+  importId: z.number().int().positive(),
+  channelId: z.string(),
+  sourceName: z.string(),
+  rowsTotal: z.number().int().nonnegative(),
+  rowsValid: z.number().int().nonnegative(),
+  rowsInvalid: z.number().int().nonnegative(),
+  importedDateFrom: z.iso.date().nullable(),
+  importedDateTo: z.iso.date().nullable(),
+  pipelineFeatures: z.number().int().nonnegative(),
+  latestFeatureDate: z.iso.date().nullable(),
+  validationIssues: z.array(CsvImportValidationIssueDTOSchema),
+});
+
+export type CsvImportRunResultDTO = z.infer<typeof CsvImportRunResultDTOSchema>;
+export const CsvImportRunResultSchema = IpcResultSchema(CsvImportRunResultDTOSchema);
+export type CsvImportRunResult = z.infer<typeof CsvImportRunResultSchema>;
+
+export const SearchContentInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  query: z.string().min(2).max(200),
+  limit: z.number().int().min(1).max(100).default(20),
+  offset: z.number().int().min(0).default(0),
+});
+
+export type SearchContentInputDTO = z.infer<typeof SearchContentInputDTOSchema>;
+
+export const SearchContentSourceSchema = z.enum(['title', 'description', 'transcript']);
+export type SearchContentSource = z.infer<typeof SearchContentSourceSchema>;
+
+export const SearchContentItemDTOSchema = z.object({
+  documentId: z.string(),
+  videoId: z.string().nullable(),
+  title: z.string(),
+  publishedAt: z.iso.datetime().nullable(),
+  snippet: z.string(),
+  source: SearchContentSourceSchema,
+  score: z.number(),
+});
+
+export type SearchContentItemDTO = z.infer<typeof SearchContentItemDTOSchema>;
+
+export const SearchContentResultDTOSchema = z.object({
+  channelId: z.string(),
+  query: z.string(),
+  total: z.number().int().nonnegative(),
+  items: z.array(SearchContentItemDTOSchema),
+});
+
+export type SearchContentResultDTO = z.infer<typeof SearchContentResultDTOSchema>;
+export const SearchContentResultSchema = IpcResultSchema(SearchContentResultDTOSchema);
+export type SearchContentResult = z.infer<typeof SearchContentResultSchema>;
+
 export const IPC_CHANNELS = {
   APP_GET_STATUS: 'app:getStatus',
   APP_GET_DATA_MODE: 'app:getDataMode',
   APP_SET_DATA_MODE: 'app:setDataMode',
   APP_PROBE_DATA_MODE: 'app:probeDataMode',
+  IMPORT_CSV_PREVIEW: 'import:previewCsv',
+  IMPORT_CSV_RUN: 'import:runCsv',
+  SEARCH_CONTENT: 'search:content',
   PROFILE_LIST: 'profile:list',
   PROFILE_CREATE: 'profile:create',
   PROFILE_SET_ACTIVE: 'profile:setActive',

@@ -825,16 +825,18 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Pakiet `reports`: generator raportu + eksport JSON/CSV/HTML. ✅ Faza 7
 - [x] App `desktop`: Electron main + preload (security hardened). ✅ Faza 0
 - [x] App `ui`: React + Zustand + TanStack Query skeleton. ✅ Faza 0
-- [x] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries` + rozszerzenia `app:getDataMode`, `app:setDataMode`, `app:probeDataMode`, `profile:list`, `profile:create`, `profile:setActive`, `settings:get`, `settings:update`, `auth:getStatus`, `auth:connect`, `auth:disconnect`, `sync:start`, `sync:resume`, `ml:runBaseline`, `ml:getForecast`, `reports:generate`, `reports:export`. ✅ Faza 2/3/5/6/7/8
+- [x] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries` + rozszerzenia `app:getDataMode`, `app:setDataMode`, `app:probeDataMode`, `profile:list`, `profile:create`, `profile:setActive`, `settings:get`, `settings:update`, `auth:getStatus`, `auth:connect`, `auth:disconnect`, `sync:start`, `sync:resume`, `ml:runBaseline`, `ml:getForecast`, `reports:generate`, `reports:export`, `import:previewCsv`, `import:runCsv`, `search:content`. DONE Faza 2/3/5/6/7/8/9
 - [x] Realistyczne fixture data (90 dni, 50 filmów). ✅ Faza 1
 - [x] Fake mode (runtime toggle + loader fixture). ✅ Faza 3
 - [x] Record mode + replay fixture (real -> fixture -> fake). ✅ Faza 3
 - [x] Pierwszy dashboard na fixture data. ✅ Faza 2/3
 - [x] Multi-profile + settings per profil + auth safeStorage. ✅ Faza 8
 - [x] Dokumenty: `AGENTS.md`, `architecture/overview.md`, `architecture/data-flow.md`. ✅ Faza 0
-- [x] Runbook testów funkcjonalnych Faz 0-8 uproszczony dla początkujących. ✅ Faza 8
+
+- [x] Import CSV + FTS5 search + integracje IPC/UI + testy integracyjne. DONE Faza 9
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---
 
 > Ten dokument jest „żywy": aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
+
