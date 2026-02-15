@@ -160,103 +160,107 @@ function insertSeries(db: ReturnType<typeof createDb>['db'], values: readonly nu
 describe('anomaly + trend integration', () => {
   it('detects planted outliers and persists anomalies in sqlite', () => {
     const connection = createDb();
-    const values: number[] = [];
+    try {
+      const values: number[] = [];
 
-    for (let index = 0; index < 60; index += 1) {
-      const base = 1800 + index * 12;
-      const seasonal = (index % 7) * 35;
-      let value = base + seasonal;
-      if (index === 30) {
-        value *= 4.2;
+      for (let index = 0; index < 60; index += 1) {
+        const base = 1800 + index * 12;
+        const seasonal = (index % 7) * 35;
+        let value = base + seasonal;
+        if (index === 30) {
+          value *= 4.2;
+        }
+        if (index === 45) {
+          value *= 0.18;
+        }
+        values.push(Math.round(value));
       }
-      if (index === 45) {
-        value *= 0.18;
+
+      insertSeries(connection.db, values);
+
+      const runResult = runAnomalyTrendAnalysis({
+        db: connection.db,
+        channelId: CHANNEL_ID,
+        targetMetric: 'views',
+        now: () => new Date('2026-02-15T09:00:00.000Z'),
+      });
+      expect(runResult.ok).toBe(true);
+      if (!runResult.ok) {
+        return;
       }
-      values.push(Math.round(value));
+
+      expect(runResult.value.anomaliesDetected).toBeGreaterThan(0);
+      expect(runResult.value.changePointsDetected).toBeGreaterThan(0);
+
+      const anomaliesResult = getMlAnomalies({
+        db: connection.db,
+        channelId: CHANNEL_ID,
+        targetMetric: 'views',
+        dateFrom: toIsoDateFromOffset(0),
+        dateTo: toIsoDateFromOffset(59),
+      });
+      expect(anomaliesResult.ok).toBe(true);
+      if (!anomaliesResult.ok) {
+        return;
+      }
+
+      const anomalyDates = new Set(anomaliesResult.value.items.map((item) => item.date));
+      expect(anomalyDates.has(toIsoDateFromOffset(30)) || anomalyDates.has(toIsoDateFromOffset(45))).toBe(true);
+      expect(
+        anomaliesResult.value.items.some((item) => item.method === 'consensus' || item.method === 'zscore'),
+      ).toBe(true);
+    } finally {
+      const closeResult = connection.close();
+      expect(closeResult.ok).toBe(true);
     }
-
-    insertSeries(connection.db, values);
-
-    const runResult = runAnomalyTrendAnalysis({
-      db: connection.db,
-      channelId: CHANNEL_ID,
-      targetMetric: 'views',
-      now: () => new Date('2026-02-15T09:00:00.000Z'),
-    });
-    expect(runResult.ok).toBe(true);
-    if (!runResult.ok) {
-      return;
-    }
-
-    expect(runResult.value.anomaliesDetected).toBeGreaterThan(0);
-    expect(runResult.value.changePointsDetected).toBeGreaterThan(0);
-
-    const anomaliesResult = getMlAnomalies({
-      db: connection.db,
-      channelId: CHANNEL_ID,
-      targetMetric: 'views',
-      dateFrom: toIsoDateFromOffset(0),
-      dateTo: toIsoDateFromOffset(59),
-    });
-    expect(anomaliesResult.ok).toBe(true);
-    if (!anomaliesResult.ok) {
-      return;
-    }
-
-    const anomalyDates = new Set(anomaliesResult.value.items.map((item) => item.date));
-    expect(anomalyDates.has(toIsoDateFromOffset(30)) || anomalyDates.has(toIsoDateFromOffset(45))).toBe(true);
-    expect(
-      anomaliesResult.value.items.some((item) => item.method === 'consensus' || item.method === 'zscore'),
-    ).toBe(true);
-
-    const closeResult = connection.close();
-    expect(closeResult.ok).toBe(true);
   });
 
   it('finds planted change point and exposes trend decomposition', () => {
     const connection = createDb();
-    const values: number[] = [];
+    try {
+      const values: number[] = [];
 
-    for (let index = 0; index < 80; index += 1) {
-      const seasonal = ((index % 7) - 3) * 25;
-      let value: number;
-      if (index < 40) {
-        value = 1200 + index * 6 + seasonal;
-      } else {
-        value = 2300 + (index - 40) * 7 + seasonal;
+      for (let index = 0; index < 80; index += 1) {
+        const seasonal = ((index % 7) - 3) * 25;
+        let value: number;
+        if (index < 40) {
+          value = 1200 + index * 6 + seasonal;
+        } else {
+          value = 2300 + (index - 40) * 7 + seasonal;
+        }
+        values.push(Math.round(value));
       }
-      values.push(Math.round(value));
+
+      insertSeries(connection.db, values);
+
+      const trendResult = getMlTrend({
+        db: connection.db,
+        channelId: CHANNEL_ID,
+        targetMetric: 'views',
+        dateFrom: toIsoDateFromOffset(0),
+        dateTo: toIsoDateFromOffset(79),
+        seasonalityPeriodDays: 7,
+      });
+      expect(trendResult.ok).toBe(true);
+      if (!trendResult.ok) {
+        return;
+      }
+
+      expect(trendResult.value.points.length).toBe(80);
+      expect(trendResult.value.changePoints.length).toBeGreaterThan(0);
+
+      const changePointOffsets = trendResult.value.changePoints.map((changePoint) => dayOffsetFromIsoDate(changePoint.date));
+      expect(changePointOffsets.some((offset) => offset >= 36 && offset <= 45)).toBe(true);
+
+      const decompositionSample = trendResult.value.points[20];
+      expect(decompositionSample).toBeDefined();
+      if (decompositionSample) {
+        const reconstructed = decompositionSample.trend + decompositionSample.seasonal + decompositionSample.residual;
+        expect(Math.abs(reconstructed - decompositionSample.value)).toBeLessThan(2);
+      }
+    } finally {
+      const closeResult = connection.close();
+      expect(closeResult.ok).toBe(true);
     }
-
-    insertSeries(connection.db, values);
-
-    const trendResult = getMlTrend({
-      db: connection.db,
-      channelId: CHANNEL_ID,
-      targetMetric: 'views',
-      dateFrom: toIsoDateFromOffset(0),
-      dateTo: toIsoDateFromOffset(79),
-      seasonalityPeriodDays: 7,
-    });
-    expect(trendResult.ok).toBe(true);
-    if (!trendResult.ok) {
-      return;
-    }
-
-    expect(trendResult.value.points.length).toBe(80);
-    expect(trendResult.value.changePoints.length).toBeGreaterThan(0);
-
-    const changePointOffsets = trendResult.value.changePoints.map((changePoint) => dayOffsetFromIsoDate(changePoint.date));
-    expect(changePointOffsets.some((offset) => offset >= 36 && offset <= 45)).toBe(true);
-
-    const decompositionSample = trendResult.value.points[20];
-    expect(decompositionSample).toBeDefined();
-    if (decompositionSample) {
-      const reconstructed = decompositionSample.trend + decompositionSample.seasonal + decompositionSample.residual;
-      expect(Math.abs(reconstructed - decompositionSample.value)).toBeLessThan(2);
-    }
-
-    const closeResult = connection.close();
-    expect(closeResult.ok).toBe(true);
   });
 });

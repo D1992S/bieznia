@@ -64,8 +64,12 @@ interface KpiCardData {
 }
 
 type AppTab = 'stats' | 'reports' | 'settings' | 'import';
+type TrendDirection = 'up' | 'down' | 'flat';
+type ChangePointDirection = 'up' | 'down';
+type AnomalyMethod = 'zscore' | 'iqr' | 'consensus';
 
 const ALL_DATA_MODES: DataMode[] = ['fake', 'real', 'record'];
+const ML_ANOMALY_SEVERITY_VALUES: ReadonlyArray<MlAnomalySeverity> = ['low', 'medium', 'high', 'critical'];
 const STUDIO_THEME = {
   bg: '#0c0d10',
   panel: '#191b20',
@@ -166,6 +170,49 @@ function dataModeLabel(mode: DataMode): string {
       return 'real';
     case 'record':
       return 'record';
+  }
+}
+
+function isMlAnomalySeverity(value: string): value is MlAnomalySeverity {
+  return ML_ANOMALY_SEVERITY_VALUES.some((severity) => severity === value);
+}
+
+function getTrendDirectionLabel(direction: TrendDirection): string {
+  switch (direction) {
+    case 'up':
+      return 'wzrost';
+    case 'down':
+      return 'spadek';
+    case 'flat':
+      return 'brak zmiany';
+  }
+}
+
+function getChangePointDirectionLabel(direction: ChangePointDirection): string {
+  return direction === 'up' ? 'wzrost' : 'spadek';
+}
+
+function getAnomalySeverityLabel(severity: MlAnomalySeverity): string {
+  switch (severity) {
+    case 'critical':
+      return 'krytyczna';
+    case 'high':
+      return 'wysoka';
+    case 'medium':
+      return 'średnia';
+    case 'low':
+      return 'niska';
+  }
+}
+
+function getAnomalyMethodLabel(method: AnomalyMethod): string {
+  switch (method) {
+    case 'consensus':
+      return 'konsensus metod';
+    case 'zscore':
+      return 'metoda z-score';
+    case 'iqr':
+      return 'metoda IQR';
   }
 }
 
@@ -914,27 +961,32 @@ export function App() {
               }}
               disabled={detectMlAnomaliesMutation.isPending || !validRange}
             >
-              Analizuj anomalie i trend
+              Analizuj anomalie i trendy
             </button>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
               Filtr anomalii:
               <select
                 value={anomalySeverityFilter}
                 onChange={(event) => {
-                  setAnomalySeverityFilter(event.target.value as 'all' | MlAnomalySeverity);
+                  const nextValue = event.target.value;
+                  if (nextValue === 'all' || isMlAnomalySeverity(nextValue)) {
+                    setAnomalySeverityFilter(nextValue);
+                    return;
+                  }
+                  setAnomalySeverityFilter('all');
                 }}
               >
                 <option value="all">Wszystkie</option>
                 <option value="critical">Krytyczne</option>
                 <option value="high">Wysokie</option>
-                <option value="medium">Srednie</option>
+                <option value="medium">Średnie</option>
                 <option value="low">Niskie</option>
               </select>
             </label>
           </div>
           {detectMlAnomaliesMutation.isError && (
             <p style={{ color: STUDIO_THEME.danger }}>
-              Nie udalo sie uruchomic analizy anomalii.
+              Nie udało się uruchomić analizy anomalii.
             </p>
           )}
           {detectMlAnomaliesMutation.data && (
@@ -976,14 +1028,14 @@ export function App() {
             >
               <h4 style={{ margin: '0 0 8px 0' }}>Analiza trendu (Faza 10)</h4>
               {mlTrendQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Liczenie trendu...</p>}
-              {mlTrendQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udalo sie odczytac trendu.</p>}
+              {mlTrendQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać trendu.</p>}
               {mlTrendQuery.data && (
                 <>
                   <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
-                    Kierunek: <strong>{mlTrendQuery.data.summary.trendDirection}</strong> | Delta trendu: {formatNumber(mlTrendQuery.data.summary.trendDelta)}
+                    Kierunek: <strong>{getTrendDirectionLabel(mlTrendQuery.data.summary.trendDirection)}</strong> | Delta trendu: {formatNumber(mlTrendQuery.data.summary.trendDelta)}
                   </p>
                   <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
-                    Wykryte change points: {formatNumber(mlTrendQuery.data.changePoints.length)}
+                    Wykryte punkty zmiany: {formatNumber(mlTrendQuery.data.changePoints.length)}
                   </p>
                   <div style={{ display: 'grid', gap: 6 }}>
                     {mlTrendQuery.data.changePoints.slice(0, 6).map((changePoint) => (
@@ -996,7 +1048,7 @@ export function App() {
                           background: STUDIO_THEME.panelElevated,
                         }}
                       >
-                        <strong>{formatDateTick(changePoint.date)}</strong> | {changePoint.direction === 'up' ? 'wzrost' : 'spadek'} | score {changePoint.score.toFixed(2)}
+                        <strong>{formatDateTick(changePoint.date)}</strong> | {getChangePointDirectionLabel(changePoint.direction)} | wynik {changePoint.score.toFixed(2)}
                       </div>
                     ))}
                     {mlTrendQuery.data.changePoints.length === 0 && (
@@ -1015,8 +1067,8 @@ export function App() {
               }}
             >
               <h4 style={{ margin: '0 0 8px 0' }}>Feed anomalii (Faza 10)</h4>
-              {mlAnomaliesQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ladowanie anomalii...</p>}
-              {mlAnomaliesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udalo sie odczytac anomalii.</p>}
+              {mlAnomaliesQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie anomalii...</p>}
+              {mlAnomaliesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać anomalii.</p>}
               {mlAnomaliesQuery.data && (
                 <>
                   <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
@@ -1034,7 +1086,7 @@ export function App() {
                         }}
                       >
                         <p style={{ margin: 0 }}>
-                          <strong>{formatDateTick(anomaly.date)}</strong> | severity: {anomaly.severity} | metoda: {anomaly.method}
+                          <strong>{formatDateTick(anomaly.date)}</strong> | istotność: {getAnomalySeverityLabel(anomaly.severity)} | metoda: {getAnomalyMethodLabel(anomaly.method)}
                         </p>
                         <p style={{ margin: '4px 0 0', color: STUDIO_THEME.muted }}>{anomaly.explanation}</p>
                       </article>
@@ -1372,7 +1424,7 @@ export function App() {
                     <strong>{item.title}</strong> {item.videoId ? <span style={{ color: STUDIO_THEME.muted }}>(ID: {item.videoId})</span> : null}
                   </p>
                   <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
-                    Źródło: {item.source} | Publikacja: {item.publishedAt ?? 'brak'} | Score: {item.score.toFixed(3)}
+                    Źródło: {item.source} | Publikacja: {item.publishedAt ?? 'brak'} | Wynik: {item.score.toFixed(3)}
                   </p>
                   <p style={{ margin: 0 }}>{item.snippet}</p>
                 </article>

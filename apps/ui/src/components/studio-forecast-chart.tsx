@@ -272,7 +272,7 @@ export function StudioForecastChart(props: StudioForecastChartProps) {
         </ResponsiveContainer>
       </div>
       <p style={{ marginTop: 10, marginBottom: 0, color: THEME.muted, fontSize: 13 }}>
-        Linia jasnoniebieska: dane rzeczywiste, linia fioletowa: prognoza p50, kropki: anomalie, trojkaty: change points.
+        Linia jasnoniebieska: dane rzeczywiste, linia fioletowa: prognoza p50, kropki: anomalie, trójkąty: punkty zmian.
       </p>
     </div>
   );
