@@ -169,7 +169,7 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
         };
 
         const channelSnapshot = channelSnapshotStmt.get({ channelId: query.channelId });
-        const shouldUseSnapshotFallback = currentLatestRow !== undefined;
+        const shouldUseSnapshotFallback = currentLatestRow === undefined;
 
         const effectiveSubscribers =
           currentLatest.subscribers > 0 || !shouldUseSnapshotFallback
