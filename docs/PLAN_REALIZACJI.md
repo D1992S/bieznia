@@ -872,8 +872,8 @@ Task jest zamknięty **dopiero** gdy:
 
 - [x] Import CSV + FTS5 search + integracje IPC/UI + testy integracyjne. DONE Faza 9
 - [x] Anomaly detection + trend decomposition + CUSUM + UI feed + overlay + testy integracyjne. DONE Faza 10
-- [ ] Hardening 10.5: golden DB + snapshot tests + trace_id + lineage + Semantic Layer (step 1).
-- [ ] Hardening 10.5: docs/adr/000-template.md + minimum 2 ADR + scope freeze checklist.
+- [x] Hardening 10.5: golden DB + snapshot tests + trace_id + lineage + Semantic Layer (step 1).
+- [x] Hardening 10.5: docs/adr/000-template.md + minimum 2 ADR + scope freeze checklist.
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---

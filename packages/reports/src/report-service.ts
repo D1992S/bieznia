@@ -1,6 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createChannelQueries, createMetricsQueries, type DatabaseConnection } from '@moze/core';
+import {
+  createChannelQueries,
+  createMetricsQueries,
+  createSemanticMetricService,
+  runWithAnalyticsTrace,
+  type DatabaseConnection,
+  type SemanticMetricId,
+} from '@moze/core';
 import {
   AppError,
   MlForecastPointDTOSchema,
@@ -51,12 +58,19 @@ interface DateRangeSummary {
   days: number;
 }
 
+interface ReportSemanticSummary {
+  anomalyCount: number;
+  criticalAnomalyCount: number;
+  maxVideoViews: number;
+}
+
 export interface GenerateDashboardReportInput {
   db: DatabaseConnection['db'];
   channelId: string;
   dateFrom: string;
   dateTo: string;
   targetMetric?: MlTargetMetric;
+  now?: () => Date;
 }
 
 export interface ExportDashboardReportInput {
@@ -67,6 +81,7 @@ export interface ExportDashboardReportInput {
   targetMetric?: MlTargetMetric;
   exportDir?: string | null;
   formats?: Array<'json' | 'csv' | 'html'>;
+  now?: () => Date;
 }
 
 function toError(cause: unknown): Error {
@@ -283,6 +298,7 @@ function buildInsights(input: {
   kpis: ReportGenerateResultDTO['kpis'];
   timeseries: ReportGenerateResultDTO['timeseries'];
   forecast: MlForecastResultDTO;
+  semanticSummary: ReportSemanticSummary;
 }): ReportInsightDTO[] {
   const insights: ReportInsightDTO[] = [];
 
@@ -363,6 +379,31 @@ function buildInsights(input: {
       title: 'Brak aktywnej prognozy',
       description: 'Aby zobaczyć prognozy, uruchom trenowanie ML baseline (Faza 6).',
       severity: 'neutral',
+    });
+  }
+
+  if (input.semanticSummary.criticalAnomalyCount > 0) {
+    insights.push({
+      code: 'INSIGHT_CRITICAL_ANOMALIES',
+      title: 'Wykryto anomalie krytyczne',
+      description: `W zakresie raportu wykryto ${String(input.semanticSummary.criticalAnomalyCount)} anomalii krytycznych.`,
+      severity: 'warning',
+    });
+  } else if (input.semanticSummary.anomalyCount > 0) {
+    insights.push({
+      code: 'INSIGHT_ANOMALIES_PRESENT',
+      title: 'Wykryto anomalie',
+      description: `W zakresie raportu wykryto ${String(input.semanticSummary.anomalyCount)} anomalii.`,
+      severity: 'neutral',
+    });
+  }
+
+  if (input.semanticSummary.maxVideoViews > 0) {
+    insights.push({
+      code: 'INSIGHT_TOP_VIDEO_PEAK',
+      title: 'Mocny wynik top filmu',
+      description: `Najmocniejszy film osiągnął ${formatNumber(input.semanticSummary.maxVideoViews)} wyświetleń.`,
+      severity: 'good',
     });
   }
 
@@ -532,218 +573,319 @@ function sanitizeTimestamp(value: string): string {
 }
 
 export function generateDashboardReport(input: GenerateDashboardReportInput): Result<ReportGenerateResultDTO, AppError> {
-  const parsedInput = ReportGenerateInputDTOSchema.safeParse({
-    channelId: input.channelId,
-    dateFrom: input.dateFrom,
-    dateTo: input.dateTo,
-    targetMetric: input.targetMetric,
-  });
-  if (!parsedInput.success) {
-    return err(
-      AppError.create(
-        'REPORT_INVALID_INPUT',
-        'Parametry raportu sa niepoprawne.',
-        'error',
-        { issues: parsedInput.error.issues },
-      ),
-    );
-  }
+  const now = input.now ?? (() => new Date());
+  const semanticMetrics = createSemanticMetricService(input.db);
 
-  const validatedInput = parsedInput.data;
-  const rangeResult = buildDateRangeSummary(validatedInput.dateFrom, validatedInput.dateTo);
-  if (!rangeResult.ok) {
-    return rangeResult;
-  }
-
-  const channelQueries = createChannelQueries(input.db);
-  const metricsQueries = createMetricsQueries(input.db);
-
-  const channelResult = channelQueries.getChannelInfo({ channelId: validatedInput.channelId });
-  if (!channelResult.ok) {
-    return channelResult;
-  }
-
-  const kpisResult = metricsQueries.getKpis({
-    channelId: validatedInput.channelId,
-    dateFrom: validatedInput.dateFrom,
-    dateTo: validatedInput.dateTo,
-  });
-  if (!kpisResult.ok) {
-    return kpisResult;
-  }
-
-  const timeseriesResult = metricsQueries.getTimeseries({
-    channelId: validatedInput.channelId,
-    metric: validatedInput.targetMetric,
-    dateFrom: validatedInput.dateFrom,
-    dateTo: validatedInput.dateTo,
-    granularity: 'day',
-  });
-  if (!timeseriesResult.ok) {
-    return timeseriesResult;
-  }
-
-  const forecastResult = readActiveForecast(
-    input.db,
-    validatedInput.channelId,
-    validatedInput.targetMetric,
-  );
-  if (!forecastResult.ok) {
-    return forecastResult;
-  }
-
-  const topVideosResult = readTopVideos(input.db, validatedInput.channelId, 10);
-  if (!topVideosResult.ok) {
-    return topVideosResult;
-  }
-
-  const reportPayload: ReportGenerateResultDTO = {
-    generatedAt: new Date().toISOString(),
-    channel: {
-      channelId: channelResult.value.channelId,
-      name: channelResult.value.name,
+  return runWithAnalyticsTrace({
+    db: input.db,
+    operationName: 'reports.generateDashboardReport',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      targetMetric: input.targetMetric,
     },
-    range: rangeResult.value,
-    kpis: kpisResult.value,
-    timeseries: timeseriesResult.value,
-    forecast: forecastResult.value,
-    topVideos: topVideosResult.value,
-    insights: buildInsights({
-      kpis: kpisResult.value,
-      timeseries: timeseriesResult.value,
-      forecast: forecastResult.value,
-    }),
-  };
+    lineage: [
+      {
+        sourceTable: 'dim_channel',
+        primaryKeys: ['channel_id'],
+        filters: { channelId: input.channelId },
+      },
+      {
+        sourceTable: 'fact_channel_day',
+        primaryKeys: ['channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: { channelId: input.channelId },
+      },
+      {
+        sourceTable: 'dim_video',
+        primaryKeys: ['video_id'],
+        filters: { channelId: input.channelId },
+      },
+      {
+        sourceTable: 'ml_models,ml_predictions',
+        primaryKeys: ['id', 'model_id'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: { channelId: input.channelId, targetMetric: input.targetMetric ?? 'views' },
+      },
+      {
+        sourceTable: 'ml_anomalies',
+        primaryKeys: ['id'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: { channelId: input.channelId },
+      },
+    ],
+    estimateRowCount: (value) =>
+      value.timeseries.points.length + value.forecast.points.length + value.topVideos.length + value.insights.length,
+    execute: () => {
+      const parsedInput = ReportGenerateInputDTOSchema.safeParse({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        targetMetric: input.targetMetric,
+      });
+      if (!parsedInput.success) {
+        return err(
+          AppError.create(
+            'REPORT_INVALID_INPUT',
+            'Parametry raportu sa niepoprawne.',
+            'error',
+            { issues: parsedInput.error.issues },
+          ),
+        );
+      }
 
-  const parsedOutput = ReportGenerateResultDTOSchema.safeParse(reportPayload);
-  if (!parsedOutput.success) {
-    return err(
-      AppError.create(
-        'REPORT_INVALID_OUTPUT',
-        'Wygenerowany raport ma niepoprawny format.',
-        'error',
-        { issues: parsedOutput.error.issues },
-      ),
-    );
-  }
+      const validatedInput = parsedInput.data;
+      const rangeResult = buildDateRangeSummary(validatedInput.dateFrom, validatedInput.dateTo);
+      if (!rangeResult.ok) {
+        return rangeResult;
+      }
 
-  return ok(parsedOutput.data);
+      const channelQueries = createChannelQueries(input.db);
+      const metricsQueries = createMetricsQueries(input.db);
+
+      const channelResult = channelQueries.getChannelInfo({ channelId: validatedInput.channelId });
+      if (!channelResult.ok) {
+        return channelResult;
+      }
+
+      const kpisResult = metricsQueries.getKpis({
+        channelId: validatedInput.channelId,
+        dateFrom: validatedInput.dateFrom,
+        dateTo: validatedInput.dateTo,
+      });
+      if (!kpisResult.ok) {
+        return kpisResult;
+      }
+
+      const timeseriesResult = metricsQueries.getTimeseries({
+        channelId: validatedInput.channelId,
+        metric: validatedInput.targetMetric,
+        dateFrom: validatedInput.dateFrom,
+        dateTo: validatedInput.dateTo,
+        granularity: 'day',
+      });
+      if (!timeseriesResult.ok) {
+        return timeseriesResult;
+      }
+
+      const forecastResult = readActiveForecast(
+        input.db,
+        validatedInput.channelId,
+        validatedInput.targetMetric,
+      );
+      if (!forecastResult.ok) {
+        return forecastResult;
+      }
+
+      const topVideosResult = readTopVideos(input.db, validatedInput.channelId, 10);
+      if (!topVideosResult.ok) {
+        return topVideosResult;
+      }
+
+      const semanticMetricIds: readonly SemanticMetricId[] = [
+        'ml.anomalies.count',
+        'ml.anomalies.critical_count',
+        'video.views.max',
+      ];
+      const semanticValuesResult = semanticMetrics.readMetricValues({
+        metricIds: semanticMetricIds,
+        channelId: validatedInput.channelId,
+        dateFrom: validatedInput.dateFrom,
+        dateTo: validatedInput.dateTo,
+      });
+      if (!semanticValuesResult.ok) {
+        return semanticValuesResult;
+      }
+
+      const semanticSummary: ReportSemanticSummary = {
+        anomalyCount: semanticValuesResult.value['ml.anomalies.count'],
+        criticalAnomalyCount: semanticValuesResult.value['ml.anomalies.critical_count'],
+        maxVideoViews: semanticValuesResult.value['video.views.max'],
+      };
+
+      const reportPayload: ReportGenerateResultDTO = {
+        generatedAt: now().toISOString(),
+        channel: {
+          channelId: channelResult.value.channelId,
+          name: channelResult.value.name,
+        },
+        range: rangeResult.value,
+        kpis: kpisResult.value,
+        timeseries: timeseriesResult.value,
+        forecast: forecastResult.value,
+        topVideos: topVideosResult.value,
+        insights: buildInsights({
+          kpis: kpisResult.value,
+          timeseries: timeseriesResult.value,
+          forecast: forecastResult.value,
+          semanticSummary,
+        }),
+      };
+
+      const parsedOutput = ReportGenerateResultDTOSchema.safeParse(reportPayload);
+      if (!parsedOutput.success) {
+        return err(
+          AppError.create(
+            'REPORT_INVALID_OUTPUT',
+            'Wygenerowany raport ma niepoprawny format.',
+            'error',
+            { issues: parsedOutput.error.issues },
+          ),
+        );
+      }
+
+      return ok(parsedOutput.data);
+    },
+  });
 }
 
 export function exportDashboardReport(input: ExportDashboardReportInput): Result<ReportExportResultDTO, AppError> {
-  const parsedInput = ReportExportInputDTOSchema.safeParse({
-    channelId: input.channelId,
-    dateFrom: input.dateFrom,
-    dateTo: input.dateTo,
-    targetMetric: input.targetMetric,
-    exportDir: input.exportDir,
-    formats: input.formats,
-  });
-  if (!parsedInput.success) {
-    return err(
-      AppError.create(
-        'REPORT_EXPORT_INVALID_INPUT',
-        'Parametry eksportu raportu sa niepoprawne.',
-        'error',
-        { issues: parsedInput.error.issues },
-      ),
-    );
-  }
+  const now = input.now ?? (() => new Date());
 
-  const reportResult = generateDashboardReport({
+  return runWithAnalyticsTrace({
     db: input.db,
-    channelId: parsedInput.data.channelId,
-    dateFrom: parsedInput.data.dateFrom,
-    dateTo: parsedInput.data.dateTo,
-    targetMetric: parsedInput.data.targetMetric,
+    operationName: 'reports.exportDashboardReport',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      targetMetric: input.targetMetric,
+      exportDir: input.exportDir ?? null,
+      formats: input.formats ?? null,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_channel_day,dim_channel,dim_video,ml_models,ml_predictions,ml_anomalies',
+        primaryKeys: ['channel_id', 'date', 'id', 'video_id', 'model_id'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: { channelId: input.channelId, targetMetric: input.targetMetric ?? 'views' },
+      },
+    ],
+    estimateRowCount: (value) => value.files.length,
+    execute: () => {
+      const parsedInput = ReportExportInputDTOSchema.safeParse({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        targetMetric: input.targetMetric,
+        exportDir: input.exportDir,
+        formats: input.formats,
+      });
+      if (!parsedInput.success) {
+        return err(
+          AppError.create(
+            'REPORT_EXPORT_INVALID_INPUT',
+            'Parametry eksportu raportu sa niepoprawne.',
+            'error',
+            { issues: parsedInput.error.issues },
+          ),
+        );
+      }
+
+      const reportResult = generateDashboardReport({
+        db: input.db,
+        channelId: parsedInput.data.channelId,
+        dateFrom: parsedInput.data.dateFrom,
+        dateTo: parsedInput.data.dateTo,
+        targetMetric: parsedInput.data.targetMetric,
+        now,
+      });
+      if (!reportResult.ok) {
+        return reportResult;
+      }
+
+      const baseDir = parsedInput.data.exportDir
+        ? path.resolve(parsedInput.data.exportDir)
+        : path.join(process.cwd(), 'exports', 'reports');
+      const reportDir = path.join(
+        baseDir,
+        `${parsedInput.data.channelId}-${sanitizeTimestamp(reportResult.value.generatedAt)}`,
+      );
+
+      try {
+        fs.mkdirSync(reportDir, { recursive: true });
+      } catch (cause) {
+        return err(
+          AppError.create(
+            'REPORT_EXPORT_DIR_CREATE_FAILED',
+            'Nie udalo sie przygotowac katalogu eksportu raportu.',
+            'error',
+            { reportDir },
+            toError(cause),
+          ),
+        );
+      }
+
+      const files: ReportExportResultDTO['files'] = [];
+      const selectedFormats = Array.from(new Set(parsedInput.data.formats));
+
+      if (selectedFormats.includes('json')) {
+        const reportJson = writeExportFile(reportDir, 'report.json', JSON.stringify(reportResult.value, null, 2));
+        if (!reportJson.ok) {
+          return reportJson;
+        }
+        files.push(reportJson.value);
+
+        const kpiJson = writeExportFile(reportDir, 'kpi_summary.json', JSON.stringify(reportResult.value.kpis, null, 2));
+        if (!kpiJson.ok) {
+          return kpiJson;
+        }
+        files.push(kpiJson.value);
+      }
+
+      if (selectedFormats.includes('csv')) {
+        const timeseriesCsv = writeExportFile(reportDir, 'timeseries.csv', buildTimeseriesCsv(reportResult.value));
+        if (!timeseriesCsv.ok) {
+          return timeseriesCsv;
+        }
+        files.push(timeseriesCsv.value);
+
+        const predictionsCsv = writeExportFile(reportDir, 'predictions.csv', buildPredictionsCsv(reportResult.value));
+        if (!predictionsCsv.ok) {
+          return predictionsCsv;
+        }
+        files.push(predictionsCsv.value);
+
+        const topVideosCsv = writeExportFile(reportDir, 'top_videos.csv', buildTopVideosCsv(reportResult.value));
+        if (!topVideosCsv.ok) {
+          return topVideosCsv;
+        }
+        files.push(topVideosCsv.value);
+      }
+
+      if (selectedFormats.includes('html')) {
+        const htmlFile = writeExportFile(reportDir, 'report.html', renderDashboardReportHtml(reportResult.value));
+        if (!htmlFile.ok) {
+          return htmlFile;
+        }
+        files.push(htmlFile.value);
+      }
+
+      const payload = {
+        generatedAt: reportResult.value.generatedAt,
+        exportDir: reportDir,
+        files,
+      };
+      const parsedOutput = ReportExportResultDTOSchema.safeParse(payload);
+      if (!parsedOutput.success) {
+        return err(
+          AppError.create(
+            'REPORT_EXPORT_INVALID_OUTPUT',
+            'Wynik eksportu raportu ma niepoprawny format.',
+            'error',
+            { issues: parsedOutput.error.issues },
+          ),
+        );
+      }
+
+      return ok(parsedOutput.data);
+    },
   });
-  if (!reportResult.ok) {
-    return reportResult;
-  }
-
-  const baseDir = parsedInput.data.exportDir
-    ? path.resolve(parsedInput.data.exportDir)
-    : path.join(process.cwd(), 'exports', 'reports');
-  const reportDir = path.join(
-    baseDir,
-    `${parsedInput.data.channelId}-${sanitizeTimestamp(reportResult.value.generatedAt)}`,
-  );
-
-  try {
-    fs.mkdirSync(reportDir, { recursive: true });
-  } catch (cause) {
-    return err(
-      AppError.create(
-        'REPORT_EXPORT_DIR_CREATE_FAILED',
-        'Nie udalo sie przygotowac katalogu eksportu raportu.',
-        'error',
-        { reportDir },
-        toError(cause),
-      ),
-    );
-  }
-
-  const files: ReportExportResultDTO['files'] = [];
-  const selectedFormats = Array.from(new Set(parsedInput.data.formats));
-
-  if (selectedFormats.includes('json')) {
-    const reportJson = writeExportFile(reportDir, 'report.json', JSON.stringify(reportResult.value, null, 2));
-    if (!reportJson.ok) {
-      return reportJson;
-    }
-    files.push(reportJson.value);
-
-    const kpiJson = writeExportFile(reportDir, 'kpi_summary.json', JSON.stringify(reportResult.value.kpis, null, 2));
-    if (!kpiJson.ok) {
-      return kpiJson;
-    }
-    files.push(kpiJson.value);
-  }
-
-  if (selectedFormats.includes('csv')) {
-    const timeseriesCsv = writeExportFile(reportDir, 'timeseries.csv', buildTimeseriesCsv(reportResult.value));
-    if (!timeseriesCsv.ok) {
-      return timeseriesCsv;
-    }
-    files.push(timeseriesCsv.value);
-
-    const predictionsCsv = writeExportFile(reportDir, 'predictions.csv', buildPredictionsCsv(reportResult.value));
-    if (!predictionsCsv.ok) {
-      return predictionsCsv;
-    }
-    files.push(predictionsCsv.value);
-
-    const topVideosCsv = writeExportFile(reportDir, 'top_videos.csv', buildTopVideosCsv(reportResult.value));
-    if (!topVideosCsv.ok) {
-      return topVideosCsv;
-    }
-    files.push(topVideosCsv.value);
-  }
-
-  if (selectedFormats.includes('html')) {
-    const htmlFile = writeExportFile(reportDir, 'report.html', renderDashboardReportHtml(reportResult.value));
-    if (!htmlFile.ok) {
-      return htmlFile;
-    }
-    files.push(htmlFile.value);
-  }
-
-  const payload = {
-    generatedAt: reportResult.value.generatedAt,
-    exportDir: reportDir,
-    files,
-  };
-  const parsedOutput = ReportExportResultDTOSchema.safeParse(payload);
-  if (!parsedOutput.success) {
-    return err(
-      AppError.create(
-        'REPORT_EXPORT_INVALID_OUTPUT',
-        'Wynik eksportu raportu ma niepoprawny format.',
-        'error',
-        { issues: parsedOutput.error.issues },
-      ),
-    );
-  }
-
-  return ok(parsedOutput.data);
 }
+
+
