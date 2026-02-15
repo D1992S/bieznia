@@ -6,10 +6,6 @@ import type {
   SetDataModeInputDTO,
   AuthConnectInputDTO,
   AuthStatusDTO,
-  CsvImportPreviewInputDTO,
-  CsvImportPreviewResultDTO,
-  CsvImportRunInputDTO,
-  CsvImportRunResultDTO,
   AppStatusDTO,
   ChannelIdDTO,
   ChannelInfoDTO,
@@ -28,8 +24,6 @@ import type {
   ReportExportResultDTO,
   ReportGenerateInputDTO,
   ReportGenerateResultDTO,
-  SearchContentInputDTO,
-  SearchContentResultDTO,
   SettingsUpdateInputDTO,
   SyncCommandResultDTO,
   SyncResumeInputDTO,
@@ -136,24 +130,6 @@ export async function connectAuth(input: AuthConnectInputDTO): Promise<AuthStatu
 export async function disconnectAuth(): Promise<AuthStatusDTO> {
   const api = ensureElectronApi();
   const result = await api.authDisconnect();
-  return unwrapResult(result);
-}
-
-export async function previewCsvImport(input: CsvImportPreviewInputDTO): Promise<CsvImportPreviewResultDTO> {
-  const api = ensureElectronApi();
-  const result = await api.importCsvPreview(input);
-  return unwrapResult(result);
-}
-
-export async function runCsvImport(input: CsvImportRunInputDTO): Promise<CsvImportRunResultDTO> {
-  const api = ensureElectronApi();
-  const result = await api.importCsvRun(input);
-  return unwrapResult(result);
-}
-
-export async function searchContent(input: SearchContentInputDTO): Promise<SearchContentResultDTO> {
-  const api = ensureElectronApi();
-  const result = await api.searchContent(input);
   return unwrapResult(result);
 }
 

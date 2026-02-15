@@ -2,17 +2,14 @@
   createChannelQueries,
   createCoreRepository,
   createDatabaseConnection,
-  createImportSearchQueries,
   createMetricsQueries,
   createSettingsQueries,
   runMigrations,
   type ChannelQueries,
-  type ImportSearchQueries,
   type DatabaseConnection,
   type MetricsQueries,
   type SettingsQueries,
 } from '@moze/core';
-import { runDataPipeline } from '@moze/data-pipeline';
 import { getLatestMlForecast, runMlBaseline } from '@moze/ml';
 import { exportDashboardReport, generateDashboardReport } from '@moze/reports';
 import {
@@ -38,10 +35,6 @@ import {
   type DataModeProbeInputDTO,
   type DataModeProbeResultDTO,
   type DataModeStatusDTO,
-  type CsvImportPreviewInputDTO,
-  type CsvImportPreviewResultDTO,
-  type CsvImportRunInputDTO,
-  type CsvImportRunResultDTO,
   type KpiQueryDTO,
   type KpiResultDTO,
   type MlForecastQueryInputDTO,
@@ -58,8 +51,6 @@ import {
   type ReportGenerateInputDTO,
   type ReportGenerateResultDTO,
   type Result,
-  type SearchContentInputDTO,
-  type SearchContentResultDTO,
   type SettingsUpdateInputDTO,
   type SetDataModeInputDTO,
   type SyncCommandResultDTO,
@@ -94,7 +85,6 @@ interface BackendState {
   metricsQueries: MetricsQueries | null;
   channelQueries: ChannelQueries | null;
   settingsQueries: SettingsQueries | null;
-  importSearchQueries: ImportSearchQueries | null;
   dataModeManager: DataModeManager | null;
   syncOrchestrator: SyncOrchestrator | null;
   profileManager: ProfileManager | null;
@@ -106,7 +96,6 @@ const backendState: BackendState = {
   metricsQueries: null,
   channelQueries: null,
   settingsQueries: null,
-  importSearchQueries: null,
   dataModeManager: null,
   syncOrchestrator: null,
   profileManager: null,
@@ -411,7 +400,6 @@ function initializeBackend(): Result<void, AppError> {
   const metricsQueries = createMetricsQueries(connection.db);
   const channelQueries = createChannelQueries(connection.db);
   const settingsQueries = createSettingsQueries(connection.db);
-  const importSearchQueries = createImportSearchQueries(connection.db);
 
   const dataModesResult = initializeDataModes();
   if (!dataModesResult.ok) {
@@ -445,7 +433,6 @@ function initializeBackend(): Result<void, AppError> {
   backendState.metricsQueries = metricsQueries;
   backendState.channelQueries = channelQueries;
   backendState.settingsQueries = settingsQueries;
-  backendState.importSearchQueries = importSearchQueries;
   backendState.dataModeManager = dataModesResult.value;
   backendState.syncOrchestrator = syncOrchestrator;
   backendState.dbPath = dbPathResult.value;
@@ -472,7 +459,6 @@ function closeBackend(): void {
   backendState.metricsQueries = null;
   backendState.channelQueries = null;
   backendState.settingsQueries = null;
-  backendState.importSearchQueries = null;
   backendState.dataModeManager = null;
   backendState.syncOrchestrator = null;
   backendState.dbPath = null;
@@ -777,68 +763,6 @@ function disconnectAuthCommand(): Result<AuthStatusDTO, AppError> {
   return profileManagerResult.value.disconnectAuth();
 }
 
-function previewCsvImportCommand(input: CsvImportPreviewInputDTO): Result<CsvImportPreviewResultDTO, AppError> {
-  if (!backendState.importSearchQueries) {
-    return err(createDbNotReadyError());
-  }
-  return backendState.importSearchQueries.previewCsvImport(input);
-}
-
-function runCsvImportCommand(input: CsvImportRunInputDTO): Result<CsvImportRunResultDTO, AppError> {
-  const db = backendState.connection?.db;
-  if (!db || !backendState.importSearchQueries) {
-    return err(createDbNotReadyError());
-  }
-
-  const importResult = backendState.importSearchQueries.runCsvImport(input);
-  if (!importResult.ok) {
-    return importResult;
-  }
-
-  const pipelineResult = runDataPipeline({
-    db,
-    channelId: input.channelId,
-    sourceSyncRunId: null,
-    maxFreshnessDays: 36500,
-  });
-  if (!pipelineResult.ok) {
-    return err(
-      AppError.create(
-        'CSV_IMPORT_PIPELINE_FAILED',
-        'Import zakonczyl sie zapisem danych, ale uruchomienie pipeline nie powiodlo sie.',
-        'error',
-        {
-          channelId: input.channelId,
-          importId: importResult.value.importId,
-          sourceName: input.sourceName,
-          pipelineError: pipelineResult.error.toDTO(),
-        },
-      ),
-    );
-  }
-
-  return ok({
-    importId: importResult.value.importId,
-    channelId: importResult.value.channelId,
-    sourceName: importResult.value.sourceName,
-    rowsTotal: importResult.value.rowsTotal,
-    rowsValid: importResult.value.rowsValid,
-    rowsInvalid: importResult.value.rowsInvalid,
-    importedDateFrom: importResult.value.importedDateFrom,
-    importedDateTo: importResult.value.importedDateTo,
-    pipelineFeatures: pipelineResult.value.generatedFeatures,
-    latestFeatureDate: pipelineResult.value.latestFeatureDate,
-    validationIssues: importResult.value.validationIssues,
-  });
-}
-
-function searchContentCommand(input: SearchContentInputDTO): Result<SearchContentResultDTO, AppError> {
-  if (!backendState.importSearchQueries) {
-    return err(createDbNotReadyError());
-  }
-  return backendState.importSearchQueries.searchContent(input);
-}
-
 async function startSync(input: SyncStartInputDTO): Promise<Result<SyncCommandResultDTO, AppError>> {
   if (!backendState.syncOrchestrator) {
     return err(createSyncNotReadyError());
@@ -936,9 +860,6 @@ const ipcBackend: DesktopIpcBackend = {
   getAuthStatus: () => readAuthStatusCommand(),
   connectAuth: (input) => connectAuthCommand(input),
   disconnectAuth: () => disconnectAuthCommand(),
-  previewCsvImport: (input) => previewCsvImportCommand(input),
-  runCsvImport: (input) => runCsvImportCommand(input),
-  searchContent: (input) => searchContentCommand(input),
   startSync: (input) => startSync(input),
   resumeSync: (input) => resumeSync(input),
   runMlBaseline: (input) => runMlBaselineCommand(input),

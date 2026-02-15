@@ -1,11 +1,5 @@
 ﻿import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type {
-  CsvImportColumnMappingDTO,
-  DataMode,
-  MlTargetMetric,
-  ReportExportFormat,
-  TimeseriesQueryDTO,
-} from '@moze/shared';
+import type { DataMode, MlTargetMetric, ReportExportFormat, TimeseriesQueryDTO } from '@moze/shared';
 import {
   connectAuth,
   createProfile,
@@ -21,12 +15,9 @@ import {
   fetchProfileSettings,
   fetchProfiles,
   fetchTimeseries,
-  previewCsvImport,
   probeDataMode,
   resumeSync,
-  runCsvImport,
   runMlBaseline,
-  searchContent,
   setActiveProfile,
   setDataMode,
   startSync,
@@ -39,50 +30,6 @@ export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
 export interface DateRange {
   dateFrom: string;
   dateTo: string;
-}
-
-export type CsvImportDelimiter = 'auto' | 'comma' | 'semicolon' | 'tab';
-
-export interface CsvImportPreviewInput {
-  channelId: string;
-  sourceName?: string;
-  csvText: string;
-  delimiter?: CsvImportDelimiter;
-  hasHeader?: boolean;
-  previewRowsLimit?: number;
-}
-
-export interface CsvImportRunInput {
-  channelId: string;
-  sourceName?: string;
-  csvText: string;
-  delimiter?: CsvImportDelimiter;
-  hasHeader?: boolean;
-  mapping: CsvImportColumnMappingDTO;
-}
-
-export interface SearchContentInput {
-  channelId: string;
-  query: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface SearchContentItem {
-  documentId: string;
-  videoId: string | null;
-  title: string;
-  publishedAt: string | null;
-  snippet: string;
-  source: 'title' | 'description' | 'transcript';
-  score: number;
-}
-
-export interface SearchContentResult {
-  channelId: string;
-  query: string;
-  total: number;
-  items: SearchContentItem[];
 }
 
 function invalidateProfileScopedQueries(queryClient: QueryClient): void {
@@ -246,60 +193,6 @@ export function useDisconnectAuthMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['auth', 'status'] });
       void queryClient.invalidateQueries({ queryKey: ['app', 'data-mode'] });
-    },
-  });
-}
-
-export function useCsvImportPreviewMutation() {
-  return useMutation({
-    mutationFn: (input: CsvImportPreviewInput) =>
-      previewCsvImport({
-        channelId: input.channelId,
-        sourceName: input.sourceName ?? 'manual-csv',
-        csvText: input.csvText,
-        delimiter: input.delimiter ?? 'auto',
-        hasHeader: input.hasHeader ?? true,
-        previewRowsLimit: input.previewRowsLimit ?? 10,
-      }),
-  });
-}
-
-export function useCsvImportRunMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CsvImportRunInput) =>
-      runCsvImport({
-        channelId: input.channelId,
-        sourceName: input.sourceName ?? 'manual-csv',
-        csvText: input.csvText,
-        delimiter: input.delimiter ?? 'auto',
-        hasHeader: input.hasHeader ?? true,
-        mapping: input.mapping,
-      }),
-    onSuccess: (_result, input) => {
-      void queryClient.invalidateQueries({ queryKey: ['db'] });
-      void queryClient.invalidateQueries({ queryKey: ['ml', 'forecast', input.channelId] });
-      void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
-      void queryClient.invalidateQueries({ queryKey: ['search', 'content', input.channelId] });
-    },
-  });
-}
-
-export function useSearchContentMutation() {
-  return useMutation({
-    mutationFn: async (input: SearchContentInput): Promise<SearchContentResult> => {
-      const result = await searchContent({
-        channelId: input.channelId,
-        query: input.query,
-        limit: input.limit ?? 20,
-        offset: input.offset ?? 0,
-      });
-      return {
-        channelId: result.channelId,
-        query: result.query,
-        total: result.total,
-        items: result.items,
-      };
     },
   });
 }

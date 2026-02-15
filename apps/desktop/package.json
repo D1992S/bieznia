@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@moze/core": "workspace:*",
-    "@moze/data-pipeline": "workspace:*",
     "@moze/ml": "workspace:*",
     "@moze/reports": "workspace:*",
     "@moze/sync": "workspace:*",

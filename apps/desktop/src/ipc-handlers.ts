@@ -13,12 +13,6 @@ import {
   AuthConnectInputDTOSchema,
   AuthStatusDTOSchema,
   AuthStatusResultSchema,
-  CsvImportPreviewInputDTOSchema,
-  CsvImportPreviewResultDTOSchema,
-  CsvImportPreviewResultSchema,
-  CsvImportRunInputDTOSchema,
-  CsvImportRunResultDTOSchema,
-  CsvImportRunResultSchema,
   EmptyPayloadSchema,
   IPC_CHANNELS,
   KpiQueryDTOSchema,
@@ -43,9 +37,6 @@ import {
   ReportGenerateResultDTOSchema,
   ReportGenerateResultSchema,
   SettingsUpdateInputDTOSchema,
-  SearchContentInputDTOSchema,
-  SearchContentResultDTOSchema,
-  SearchContentResultSchema,
   SyncCommandResultDTOSchema,
   SyncCommandResultSchema,
   SyncResumeInputDTOSchema,
@@ -65,12 +56,6 @@ import {
   type AuthConnectInputDTO,
   type AuthStatusDTO,
   type AuthStatusResult,
-  type CsvImportPreviewInputDTO,
-  type CsvImportPreviewResult,
-  type CsvImportPreviewResultDTO,
-  type CsvImportRunInputDTO,
-  type CsvImportRunResult,
-  type CsvImportRunResultDTO,
   type ChannelInfoDTO,
   type ChannelInfoResult,
   type IpcResult,
@@ -101,9 +86,6 @@ import {
   type SyncResumeInputDTO,
   type SyncStartInputDTO,
   type SettingsUpdateInputDTO,
-  type SearchContentInputDTO,
-  type SearchContentResult,
-  type SearchContentResultDTO,
   type TimeseriesQueryDTO,
   type TimeseriesResult,
   type TimeseriesResultDTO,
@@ -123,9 +105,6 @@ export interface DesktopIpcBackend {
   getAuthStatus: () => Result<AuthStatusDTO, AppError>;
   connectAuth: (input: AuthConnectInputDTO) => Result<AuthStatusDTO, AppError>;
   disconnectAuth: () => Result<AuthStatusDTO, AppError>;
-  previewCsvImport: (input: CsvImportPreviewInputDTO) => Result<CsvImportPreviewResultDTO, AppError>;
-  runCsvImport: (input: CsvImportRunInputDTO) => Result<CsvImportRunResultDTO, AppError> | Promise<Result<CsvImportRunResultDTO, AppError>>;
-  searchContent: (input: SearchContentInputDTO) => Result<SearchContentResultDTO, AppError>;
   startSync: (input: SyncStartInputDTO) => Result<SyncCommandResultDTO, AppError> | Promise<Result<SyncCommandResultDTO, AppError>>;
   resumeSync: (input: SyncResumeInputDTO) => Result<SyncCommandResultDTO, AppError> | Promise<Result<SyncCommandResultDTO, AppError>>;
   runMlBaseline: (input: MlRunBaselineInputDTO) => Result<MlRunBaselineResultDTO, AppError> | Promise<Result<MlRunBaselineResultDTO, AppError>>;
@@ -379,45 +358,6 @@ export function handleAuthDisconnect(backend: DesktopIpcBackend, payload: unknow
   );
 }
 
-export function handleImportCsvPreview(
-  backend: DesktopIpcBackend,
-  payload: unknown,
-): CsvImportPreviewResult {
-  return runHandler(
-    payload,
-    CsvImportPreviewInputDTOSchema,
-    CsvImportPreviewResultDTOSchema,
-    CsvImportPreviewResultSchema,
-    (input) => backend.previewCsvImport(input),
-  );
-}
-
-export async function handleImportCsvRun(
-  backend: DesktopIpcBackend,
-  payload: unknown,
-): Promise<CsvImportRunResult> {
-  return runHandlerAsync(
-    payload,
-    CsvImportRunInputDTOSchema,
-    CsvImportRunResultDTOSchema,
-    CsvImportRunResultSchema,
-    (input) => backend.runCsvImport(input),
-  );
-}
-
-export function handleSearchContent(
-  backend: DesktopIpcBackend,
-  payload: unknown,
-): SearchContentResult {
-  return runHandler(
-    payload,
-    SearchContentInputDTOSchema,
-    SearchContentResultDTOSchema,
-    SearchContentResultSchema,
-    (input) => backend.searchContent(input),
-  );
-}
-
 export async function handleSyncStart(
   backend: DesktopIpcBackend,
   payload: unknown,
@@ -531,9 +471,6 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.APP_GET_DATA_MODE, (_event, payload) => handleAppGetDataMode(backend, payload));
   ipcMain.handle(IPC_CHANNELS.APP_SET_DATA_MODE, (_event, payload) => handleAppSetDataMode(backend, payload));
   ipcMain.handle(IPC_CHANNELS.APP_PROBE_DATA_MODE, (_event, payload) => handleAppProbeDataMode(backend, payload));
-  ipcMain.handle(IPC_CHANNELS.IMPORT_CSV_PREVIEW, (_event, payload) => handleImportCsvPreview(backend, payload));
-  ipcMain.handle(IPC_CHANNELS.IMPORT_CSV_RUN, (_event, payload) => handleImportCsvRun(backend, payload));
-  ipcMain.handle(IPC_CHANNELS.SEARCH_CONTENT, (_event, payload) => handleSearchContent(backend, payload));
   ipcMain.handle(IPC_CHANNELS.PROFILE_LIST, (_event, payload) => handleProfileList(backend, payload));
   ipcMain.handle(IPC_CHANNELS.PROFILE_CREATE, (_event, payload) => handleProfileCreate(backend, payload));
   ipcMain.handle(IPC_CHANNELS.PROFILE_SET_ACTIVE, (_event, payload) => handleProfileSetActive(backend, payload));

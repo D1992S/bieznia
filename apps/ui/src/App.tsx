@@ -1,6 +1,5 @@
 ﻿import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type {
-  CsvImportColumnMappingDTO,
   DataMode,
   MlForecastPointDTO,
   MlTargetMetric,
@@ -18,8 +17,6 @@ import {
   useAuthStatusQuery,
   useChannelInfoQuery,
   useConnectAuthMutation,
-  useCsvImportPreviewMutation,
-  useCsvImportRunMutation,
   useCreateProfileMutation,
   useDashboardReportQuery,
   useDataModeStatusQuery,
@@ -32,13 +29,11 @@ import {
   useProfilesQuery,
   useResumeSyncMutation,
   useRunMlBaselineMutation,
-  useSearchContentMutation,
   useSetActiveProfileMutation,
   useSetDataModeMutation,
   useStartSyncMutation,
   useTimeseriesQuery,
   useUpdateProfileSettingsMutation,
-  type CsvImportDelimiter,
   type DateRange,
   type DateRangePreset,
 } from './hooks/use-dashboard-data.ts';
@@ -59,7 +54,7 @@ interface KpiCardData {
   tone: 'primary' | 'accent' | 'neutral';
 }
 
-type AppTab = 'stats' | 'reports' | 'settings' | 'import';
+type AppTab = 'stats' | 'reports' | 'settings';
 
 const ALL_DATA_MODES: DataMode[] = ['fake', 'real', 'record'];
 const STUDIO_THEME = {
@@ -205,22 +200,6 @@ function mergeSeriesWithForecast(
   return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-type ImportMappingField = keyof CsvImportColumnMappingDTO;
-
-const IMPORT_MAPPING_FIELDS: ReadonlyArray<{ field: ImportMappingField; label: string; required: boolean }> = [
-  { field: 'date', label: 'Data', required: true },
-  { field: 'views', label: 'Wyświetlenia', required: true },
-  { field: 'subscribers', label: 'Subskrybenci', required: true },
-  { field: 'videos', label: 'Liczba filmów', required: true },
-  { field: 'likes', label: 'Polubienia', required: false },
-  { field: 'comments', label: 'Komentarze', required: false },
-  { field: 'title', label: 'Tytuł', required: false },
-  { field: 'description', label: 'Opis', required: false },
-  { field: 'transcript', label: 'Transkrypcja', required: false },
-  { field: 'videoId', label: 'ID filmu', required: false },
-  { field: 'publishedAt', label: 'Data publikacji', required: false },
-];
-
 export function App() {
   const setInitialized = useAppStore((state) => state.setInitialized);
   const isDesktopRuntime = typeof window !== 'undefined' && Boolean(window.electronAPI);
@@ -236,12 +215,6 @@ export function App() {
   const [authAccountLabel, setAuthAccountLabel] = useState('');
   const [authAccessToken, setAuthAccessToken] = useState('');
   const [authRefreshToken, setAuthRefreshToken] = useState('');
-  const [csvSourceName, setCsvSourceName] = useState('manual-csv');
-  const [csvDelimiter, setCsvDelimiter] = useState<CsvImportDelimiter>('auto');
-  const [csvHasHeader, setCsvHasHeader] = useState(true);
-  const [csvText, setCsvText] = useState('date,views,subscribers,videos,likes,comments,title,description\n2026-02-01,1200,10000,150,120,15,Nowy film,Opis filmu');
-  const [csvMapping, setCsvMapping] = useState<Partial<CsvImportColumnMappingDTO>>({});
-  const [searchQuery, setSearchQuery] = useState('');
 
   const statusQuery = useAppStatusQuery();
   const dataModeQuery = useDataModeStatusQuery(isDesktopRuntime);
@@ -259,9 +232,6 @@ export function App() {
   const resumeSyncMutation = useResumeSyncMutation();
   const runMlMutation = useRunMlBaselineMutation();
   const exportReportMutation = useExportDashboardReportMutation();
-  const csvPreviewMutation = useCsvImportPreviewMutation();
-  const csvImportMutation = useCsvImportRunMutation();
-  const searchContentMutation = useSearchContentMutation();
 
   useEffect(() => {
     const defaultDatePreset = settingsQuery.data?.defaultDatePreset;
@@ -278,17 +248,6 @@ export function App() {
     }
     setSettingsChannelIdDraft(defaultChannelId);
   }, [settingsQuery.data?.defaultChannelId]);
-
-  useEffect(() => {
-    if (!csvPreviewMutation.data) {
-      return;
-    }
-
-    setCsvMapping((current) => ({
-      ...csvPreviewMutation.data.suggestedMapping,
-      ...current,
-    }));
-  }, [csvPreviewMutation.data]);
 
   const dateRange = useMemo<DateRange>(() => {
     if (datePreset === 'custom') {
@@ -404,12 +363,6 @@ export function App() {
   const setModeErrorMessage = setModeMutation.isError
     ? readMutationErrorMessage(setModeMutation.error, 'Nie udało się przełączyć trybu danych.')
     : null;
-  const previewHeaders = csvPreviewMutation.data?.headers ?? [];
-  const requiredImportFields: Array<keyof CsvImportColumnMappingDTO> = ['date', 'views', 'subscribers', 'videos'];
-  const canRunCsvImport = requiredImportFields.every((field) => {
-    const mappedHeader = csvMapping[field];
-    return typeof mappedHeader === 'string' && mappedHeader.trim().length > 0;
-  });
 
   return (
     <main
@@ -438,7 +391,6 @@ export function App() {
         {([
           { id: 'stats', label: 'Statystyki' },
           { id: 'reports', label: 'Raporty i eksport' },
-          { id: 'import', label: 'Import i wyszukiwanie' },
           { id: 'settings', label: 'Ustawienia' },
         ] as const).map((tab) => (
           <button
@@ -950,254 +902,6 @@ export function App() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          </>
-        )}
-      </section>
-      )}
-
-      {activeTab === 'import' && (
-      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
-        <h2 style={{ marginTop: 0 }}>Import CSV i wyszukiwanie treści (Faza 9)</h2>
-        <p style={{ color: STUDIO_THEME.title }}>
-          Import działa lokalnie: podgląd CSV, mapowanie kolumn, zapis do bazy i automatyczne uruchomienie pipeline.
-        </p>
-
-        <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
-          <label style={{ display: 'grid', gap: 4 }}>
-            Nazwa źródła importu
-            <input
-              type="text"
-              value={csvSourceName}
-              onChange={(event) => {
-                setCsvSourceName(event.target.value);
-              }}
-              placeholder="manual-csv"
-            />
-          </label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <label>
-              Delimiter:
-              <select
-                value={csvDelimiter}
-                onChange={(event) => {
-                  setCsvDelimiter(event.target.value as CsvImportDelimiter);
-                }}
-                style={{ marginLeft: 8 }}
-              >
-                <option value="auto">auto</option>
-                <option value="comma">przecinek (,)</option>
-                <option value="semicolon">średnik (;)</option>
-                <option value="tab">tabulator</option>
-              </select>
-            </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <input
-                type="checkbox"
-                checked={csvHasHeader}
-                onChange={(event) => {
-                  setCsvHasHeader(event.target.checked);
-                }}
-              />
-              CSV ma nagłówek
-            </label>
-          </div>
-          <label style={{ display: 'grid', gap: 4 }}>
-            Treść CSV
-            <textarea
-              value={csvText}
-              onChange={(event) => {
-                setCsvText(event.target.value);
-              }}
-              rows={10}
-              style={{ width: '100%', resize: 'vertical' }}
-            />
-          </label>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-          <button
-            type="button"
-            onClick={() => {
-              csvPreviewMutation.mutate({
-                channelId,
-                sourceName: csvSourceName.trim() || 'manual-csv',
-                csvText,
-                delimiter: csvDelimiter,
-                hasHeader: csvHasHeader,
-                previewRowsLimit: 8,
-              });
-            }}
-            disabled={csvPreviewMutation.isPending || csvText.trim().length === 0}
-          >
-            Podgląd CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!canRunCsvImport) {
-                return;
-              }
-              csvImportMutation.mutate({
-                channelId,
-                sourceName: csvSourceName.trim() || 'manual-csv',
-                csvText,
-                delimiter: csvDelimiter,
-                hasHeader: csvHasHeader,
-                mapping: csvMapping as CsvImportColumnMappingDTO,
-              });
-            }}
-            disabled={csvImportMutation.isPending || csvText.trim().length === 0 || !canRunCsvImport}
-          >
-            Importuj CSV i uruchom pipeline
-          </button>
-        </div>
-
-        {csvPreviewMutation.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się przygotować podglądu CSV.</p>}
-        {csvImportMutation.isError && <p style={{ color: STUDIO_THEME.danger }}>Import CSV zakończył się błędem.</p>}
-
-        {csvPreviewMutation.data && (
-          <>
-            <p style={{ marginBottom: 8 }}>
-              Wykryto delimiter: <strong>{csvPreviewMutation.data.detectedDelimiter}</strong>, wiersze: <strong>{formatNumber(csvPreviewMutation.data.rowsTotal)}</strong>
-            </p>
-            <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
-              {IMPORT_MAPPING_FIELDS.map((fieldConfig) => (
-                <label key={fieldConfig.field} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ minWidth: 180 }}>
-                    {fieldConfig.label} {fieldConfig.required ? '*' : ''}
-                  </span>
-                  <select
-                    value={csvMapping[fieldConfig.field] ?? ''}
-                    onChange={(event) => {
-                      const nextValue = event.target.value;
-                      setCsvMapping((current) => ({
-                        ...current,
-                        [fieldConfig.field]: nextValue.length > 0 ? nextValue : undefined,
-                      }));
-                    }}
-                  >
-                    <option value="">(brak mapowania)</option>
-                    {previewHeaders.map((header) => (
-                      <option key={`${fieldConfig.field}-${header}`} value={header}>
-                        {header}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
-            </div>
-            <div style={{ overflowX: 'auto', marginBottom: 12 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {previewHeaders.map((header) => (
-                      <th
-                        key={`preview-header-${header}`}
-                        style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, textAlign: 'left', padding: '0.4rem' }}
-                      >
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {csvPreviewMutation.data.sampleRows.map((row, rowIndex) => (
-                    <tr key={`preview-row-${rowIndex}`}>
-                      {previewHeaders.map((header) => (
-                        <td
-                          key={`preview-cell-${rowIndex}-${header}`}
-                          style={{ borderBottom: `1px solid ${STUDIO_THEME.border}`, padding: '0.35rem 0.4rem' }}
-                        >
-                          {row[header] ?? ''}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-
-        {csvImportMutation.data && (
-          <div style={{ marginBottom: 16, padding: 12, border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 12, background: STUDIO_THEME.panelElevated }}>
-            <p style={{ marginTop: 0 }}>
-              Import #{csvImportMutation.data.importId}: poprawne wiersze {formatNumber(csvImportMutation.data.rowsValid)} / {formatNumber(csvImportMutation.data.rowsTotal)}
-            </p>
-            <p>
-              Zakres dat: {csvImportMutation.data.importedDateFrom ?? 'brak'} - {csvImportMutation.data.importedDateTo ?? 'brak'} | Wygenerowane cechy pipeline: {formatNumber(csvImportMutation.data.pipelineFeatures)}
-            </p>
-            {csvImportMutation.data.validationIssues.length > 0 && (
-              <>
-                <p style={{ marginBottom: 6 }}>Problemy walidacji ({formatNumber(csvImportMutation.data.validationIssues.length)}):</p>
-                <ul style={{ marginTop: 0 }}>
-                  {csvImportMutation.data.validationIssues.slice(0, 12).map((issue) => (
-                    <li key={`issue-${issue.rowNumber}-${issue.column}-${issue.code}`}>
-                      wiersz {issue.rowNumber}, kolumna {issue.column}: {issue.message} {issue.value ? `(wartość: ${issue.value})` : ''}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        )}
-
-        <h3 style={{ marginBottom: 8 }}>Wyszukiwanie (FTS5)</h3>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value);
-            }}
-            placeholder="Wpisz zapytanie, np. poradnik shorts"
-            style={{ minWidth: 280, flex: 1 }}
-          />
-          <button
-            type="button"
-            onClick={() => {
-              if (searchQuery.trim().length < 2) {
-                return;
-              }
-              searchContentMutation.mutate({
-                channelId,
-                query: searchQuery.trim(),
-                limit: 20,
-              });
-            }}
-            disabled={searchContentMutation.isPending || searchQuery.trim().length < 2}
-          >
-            Szukaj
-          </button>
-        </div>
-        {searchContentMutation.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się wykonać wyszukiwania.</p>}
-        {searchContentMutation.data && (
-          <>
-            <p style={{ color: STUDIO_THEME.title }}>
-              Wyniki: {formatNumber(searchContentMutation.data.total)} dla zapytania „{searchContentMutation.data.query}”.
-            </p>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {searchContentMutation.data.items.map((item) => (
-                <article
-                  key={item.documentId}
-                  style={{
-                    border: `1px solid ${STUDIO_THEME.border}`,
-                    borderRadius: 12,
-                    padding: 10,
-                    background: STUDIO_THEME.panelElevated,
-                  }}
-                >
-                  <p style={{ margin: 0, color: STUDIO_THEME.text }}>
-                    <strong>{item.title}</strong> {item.videoId ? <span style={{ color: STUDIO_THEME.muted }}>(ID: {item.videoId})</span> : null}
-                  </p>
-                  <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
-                    Źródło: {item.source} | Publikacja: {item.publishedAt ?? 'brak'} | Score: {item.score.toFixed(3)}
-                  </p>
-                  <p style={{ margin: 0 }}>{item.snippet}</p>
-                </article>
-              ))}
-              {searchContentMutation.data.items.length === 0 && <p>Brak wyników.</p>}
             </div>
           </>
         )}
