@@ -362,8 +362,9 @@ export function App() {
   const exportFormats: ReportExportFormat[] = settingsQuery.data?.reportFormats ?? ['json', 'csv', 'html'];
   const timeseriesMetric: 'views' | 'subscribers' = mlTargetMetric === 'subscribers' ? 'subscribers' : 'views';
   const validRange = isDateRangeValid(dateRange);
+  const dataReady = isDesktopRuntime && statusQuery.data?.dbReady === true;
 
-  const dataEnabled = isDesktopRuntime && statusQuery.data?.dbReady === true && validRange;
+  const dataEnabled = dataReady && validRange;
   const channelInfoQuery = useChannelInfoQuery(channelId, dataEnabled);
   const kpisQuery = useKpisQuery(channelId, dateRange, dataEnabled);
   const timeseriesQuery = useTimeseriesQuery(channelId, dateRange, timeseriesMetric, dataEnabled);
@@ -952,6 +953,9 @@ export function App() {
             <button
               type="button"
               onClick={() => {
+                if (!validRange || !dataReady) {
+                  return;
+                }
                 detectMlAnomaliesMutation.mutate({
                   channelId,
                   targetMetric: mlTargetMetric,
@@ -959,7 +963,7 @@ export function App() {
                   dateTo: dateRange.dateTo,
                 });
               }}
-              disabled={detectMlAnomaliesMutation.isPending || !validRange}
+              disabled={detectMlAnomaliesMutation.isPending || !validRange || !dataReady}
             >
               Analizuj anomalie i trendy
             </button>
@@ -1066,7 +1070,7 @@ export function App() {
                 background: STUDIO_THEME.panel,
               }}
             >
-              <h4 style={{ margin: '0 0 8px 0' }}>Feed anomalii (Faza 10)</h4>
+              <h4 style={{ margin: '0 0 8px 0' }}>Lista anomalii (Faza 10)</h4>
               {mlAnomaliesQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie anomalii...</p>}
               {mlAnomaliesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać anomalii.</p>}
               {mlAnomaliesQuery.data && (
