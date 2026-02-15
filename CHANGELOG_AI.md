@@ -13,6 +13,42 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-15 (v31)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/core/src/migrations/005-ml-anomaly-trend-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/ml/src/anomaly-trend.ts`
+  - `packages/ml/src/anomaly-trend.integration.test.ts`
+  - `packages/ml/src/index.ts`
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `apps/desktop/src/main.ts`, `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/components/studio-forecast-chart.tsx`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 10 end-to-end:
+    - detekcja anomalii (`Z-score + IQR`, severity/confidence) z persystencją do `ml_anomalies`,
+    - analiza trendu (trend/seasonality/residual) + wykrywanie change points przez CUSUM,
+    - nowe komendy IPC: `ml:detectAnomalies`, `ml:getAnomalies`, `ml:getTrend`,
+    - integracja desktop/preload/UI i nowe hooki danych,
+    - overlay anomalii/change points na wykresie + feed anomalii z filtrem + panel trendu,
+    - testy planted outliers i planted change points.
+  - Uzupełniono dokumentację faz 9/10 i przesunięto „następny krok” na Fazę 11.
+- Dlaczego:
+  - Celem było pełne dowiezienie DoD Fazy 10: automatyczne wykrywanie anomalii i zmian trendu, czytelna prezentacja w UI oraz pełna ścieżka danych przez IPC.
+- Ryzyko/regresja:
+  - Dekompozycja trendu jest implementacją STL-like (LOESS + sezonowość okresowa), nie pełnym klasycznym STL.
+  - Auto-uruchamianie analizy anomalii w zakładce statystyk zwiększa liczbę zapytań DB przy częstych zmianach zakresu.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS (84/84)
+  - `pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 11 (LLM Assistant): orchestrator planner/executor/summarizer, evidence attachment i LocalStub.
+
 ## 2026-02-12
 
 - Data: 2026-02-12

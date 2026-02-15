@@ -20,6 +20,15 @@ interface StudioChartPoint {
 interface StudioForecastChartProps {
   points: StudioChartPoint[];
   metricLabel: string;
+  anomalies?: Array<{
+    date: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    method: 'zscore' | 'iqr' | 'consensus';
+  }>;
+  changePoints?: Array<{
+    date: string;
+    direction: 'up' | 'down';
+  }>;
 }
 
 const THEME = {
@@ -60,6 +69,19 @@ function formatAxisValue(value: number): string {
   return formatNumber(value);
 }
 
+function severityColor(severity: 'low' | 'medium' | 'high' | 'critical'): string {
+  switch (severity) {
+    case 'critical':
+      return '#ff4f87';
+    case 'high':
+      return '#ff7d9f';
+    case 'medium':
+      return '#ffbf75';
+    case 'low':
+      return '#93d5ff';
+  }
+}
+
 export function StudioForecastChart(props: StudioForecastChartProps) {
   const values = props.points
     .flatMap((point) => [point.actual, point.p10, point.p50, point.p90])
@@ -80,6 +102,48 @@ export function StudioForecastChart(props: StudioForecastChartProps) {
       return index % divider === 0;
     });
   const markerY = minValue + (maxValue - minValue) * 0.03;
+  const anomalyByDate = new Map<
+    string,
+    {
+      severity: 'low' | 'medium' | 'high' | 'critical';
+      method: 'zscore' | 'iqr' | 'consensus';
+    }
+  >();
+  for (const anomaly of props.anomalies ?? []) {
+    const current = anomalyByDate.get(anomaly.date);
+    if (!current) {
+      anomalyByDate.set(anomaly.date, {
+        severity: anomaly.severity,
+        method: anomaly.method,
+      });
+      continue;
+    }
+    const severityRank = { low: 1, medium: 2, high: 3, critical: 4 };
+    if (severityRank[anomaly.severity] > severityRank[current.severity]) {
+      anomalyByDate.set(anomaly.date, {
+        severity: anomaly.severity,
+        method: anomaly.method,
+      });
+    }
+  }
+  const changePointByDate = new Map<string, 'up' | 'down'>();
+  for (const changePoint of props.changePoints ?? []) {
+    changePointByDate.set(changePoint.date, changePoint.direction);
+  }
+  const anomalyMarkers = props.points
+    .filter((point) => anomalyByDate.has(point.date))
+    .map((point) => ({
+      date: point.date,
+      value: point.actual ?? point.p50 ?? point.p90 ?? point.p10 ?? minValue,
+      data: anomalyByDate.get(point.date),
+    }));
+  const changePointMarkers = props.points
+    .filter((point) => changePointByDate.has(point.date))
+    .map((point) => ({
+      date: point.date,
+      value: point.actual ?? point.p50 ?? point.p90 ?? point.p10 ?? minValue,
+      direction: changePointByDate.get(point.date),
+    }));
 
   return (
     <div
@@ -165,11 +229,50 @@ export function StudioForecastChart(props: StudioForecastChartProps) {
                 }
               />
             ))}
+            {changePointMarkers.map((marker) => (
+              <ReferenceDot
+                key={`cp-${marker.date}`}
+                x={marker.date}
+                y={marker.value}
+                ifOverflow="extendDomain"
+                shape={
+                  <g>
+                    <polygon
+                      points={marker.direction === 'up' ? '-6,4 0,-5 6,4' : '-6,-4 0,5 6,-4'}
+                      fill="#38d39f"
+                      stroke="#0f8d66"
+                      strokeWidth={1}
+                    />
+                  </g>
+                }
+              />
+            ))}
+            {anomalyMarkers.map((marker) => (
+              <ReferenceDot
+                key={`anomaly-${marker.date}`}
+                x={marker.date}
+                y={marker.value}
+                ifOverflow="extendDomain"
+                shape={
+                  <g>
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={5}
+                      fill={severityColor(marker.data?.severity ?? 'low')}
+                      stroke="#13171f"
+                      strokeWidth={1.5}
+                    />
+                    <circle cx={0} cy={0} r={2} fill="#ffffff" />
+                  </g>
+                }
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
       <p style={{ marginTop: 10, marginBottom: 0, color: THEME.muted, fontSize: 13 }}>
-        Linia jasnoniebieska: dane rzeczywiste, linia fioletowa: prognoza p50, linie pomocnicze: p10 i p90.
+        Linia jasnoniebieska: dane rzeczywiste, linia fioletowa: prognoza p50, kropki: anomalie, trojkaty: change points.
       </p>
     </div>
   );

@@ -18,10 +18,16 @@
   IPC_EVENTS,
   KpiQueryDTOSchema,
   KpiResultSchema,
+  MlAnomalyListResultSchema,
+  MlAnomalyQueryInputDTOSchema,
+  MlDetectAnomaliesInputDTOSchema,
+  MlDetectAnomaliesResultSchema,
   MlForecastQueryInputDTOSchema,
   MlForecastResultSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultSchema,
+  MlTrendQueryInputDTOSchema,
+  MlTrendResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultSchema,
   ProfileSetActiveInputDTOSchema,
@@ -56,10 +62,16 @@
   type ChannelInfoResult,
   type KpiQueryDTO,
   type KpiResult,
+  type MlAnomalyListResult,
+  type MlAnomalyQueryInputDTO,
+  type MlDetectAnomaliesInputDTO,
+  type MlDetectAnomaliesResult,
   type MlForecastQueryInputDTO,
   type MlForecastResult,
   type MlRunBaselineInputDTO,
   type MlRunBaselineResult,
+  type MlTrendQueryInputDTO,
+  type MlTrendResult,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileSetActiveInputDTO,
@@ -103,6 +115,9 @@ export interface ElectronAPI {
   syncResume: (input: SyncResumeInputDTO) => Promise<SyncCommandResult>;
   mlRunBaseline: (input: MlRunBaselineInputDTO) => Promise<MlRunBaselineResult>;
   mlGetForecast: (input: MlForecastQueryInputDTO) => Promise<MlForecastResult>;
+  mlDetectAnomalies: (input: MlDetectAnomaliesInputDTO) => Promise<MlDetectAnomaliesResult>;
+  mlGetAnomalies: (input: MlAnomalyQueryInputDTO) => Promise<MlAnomalyListResult>;
+  mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   dbGetKpis: (query: KpiQueryDTO) => Promise<KpiResult>;
@@ -318,6 +333,27 @@ const api: ElectronAPI = {
       input,
       MlForecastQueryInputDTOSchema,
       MlForecastResultSchema,
+    ),
+  mlDetectAnomalies: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ML_DETECT_ANOMALIES,
+      input,
+      MlDetectAnomaliesInputDTOSchema,
+      MlDetectAnomaliesResultSchema,
+    ),
+  mlGetAnomalies: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ML_GET_ANOMALIES,
+      input,
+      MlAnomalyQueryInputDTOSchema,
+      MlAnomalyListResultSchema,
+    ),
+  mlGetTrend: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ML_GET_TREND,
+      input,
+      MlTrendQueryInputDTOSchema,
+      MlTrendResultSchema,
     ),
   reportsGenerate: (input) =>
     invokeValidated(

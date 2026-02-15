@@ -24,12 +24,21 @@ import {
   KpiQueryDTOSchema,
   KpiResultDTOSchema,
   KpiResultSchema,
+  MlAnomalyListResultDTOSchema,
+  MlAnomalyListResultSchema,
+  MlAnomalyQueryInputDTOSchema,
+  MlDetectAnomaliesInputDTOSchema,
+  MlDetectAnomaliesResultDTOSchema,
+  MlDetectAnomaliesResultSchema,
   MlForecastQueryInputDTOSchema,
   MlForecastResultDTOSchema,
   MlForecastResultSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   MlRunBaselineResultSchema,
+  MlTrendQueryInputDTOSchema,
+  MlTrendResultDTOSchema,
+  MlTrendResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultDTOSchema,
   ProfileListResultSchema,
@@ -77,12 +86,21 @@ import {
   type KpiQueryDTO,
   type KpiResult,
   type KpiResultDTO,
+  type MlAnomalyListResult,
+  type MlAnomalyListResultDTO,
+  type MlAnomalyQueryInputDTO,
+  type MlDetectAnomaliesInputDTO,
+  type MlDetectAnomaliesResult,
+  type MlDetectAnomaliesResultDTO,
   type MlForecastQueryInputDTO,
   type MlForecastResult,
   type MlForecastResultDTO,
   type MlRunBaselineInputDTO,
   type MlRunBaselineResult,
   type MlRunBaselineResultDTO,
+  type MlTrendQueryInputDTO,
+  type MlTrendResult,
+  type MlTrendResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileListResultDTO,
@@ -130,6 +148,9 @@ export interface DesktopIpcBackend {
   resumeSync: (input: SyncResumeInputDTO) => Result<SyncCommandResultDTO, AppError> | Promise<Result<SyncCommandResultDTO, AppError>>;
   runMlBaseline: (input: MlRunBaselineInputDTO) => Result<MlRunBaselineResultDTO, AppError> | Promise<Result<MlRunBaselineResultDTO, AppError>>;
   getMlForecast: (input: MlForecastQueryInputDTO) => Result<MlForecastResultDTO, AppError> | Promise<Result<MlForecastResultDTO, AppError>>;
+  detectMlAnomalies: (input: MlDetectAnomaliesInputDTO) => Result<MlDetectAnomaliesResultDTO, AppError> | Promise<Result<MlDetectAnomaliesResultDTO, AppError>>;
+  getMlAnomalies: (input: MlAnomalyQueryInputDTO) => Result<MlAnomalyListResultDTO, AppError> | Promise<Result<MlAnomalyListResultDTO, AppError>>;
+  getMlTrend: (input: MlTrendQueryInputDTO) => Result<MlTrendResultDTO, AppError> | Promise<Result<MlTrendResultDTO, AppError>>;
   generateReport: (input: ReportGenerateInputDTO) => Result<ReportGenerateResultDTO, AppError> | Promise<Result<ReportGenerateResultDTO, AppError>>;
   exportReport: (input: ReportExportInputDTO) => Result<ReportExportResultDTO, AppError> | Promise<Result<ReportExportResultDTO, AppError>>;
   getKpis: (query: KpiQueryDTO) => Result<KpiResultDTO, AppError>;
@@ -470,6 +491,45 @@ export async function handleMlGetForecast(
   );
 }
 
+export async function handleMlDetectAnomalies(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<MlDetectAnomaliesResult> {
+  return runHandlerAsync(
+    payload,
+    MlDetectAnomaliesInputDTOSchema,
+    MlDetectAnomaliesResultDTOSchema,
+    MlDetectAnomaliesResultSchema,
+    (input) => backend.detectMlAnomalies(input),
+  );
+}
+
+export async function handleMlGetAnomalies(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<MlAnomalyListResult> {
+  return runHandlerAsync(
+    payload,
+    MlAnomalyQueryInputDTOSchema,
+    MlAnomalyListResultDTOSchema,
+    MlAnomalyListResultSchema,
+    (input) => backend.getMlAnomalies(input),
+  );
+}
+
+export async function handleMlGetTrend(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<MlTrendResult> {
+  return runHandlerAsync(
+    payload,
+    MlTrendQueryInputDTOSchema,
+    MlTrendResultDTOSchema,
+    MlTrendResultSchema,
+    (input) => backend.getMlTrend(input),
+  );
+}
+
 export async function handleReportsGenerate(
   backend: DesktopIpcBackend,
   payload: unknown,
@@ -546,6 +606,9 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.SYNC_RESUME, (_event, payload) => handleSyncResume(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ML_RUN_BASELINE, (_event, payload) => handleMlRunBaseline(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ML_GET_FORECAST, (_event, payload) => handleMlGetForecast(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ML_DETECT_ANOMALIES, (_event, payload) => handleMlDetectAnomalies(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ML_GET_ANOMALIES, (_event, payload) => handleMlGetAnomalies(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ML_GET_TREND, (_event, payload) => handleMlGetTrend(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_GENERATE, (_event, payload) => handleReportsGenerate(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_EXPORT, (_event, payload) => handleReportsExport(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_KPIS, (_event, payload) => handleDbGetKpis(backend, payload));

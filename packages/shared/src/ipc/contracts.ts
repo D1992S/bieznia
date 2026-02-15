@@ -256,6 +256,137 @@ export type MlForecastResultDTO = z.infer<typeof MlForecastResultDTOSchema>;
 export const MlForecastResultSchema = IpcResultSchema(MlForecastResultDTOSchema);
 export type MlForecastResult = z.infer<typeof MlForecastResultSchema>;
 
+export const MlAnomalyMethodSchema = z.enum(['zscore', 'iqr', 'consensus']);
+export type MlAnomalyMethod = z.infer<typeof MlAnomalyMethodSchema>;
+
+export const MlAnomalyConfidenceSchema = z.enum(['low', 'medium', 'high']);
+export type MlAnomalyConfidence = z.infer<typeof MlAnomalyConfidenceSchema>;
+
+export const MlAnomalySeveritySchema = z.enum(['low', 'medium', 'high', 'critical']);
+export type MlAnomalySeverity = z.infer<typeof MlAnomalySeveritySchema>;
+
+export const MlDetectAnomaliesInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  targetMetric: MlTargetMetricSchema.default('views'),
+  dateFrom: z.iso.date().nullable().optional(),
+  dateTo: z.iso.date().nullable().optional(),
+}).refine(
+  (value) => {
+    if (!value.dateFrom || !value.dateTo) {
+      return true;
+    }
+    return value.dateFrom <= value.dateTo;
+  },
+  'Data poczatkowa nie moze byc pozniejsza niz koncowa.',
+);
+
+export type MlDetectAnomaliesInputDTO = z.infer<typeof MlDetectAnomaliesInputDTOSchema>;
+
+export const MlDetectAnomaliesResultDTOSchema = z.object({
+  channelId: z.string(),
+  targetMetric: MlTargetMetricSchema,
+  analyzedPoints: z.number().int().nonnegative(),
+  anomaliesDetected: z.number().int().nonnegative(),
+  changePointsDetected: z.number().int().nonnegative(),
+  generatedAt: z.iso.datetime(),
+});
+
+export type MlDetectAnomaliesResultDTO = z.infer<typeof MlDetectAnomaliesResultDTOSchema>;
+export const MlDetectAnomaliesResultSchema = IpcResultSchema(MlDetectAnomaliesResultDTOSchema);
+export type MlDetectAnomaliesResult = z.infer<typeof MlDetectAnomaliesResultSchema>;
+
+export const MlAnomalyQueryInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  targetMetric: MlTargetMetricSchema.default('views'),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  severities: z.array(MlAnomalySeveritySchema).optional(),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+
+export type MlAnomalyQueryInputDTO = z.infer<typeof MlAnomalyQueryInputDTOSchema>;
+
+export const MlAnomalyItemDTOSchema = z.object({
+  id: z.number().int().positive(),
+  channelId: z.string(),
+  targetMetric: MlTargetMetricSchema,
+  date: z.iso.date(),
+  value: z.number().nonnegative(),
+  baseline: z.number().nonnegative(),
+  deviationRatio: z.number(),
+  zScore: z.number().nullable(),
+  method: MlAnomalyMethodSchema,
+  confidence: MlAnomalyConfidenceSchema,
+  severity: MlAnomalySeveritySchema,
+  explanation: z.string(),
+  detectedAt: z.iso.datetime(),
+});
+
+export type MlAnomalyItemDTO = z.infer<typeof MlAnomalyItemDTOSchema>;
+
+export const MlAnomalyListResultDTOSchema = z.object({
+  channelId: z.string(),
+  targetMetric: MlTargetMetricSchema,
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  total: z.number().int().nonnegative(),
+  items: z.array(MlAnomalyItemDTOSchema),
+});
+
+export type MlAnomalyListResultDTO = z.infer<typeof MlAnomalyListResultDTOSchema>;
+export const MlAnomalyListResultSchema = IpcResultSchema(MlAnomalyListResultDTOSchema);
+export type MlAnomalyListResult = z.infer<typeof MlAnomalyListResultSchema>;
+
+export const MlTrendDirectionSchema = z.enum(['up', 'down', 'flat']);
+export type MlTrendDirection = z.infer<typeof MlTrendDirectionSchema>;
+
+export const MlTrendQueryInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  targetMetric: MlTargetMetricSchema.default('views'),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  seasonalityPeriodDays: z.number().int().min(2).max(30).default(7),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+
+export type MlTrendQueryInputDTO = z.infer<typeof MlTrendQueryInputDTOSchema>;
+
+export const MlTrendPointDTOSchema = z.object({
+  date: z.iso.date(),
+  value: z.number().nonnegative(),
+  trend: z.number(),
+  seasonal: z.number(),
+  residual: z.number(),
+  isChangePoint: z.boolean(),
+});
+
+export type MlTrendPointDTO = z.infer<typeof MlTrendPointDTOSchema>;
+
+export const MlChangePointDTOSchema = z.object({
+  date: z.iso.date(),
+  direction: z.enum(['up', 'down']),
+  magnitude: z.number(),
+  score: z.number().nonnegative(),
+});
+
+export type MlChangePointDTO = z.infer<typeof MlChangePointDTOSchema>;
+
+export const MlTrendResultDTOSchema = z.object({
+  channelId: z.string(),
+  targetMetric: MlTargetMetricSchema,
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  seasonalityPeriodDays: z.number().int().min(2).max(30),
+  summary: z.object({
+    trendDirection: MlTrendDirectionSchema,
+    trendDelta: z.number(),
+  }),
+  points: z.array(MlTrendPointDTOSchema),
+  changePoints: z.array(MlChangePointDTOSchema),
+});
+
+export type MlTrendResultDTO = z.infer<typeof MlTrendResultDTOSchema>;
+export const MlTrendResultSchema = IpcResultSchema(MlTrendResultDTOSchema);
+export type MlTrendResult = z.infer<typeof MlTrendResultSchema>;
+
 export const ReportDateRangeDTOSchema = z.object({
   dateFrom: z.iso.date(),
   dateTo: z.iso.date(),
@@ -576,6 +707,9 @@ export const IPC_CHANNELS = {
   SYNC_RESUME: 'sync:resume',
   ML_RUN_BASELINE: 'ml:runBaseline',
   ML_GET_FORECAST: 'ml:getForecast',
+  ML_DETECT_ANOMALIES: 'ml:detectAnomalies',
+  ML_GET_ANOMALIES: 'ml:getAnomalies',
+  ML_GET_TREND: 'ml:getTrend',
   REPORTS_GENERATE: 'reports:generate',
   REPORTS_EXPORT: 'reports:export',
   DB_GET_KPIS: 'db:getKpis',

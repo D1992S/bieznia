@@ -14,10 +14,16 @@ import type {
   ChannelInfoResult,
   KpiQueryDTO,
   KpiResult,
+  MlAnomalyListResult,
+  MlAnomalyQueryInputDTO,
+  MlDetectAnomaliesInputDTO,
+  MlDetectAnomaliesResult,
   MlForecastQueryInputDTO,
   MlForecastResult,
   MlRunBaselineInputDTO,
   MlRunBaselineResult,
+  MlTrendQueryInputDTO,
+  MlTrendResult,
   ProfileCreateInputDTO,
   ProfileListResult,
   ProfileSetActiveInputDTO,
@@ -59,6 +65,9 @@ export interface ElectronAPI {
   syncResume: (input: SyncResumeInputDTO) => Promise<SyncCommandResult>;
   mlRunBaseline: (input: MlRunBaselineInputDTO) => Promise<MlRunBaselineResult>;
   mlGetForecast: (input: MlForecastQueryInputDTO) => Promise<MlForecastResult>;
+  mlDetectAnomalies: (input: MlDetectAnomaliesInputDTO) => Promise<MlDetectAnomaliesResult>;
+  mlGetAnomalies: (input: MlAnomalyQueryInputDTO) => Promise<MlAnomalyListResult>;
+  mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   dbGetKpis: (query: KpiQueryDTO) => Promise<KpiResult>;

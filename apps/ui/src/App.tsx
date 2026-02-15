@@ -2,6 +2,7 @@
 import type {
   CsvImportColumnMappingDTO,
   DataMode,
+  MlAnomalySeverity,
   MlForecastPointDTO,
   MlTargetMetric,
   ReportExportFormat,
@@ -20,13 +21,16 @@ import {
   useConnectAuthMutation,
   useCsvImportPreviewMutation,
   useCsvImportRunMutation,
+  useDetectMlAnomaliesMutation,
   useCreateProfileMutation,
   useDashboardReportQuery,
   useDataModeStatusQuery,
   useDisconnectAuthMutation,
   useExportDashboardReportMutation,
   useKpisQuery,
+  useMlAnomaliesQuery,
   useMlForecastQuery,
+  useMlTrendQuery,
   useProbeDataModeMutation,
   useProfileSettingsQuery,
   useProfilesQuery,
@@ -242,6 +246,8 @@ export function App() {
   const [csvText, setCsvText] = useState('date,views,subscribers,videos,likes,comments,title,description\n2026-02-01,1200,10000,150,120,15,Nowy film,Opis filmu');
   const [csvMapping, setCsvMapping] = useState<Partial<CsvImportColumnMappingDTO>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [anomalySeverityFilter, setAnomalySeverityFilter] = useState<'all' | MlAnomalySeverity>('all');
+  const [lastAutoAnomalyRunKey, setLastAutoAnomalyRunKey] = useState<string | null>(null);
 
   const statusQuery = useAppStatusQuery();
   const dataModeQuery = useDataModeStatusQuery(isDesktopRuntime);
@@ -258,6 +264,7 @@ export function App() {
   const startSyncMutation = useStartSyncMutation();
   const resumeSyncMutation = useResumeSyncMutation();
   const runMlMutation = useRunMlBaselineMutation();
+  const detectMlAnomaliesMutation = useDetectMlAnomaliesMutation();
   const exportReportMutation = useExportDashboardReportMutation();
   const csvPreviewMutation = useCsvImportPreviewMutation();
   const csvImportMutation = useCsvImportRunMutation();
@@ -314,6 +321,15 @@ export function App() {
   const kpisQuery = useKpisQuery(channelId, dateRange, dataEnabled);
   const timeseriesQuery = useTimeseriesQuery(channelId, dateRange, timeseriesMetric, dataEnabled);
   const mlForecastQuery = useMlForecastQuery(channelId, mlTargetMetric, dataEnabled);
+  const selectedAnomalySeverities = anomalySeverityFilter === 'all' ? [] : [anomalySeverityFilter];
+  const mlAnomaliesQuery = useMlAnomaliesQuery(
+    channelId,
+    mlTargetMetric,
+    dateRange,
+    selectedAnomalySeverities,
+    dataEnabled,
+  );
+  const mlTrendQuery = useMlTrendQuery(channelId, mlTargetMetric, dateRange, dataEnabled);
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
 
   useEffect(() => {
@@ -349,6 +365,34 @@ export function App() {
     };
   }, [isDesktopRuntime]);
 
+  useEffect(() => {
+    if (!dataEnabled || activeTab !== 'stats') {
+      return;
+    }
+
+    const nextRunKey = `${channelId}:${mlTargetMetric}:${dateRange.dateFrom}:${dateRange.dateTo}`;
+    if (lastAutoAnomalyRunKey === nextRunKey || detectMlAnomaliesMutation.isPending) {
+      return;
+    }
+
+    setLastAutoAnomalyRunKey(nextRunKey);
+    detectMlAnomaliesMutation.mutate({
+      channelId,
+      targetMetric: mlTargetMetric,
+      dateFrom: dateRange.dateFrom,
+      dateTo: dateRange.dateTo,
+    });
+  }, [
+    activeTab,
+    channelId,
+    dataEnabled,
+    dateRange.dateFrom,
+    dateRange.dateTo,
+    detectMlAnomaliesMutation,
+    lastAutoAnomalyRunKey,
+    mlTargetMetric,
+  ]);
+
   if (!isDesktopRuntime) {
     return (
       <main style={{ minHeight: '100vh', padding: '2rem', background: STUDIO_THEME.bg, color: STUDIO_THEME.text, fontFamily: '"Segoe UI", "Trebuchet MS", sans-serif' }}>
@@ -383,6 +427,15 @@ export function App() {
   const mlForecast = mlForecastQuery.data;
   const report = reportQuery.data;
   const chartPoints = mergeSeriesWithForecast(timeseries?.points, mlForecast?.points);
+  const anomalyMarkers = (mlAnomaliesQuery.data?.items ?? []).map((item) => ({
+    date: item.date,
+    severity: item.severity,
+    method: item.method,
+  }));
+  const trendChangePoints = (mlTrendQuery.data?.changePoints ?? []).map((changePoint) => ({
+    date: changePoint.date,
+    direction: changePoint.direction,
+  }));
 
   const kpiCards: KpiCardData[] = kpis
     ? [
@@ -843,8 +896,53 @@ export function App() {
               <StudioForecastChart
                 points={chartPoints}
                 metricLabel={mlTargetMetric === 'views' ? 'wyświetleń' : 'subskrypcji'}
+                anomalies={anomalyMarkers}
+                changePoints={trendChangePoints}
               />
             </Suspense>
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={() => {
+                detectMlAnomaliesMutation.mutate({
+                  channelId,
+                  targetMetric: mlTargetMetric,
+                  dateFrom: dateRange.dateFrom,
+                  dateTo: dateRange.dateTo,
+                });
+              }}
+              disabled={detectMlAnomaliesMutation.isPending || !validRange}
+            >
+              Analizuj anomalie i trend
+            </button>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              Filtr anomalii:
+              <select
+                value={anomalySeverityFilter}
+                onChange={(event) => {
+                  setAnomalySeverityFilter(event.target.value as 'all' | MlAnomalySeverity);
+                }}
+              >
+                <option value="all">Wszystkie</option>
+                <option value="critical">Krytyczne</option>
+                <option value="high">Wysokie</option>
+                <option value="medium">Srednie</option>
+                <option value="low">Niskie</option>
+              </select>
+            </label>
+          </div>
+          {detectMlAnomaliesMutation.isError && (
+            <p style={{ color: STUDIO_THEME.danger }}>
+              Nie udalo sie uruchomic analizy anomalii.
+            </p>
+          )}
+          {detectMlAnomaliesMutation.data && (
+            <p style={{ color: STUDIO_THEME.title }}>
+              Analiza: punkty={formatNumber(detectMlAnomaliesMutation.data.analyzedPoints)}, anomalie=
+              {formatNumber(detectMlAnomaliesMutation.data.anomaliesDetected)}, zmiany trendu=
+              {formatNumber(detectMlAnomaliesMutation.data.changePointsDetected)}.
+            </p>
           )}
           {mlForecast && mlForecast.points.length > 0 && (
             <div style={{ marginTop: 12 }}>
@@ -867,6 +965,88 @@ export function App() {
               </div>
             </div>
           )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10, marginTop: 12 }}>
+            <section
+              style={{
+                border: `1px solid ${STUDIO_THEME.border}`,
+                borderRadius: 12,
+                padding: 10,
+                background: STUDIO_THEME.panel,
+              }}
+            >
+              <h4 style={{ margin: '0 0 8px 0' }}>Analiza trendu (Faza 10)</h4>
+              {mlTrendQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Liczenie trendu...</p>}
+              {mlTrendQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udalo sie odczytac trendu.</p>}
+              {mlTrendQuery.data && (
+                <>
+                  <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
+                    Kierunek: <strong>{mlTrendQuery.data.summary.trendDirection}</strong> | Delta trendu: {formatNumber(mlTrendQuery.data.summary.trendDelta)}
+                  </p>
+                  <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
+                    Wykryte change points: {formatNumber(mlTrendQuery.data.changePoints.length)}
+                  </p>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {mlTrendQuery.data.changePoints.slice(0, 6).map((changePoint) => (
+                      <div
+                        key={`cp-feed-${changePoint.date}`}
+                        style={{
+                          border: `1px solid ${STUDIO_THEME.border}`,
+                          borderRadius: 8,
+                          padding: '0.45rem',
+                          background: STUDIO_THEME.panelElevated,
+                        }}
+                      >
+                        <strong>{formatDateTick(changePoint.date)}</strong> | {changePoint.direction === 'up' ? 'wzrost' : 'spadek'} | score {changePoint.score.toFixed(2)}
+                      </div>
+                    ))}
+                    {mlTrendQuery.data.changePoints.length === 0 && (
+                      <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak zmian trendu w tym zakresie.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+            <section
+              style={{
+                border: `1px solid ${STUDIO_THEME.border}`,
+                borderRadius: 12,
+                padding: 10,
+                background: STUDIO_THEME.panel,
+              }}
+            >
+              <h4 style={{ margin: '0 0 8px 0' }}>Feed anomalii (Faza 10)</h4>
+              {mlAnomaliesQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ladowanie anomalii...</p>}
+              {mlAnomaliesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udalo sie odczytac anomalii.</p>}
+              {mlAnomaliesQuery.data && (
+                <>
+                  <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
+                    Wykryte anomalie: {formatNumber(mlAnomaliesQuery.data.total)}
+                  </p>
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {mlAnomaliesQuery.data.items.slice(0, 8).map((anomaly) => (
+                      <article
+                        key={`anomaly-${anomaly.id}`}
+                        style={{
+                          border: `1px solid ${STUDIO_THEME.border}`,
+                          borderRadius: 8,
+                          padding: '0.45rem',
+                          background: STUDIO_THEME.panelElevated,
+                        }}
+                      >
+                        <p style={{ margin: 0 }}>
+                          <strong>{formatDateTick(anomaly.date)}</strong> | severity: {anomaly.severity} | metoda: {anomaly.method}
+                        </p>
+                        <p style={{ margin: '4px 0 0', color: STUDIO_THEME.muted }}>{anomaly.explanation}</p>
+                      </article>
+                    ))}
+                    {mlAnomaliesQuery.data.items.length === 0 && (
+                      <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak anomalii dla wybranego zakresu.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          </div>
         </div>
       </section>
       )}
