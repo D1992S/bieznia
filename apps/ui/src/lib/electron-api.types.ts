@@ -5,6 +5,10 @@ import type {
   SetDataModeInputDTO,
   AuthConnectInputDTO,
   AuthStatusResult,
+  CsvImportPreviewInputDTO,
+  CsvImportPreviewResult,
+  CsvImportRunInputDTO,
+  CsvImportRunResult,
   AppStatusResult,
   ChannelIdDTO,
   ChannelInfoResult,
@@ -22,6 +26,8 @@ import type {
   ReportExportResult,
   ReportGenerateInputDTO,
   ReportGenerateResult,
+  SearchContentInputDTO,
+  SearchContentResult,
   SettingsUpdateInputDTO,
   SyncCommandResult,
   SyncCompleteEvent,
@@ -46,6 +52,9 @@ export interface ElectronAPI {
   authGetStatus: () => Promise<AuthStatusResult>;
   authConnect: (input: AuthConnectInputDTO) => Promise<AuthStatusResult>;
   authDisconnect: () => Promise<AuthStatusResult>;
+  importCsvPreview: (input: CsvImportPreviewInputDTO) => Promise<CsvImportPreviewResult>;
+  importCsvRun: (input: CsvImportRunInputDTO) => Promise<CsvImportRunResult>;
+  searchContent: (input: SearchContentInputDTO) => Promise<SearchContentResult>;
   syncStart: (input: SyncStartInputDTO) => Promise<SyncCommandResult>;
   syncResume: (input: SyncResumeInputDTO) => Promise<SyncCommandResult>;
   mlRunBaseline: (input: MlRunBaselineInputDTO) => Promise<MlRunBaselineResult>;

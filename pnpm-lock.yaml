@@ -38,6 +38,9 @@ importers:
       '@moze/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@moze/data-pipeline':
+        specifier: workspace:*
+        version: link:../../packages/data-pipeline
       '@moze/ml':
         specifier: workspace:*
         version: link:../../packages/ml

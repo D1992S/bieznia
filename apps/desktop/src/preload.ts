@@ -5,6 +5,10 @@
   DataModeStatusResultSchema,
   AuthConnectInputDTOSchema,
   AuthStatusResultSchema,
+  CsvImportPreviewInputDTOSchema,
+  CsvImportPreviewResultSchema,
+  CsvImportRunInputDTOSchema,
+  CsvImportRunResultSchema,
   SetDataModeInputDTOSchema,
   AppStatusResultSchema,
   ChannelIdDTOSchema,
@@ -26,6 +30,8 @@
   ReportExportResultSchema,
   ReportGenerateInputDTOSchema,
   ReportGenerateResultSchema,
+  SearchContentInputDTOSchema,
+  SearchContentResultSchema,
   SettingsUpdateInputDTOSchema,
   SyncCommandResultSchema,
   SyncCompleteEventSchema,
@@ -42,6 +48,10 @@
   type AppStatusResult,
   type AuthConnectInputDTO,
   type AuthStatusResult,
+  type CsvImportPreviewInputDTO,
+  type CsvImportPreviewResult,
+  type CsvImportRunInputDTO,
+  type CsvImportRunResult,
   type ChannelIdDTO,
   type ChannelInfoResult,
   type KpiQueryDTO,
@@ -58,6 +68,8 @@
   type ReportExportResult,
   type ReportGenerateInputDTO,
   type ReportGenerateResult,
+  type SearchContentInputDTO,
+  type SearchContentResult,
   type SettingsUpdateInputDTO,
   type SyncCommandResult,
   type SyncCompleteEvent,
@@ -84,6 +96,9 @@ export interface ElectronAPI {
   authGetStatus: () => Promise<AuthStatusResult>;
   authConnect: (input: AuthConnectInputDTO) => Promise<AuthStatusResult>;
   authDisconnect: () => Promise<AuthStatusResult>;
+  importCsvPreview: (input: CsvImportPreviewInputDTO) => Promise<CsvImportPreviewResult>;
+  importCsvRun: (input: CsvImportRunInputDTO) => Promise<CsvImportRunResult>;
+  searchContent: (input: SearchContentInputDTO) => Promise<SearchContentResult>;
   syncStart: (input: SyncStartInputDTO) => Promise<SyncCommandResult>;
   syncResume: (input: SyncResumeInputDTO) => Promise<SyncCommandResult>;
   mlRunBaseline: (input: MlRunBaselineInputDTO) => Promise<MlRunBaselineResult>;
@@ -254,6 +269,27 @@ const api: ElectronAPI = {
       undefined,
       EmptyPayloadSchema,
       AuthStatusResultSchema,
+    ),
+  importCsvPreview: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.IMPORT_CSV_PREVIEW,
+      input,
+      CsvImportPreviewInputDTOSchema,
+      CsvImportPreviewResultSchema,
+    ),
+  importCsvRun: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.IMPORT_CSV_RUN,
+      input,
+      CsvImportRunInputDTOSchema,
+      CsvImportRunResultSchema,
+    ),
+  searchContent: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.SEARCH_CONTENT,
+      input,
+      SearchContentInputDTOSchema,
+      SearchContentResultSchema,
     ),
   syncStart: (input) =>
     invokeValidated(

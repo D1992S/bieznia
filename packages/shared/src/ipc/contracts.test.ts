@@ -19,6 +19,12 @@ import {
   ReportExportResultDTOSchema,
   ReportGenerateInputDTOSchema,
   ReportGenerateResultDTOSchema,
+  CsvImportPreviewInputDTOSchema,
+  CsvImportPreviewResultDTOSchema,
+  CsvImportRunInputDTOSchema,
+  CsvImportRunResultDTOSchema,
+  SearchContentInputDTOSchema,
+  SearchContentResultDTOSchema,
   MlTargetMetricSchema,
   SyncCommandResultDTOSchema,
   SyncResumeInputDTOSchema,
@@ -437,12 +443,113 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('CSV import and search DTO', () => {
+    it('applies defaults and validates CSV import preview payloads', () => {
+      const previewInput = CsvImportPreviewInputDTOSchema.parse({
+        channelId: 'UC123',
+        csvText: 'date,views,subscribers,videos\n2026-01-01,100,10,1',
+      });
+      expect(previewInput.sourceName).toBe('manual-csv');
+      expect(previewInput.delimiter).toBe('auto');
+      expect(previewInput.hasHeader).toBe(true);
+      expect(previewInput.previewRowsLimit).toBe(10);
+
+      const previewResult = CsvImportPreviewResultDTOSchema.parse({
+        channelId: 'UC123',
+        sourceName: 'manual-csv',
+        detectedDelimiter: 'comma',
+        headers: ['date', 'views', 'subscribers', 'videos'],
+        rowsTotal: 1,
+        sampleRows: [
+          {
+            date: '2026-01-01',
+            views: '100',
+            subscribers: '10',
+            videos: '1',
+          },
+        ],
+        suggestedMapping: {
+          date: 'date',
+          views: 'views',
+          subscribers: 'subscribers',
+          videos: 'videos',
+        },
+      });
+      expect(previewResult.rowsTotal).toBe(1);
+    });
+
+    it('validates CSV import run and search payloads', () => {
+      const runInput = CsvImportRunInputDTOSchema.parse({
+        channelId: 'UC123',
+        csvText: 'date,views,subscribers,videos\n2026-01-01,100,10,1',
+        mapping: {
+          date: 'date',
+          views: 'views',
+          subscribers: 'subscribers',
+          videos: 'videos',
+        },
+      });
+      expect(runInput.sourceName).toBe('manual-csv');
+
+      const runResult = CsvImportRunResultDTOSchema.parse({
+        importId: 1,
+        channelId: 'UC123',
+        sourceName: 'manual-csv',
+        rowsTotal: 2,
+        rowsValid: 1,
+        rowsInvalid: 1,
+        importedDateFrom: '2026-01-01',
+        importedDateTo: '2026-01-01',
+        pipelineFeatures: 90,
+        latestFeatureDate: '2026-01-01',
+        validationIssues: [
+          {
+            rowNumber: 3,
+            column: 'views',
+            code: 'CSV_IMPORT_INVALID_NUMBER',
+            message: 'Wartosc metryki nie jest liczba nieujemna.',
+            value: 'abc',
+          },
+        ],
+      });
+      expect(runResult.validationIssues).toHaveLength(1);
+
+      const searchInput = SearchContentInputDTOSchema.parse({
+        channelId: 'UC123',
+        query: 'test',
+      });
+      expect(searchInput.limit).toBe(20);
+      expect(searchInput.offset).toBe(0);
+
+      const searchResult = SearchContentResultDTOSchema.parse({
+        channelId: 'UC123',
+        query: 'test',
+        total: 1,
+        items: [
+          {
+            documentId: 'video:VID-001',
+            videoId: 'VID-001',
+            title: 'Testowy film',
+            publishedAt: '2026-01-01T00:00:00.000Z',
+            snippet: '... <mark>test</mark> ...',
+            source: 'title',
+            score: -2.5,
+          },
+        ],
+      });
+      expect(searchResult.items).toHaveLength(1);
+    });
+  });
+
   describe('Channel constants', () => {
     it('IPC_CHANNELS has expected keys', () => {
       expect(IPC_CHANNELS.APP_GET_STATUS).toBe('app:getStatus');
       expect(IPC_CHANNELS.APP_GET_DATA_MODE).toBe('app:getDataMode');
       expect(IPC_CHANNELS.APP_SET_DATA_MODE).toBe('app:setDataMode');
       expect(IPC_CHANNELS.APP_PROBE_DATA_MODE).toBe('app:probeDataMode');
+      expect(IPC_CHANNELS.IMPORT_CSV_PREVIEW).toBe('import:previewCsv');
+      expect(IPC_CHANNELS.IMPORT_CSV_RUN).toBe('import:runCsv');
+      expect(IPC_CHANNELS.SEARCH_CONTENT).toBe('search:content');
       expect(IPC_CHANNELS.PROFILE_LIST).toBe('profile:list');
       expect(IPC_CHANNELS.PROFILE_CREATE).toBe('profile:create');
       expect(IPC_CHANNELS.PROFILE_SET_ACTIVE).toBe('profile:setActive');
