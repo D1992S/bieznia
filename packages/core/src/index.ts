@@ -67,3 +67,21 @@ export {
   type SeedFixture,
   type SeedDatabaseResult,
 } from './fixtures/index.ts';
+
+// Semantic layer
+export {
+  createSemanticMetricService,
+  getSemanticMetricCatalog,
+  type ReadSemanticMetricValueInput,
+  type ReadSemanticMetricValuesInput,
+  type SemanticMetricDefinition,
+  type SemanticMetricId,
+  type SemanticMetricService,
+} from './semantic/index.ts';
+
+// Observability
+export {
+  runWithAnalyticsTrace,
+  type AnalyticsTraceLineageInput,
+  type RunWithAnalyticsTraceInput,
+} from './observability/analytics-tracing.ts';

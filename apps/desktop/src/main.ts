@@ -4,6 +4,7 @@
   createDatabaseConnection,
   createImportSearchQueries,
   createMetricsQueries,
+  runWithAnalyticsTrace,
   createSettingsQueries,
   runMigrations,
   type ChannelQueries,
@@ -874,11 +875,41 @@ function runMlBaselineCommand(input: MlRunBaselineInputDTO): Result<MlRunBaselin
     return err(createDbNotReadyError());
   }
 
-  return runMlBaseline({
+  return runWithAnalyticsTrace({
     db,
-    channelId: input.channelId,
-    targetMetric: input.targetMetric,
-    horizonDays: input.horizonDays,
+    operationName: 'ml.runBaseline',
+    params: {
+      channelId: input.channelId,
+      targetMetric: input.targetMetric,
+      horizonDays: input.horizonDays,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_channel_day,ml_features',
+        primaryKeys: ['channel_id', 'date', 'feature_set_version'],
+        filters: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+          horizonDays: input.horizonDays,
+        },
+      },
+      {
+        sourceTable: 'ml_models,ml_backtests,ml_predictions',
+        primaryKeys: ['id', 'model_id'],
+        filters: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.predictionsGenerated,
+    execute: () =>
+      runMlBaseline({
+        db,
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        horizonDays: input.horizonDays,
+      }),
   });
 }
 
@@ -901,12 +932,46 @@ function detectMlAnomaliesCommand(input: MlDetectAnomaliesInputDTO): Result<MlDe
     return err(createDbNotReadyError());
   }
 
-  return runAnomalyTrendAnalysis({
+  return runWithAnalyticsTrace({
     db,
-    channelId: input.channelId,
-    targetMetric: input.targetMetric,
-    dateFrom: input.dateFrom ?? null,
-    dateTo: input.dateTo ?? null,
+    operationName: 'ml.detectAnomalies',
+    params: {
+      channelId: input.channelId,
+      targetMetric: input.targetMetric,
+      dateFrom: input.dateFrom ?? null,
+      dateTo: input.dateTo ?? null,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_channel_day,ml_features',
+        primaryKeys: ['channel_id', 'date', 'feature_set_version'],
+        dateFrom: input.dateFrom ?? null,
+        dateTo: input.dateTo ?? null,
+        filters: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+        },
+      },
+      {
+        sourceTable: 'ml_anomalies',
+        primaryKeys: ['id'],
+        dateFrom: input.dateFrom ?? null,
+        dateTo: input.dateTo ?? null,
+        filters: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.anomaliesDetected,
+    execute: () =>
+      runAnomalyTrendAnalysis({
+        db,
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        dateFrom: input.dateFrom ?? null,
+        dateTo: input.dateTo ?? null,
+      }),
   });
 }
 
@@ -916,13 +981,39 @@ function getMlAnomaliesCommand(input: MlAnomalyQueryInputDTO): Result<MlAnomalyL
     return err(createDbNotReadyError());
   }
 
-  return getMlAnomalies({
+  return runWithAnalyticsTrace({
     db,
-    channelId: input.channelId,
-    targetMetric: input.targetMetric,
-    dateFrom: input.dateFrom,
-    dateTo: input.dateTo,
-    severities: input.severities,
+    operationName: 'ml.getAnomalies',
+    params: {
+      channelId: input.channelId,
+      targetMetric: input.targetMetric,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      severities: input.severities ?? null,
+    },
+    lineage: [
+      {
+        sourceTable: 'ml_anomalies',
+        primaryKeys: ['id'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+          severities: input.severities ?? [],
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.items.length,
+    execute: () =>
+      getMlAnomalies({
+        db,
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        severities: input.severities,
+      }),
   });
 }
 
@@ -932,13 +1023,48 @@ function getMlTrendCommand(input: MlTrendQueryInputDTO): Result<MlTrendResultDTO
     return err(createDbNotReadyError());
   }
 
-  return getMlTrend({
+  return runWithAnalyticsTrace({
     db,
-    channelId: input.channelId,
-    targetMetric: input.targetMetric,
-    dateFrom: input.dateFrom,
-    dateTo: input.dateTo,
-    seasonalityPeriodDays: input.seasonalityPeriodDays,
+    operationName: 'ml.getTrend',
+    params: {
+      channelId: input.channelId,
+      targetMetric: input.targetMetric,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      seasonalityPeriodDays: input.seasonalityPeriodDays,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_channel_day',
+        primaryKeys: ['channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+        },
+      },
+      {
+        sourceTable: 'ml_anomalies',
+        primaryKeys: ['id'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.points.length + value.changePoints.length,
+    execute: () =>
+      getMlTrend({
+        db,
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        seasonalityPeriodDays: input.seasonalityPeriodDays,
+      }),
   });
 }
 

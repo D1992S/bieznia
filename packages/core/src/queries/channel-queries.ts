@@ -8,6 +8,7 @@ import {
   type ChannelInfoDTO,
   type Result,
 } from '@moze/shared';
+import { runWithAnalyticsTrace } from '../observability/analytics-tracing.ts';
 
 interface ChannelInfoRow {
   channelId: string;
@@ -53,47 +54,65 @@ export function createChannelQueries(db: Database.Database): ChannelQueries {
   );
 
   return {
-    getChannelInfo: (query) => {
-      try {
-        const row = getChannelInfoStmt.get({ channelId: query.channelId });
-        if (!row) {
-          return err(
-            AppError.create(
-              'DB_CHANNEL_NOT_FOUND',
-              'Nie znaleziono kanału o podanym identyfikatorze.',
-              'error',
-              { channelId: query.channelId },
-            ),
-          );
-        }
+    getChannelInfo: (query) =>
+      runWithAnalyticsTrace({
+        db,
+        operationName: 'channel.getChannelInfo',
+        params: {
+          channelId: query.channelId,
+        },
+        lineage: [
+          {
+            sourceTable: 'dim_channel',
+            primaryKeys: ['channel_id'],
+            filters: {
+              channelId: query.channelId,
+            },
+          },
+        ],
+        estimateRowCount: () => 1,
+        execute: () => {
+          try {
+            const row = getChannelInfoStmt.get({ channelId: query.channelId });
+            if (!row) {
+              return err(
+                AppError.create(
+                  'DB_CHANNEL_NOT_FOUND',
+                  'Channel not found.',
+                  'error',
+                  { channelId: query.channelId },
+                ),
+              );
+            }
 
-        const parsed = ChannelInfoDTOSchema.safeParse(row);
-        if (!parsed.success) {
-          return err(
-            AppError.create(
-              'DB_CHANNEL_INFO_INVALID',
-              'Dane kanału w bazie są niepoprawne.',
-              'error',
-              {
-                channelId: query.channelId,
-                issues: parsed.error.issues,
-              },
-            ),
-          );
-        }
+            const parsed = ChannelInfoDTOSchema.safeParse(row);
+            if (!parsed.success) {
+              return err(
+                AppError.create(
+                  'DB_CHANNEL_INFO_INVALID',
+                  'Channel data in DB is invalid.',
+                  'error',
+                  {
+                    channelId: query.channelId,
+                    issues: parsed.error.issues,
+                  },
+                ),
+              );
+            }
 
-        return ok(parsed.data);
-      } catch (cause) {
-        return err(
-          AppError.create(
-            'DB_QUERY_CHANNEL_INFO_FAILED',
-            'Nie udało się pobrać danych kanału.',
-            'error',
-            { channelId: query.channelId },
-            toError(cause),
-          ),
-        );
-      }
-    },
+            return ok(parsed.data);
+          } catch (cause) {
+            return err(
+              AppError.create(
+                'DB_QUERY_CHANNEL_INFO_FAILED',
+                'Failed to query channel data.',
+                'error',
+                { channelId: query.channelId },
+                toError(cause),
+              ),
+            );
+          }
+        },
+      }),
   };
 }

@@ -36,5 +36,8 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Snapshot Tests
+        run: pnpm test:snapshots
+
       - name: Build
         run: pnpm build

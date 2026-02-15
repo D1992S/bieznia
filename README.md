@@ -4,7 +4,7 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 
 ## Postęp realizacji
 
-> Aktualny status: **Faza 10 ukończona, następna Faza 10.5 (Hardening).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+> Aktualny status: **Faza 10.5 ukończona, następna Faza 11 (LLM Assistant Lite).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
 | Faza | Nazwa | Status | Co powinno działać (prosty opis) |
 |------|-------|--------|-----------------------------------|
@@ -19,8 +19,8 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | 8 | Auth + Profile + Settings | DONE | Można podłączyć konto, mieć kilka profili i osobne ustawienia. |
 | 9 | Import + Enrichment + Search | DONE | Można importować dane (CSV), wzbogacać je i wygodnie przeszukiwać. |
 | 10 | Anomaly Detection + Trend Analysis | DONE | Aplikacja sama wykrywa nietypowe skoki/spadki i zmiany trendów. |
-| 10.5 | Hardening (spójność liczb + regresje + trace) | **NASTĘPNA** | Stabilizujemy metryki i debug pipeline (golden DB, snapshoty, trace/lineage, semantic layer). |
-| 11 | LLM Assistant (Lite) | — | Działa lekki asystent AI oparty o whitelist tooli i evidence z DB. |
+| 10.5 | Hardening (spójność liczb + regresje + trace) | DONE | Ustabilizowane metryki i debug pipeline (golden DB, snapshoty, trace/lineage, semantic layer). |
+| 11 | LLM Assistant (Lite) | **NASTĘPNA** | Działa lekki asystent AI oparty o whitelist tooli i evidence z DB. |
 | 12 | Performance i stabilność (cache + inkrementalność) | — | Działa cache metryk i inkrementalne przeliczenia po stabilizacji analityki. |
 | 13 | Quality Scoring | — | Każdy materiał dostaje czytelny wynik jakości z uzasadnieniem. |
 | 14 | Competitor Intelligence | — | Widać porównanie do konkurencji i sygnały o ich mocnych ruchach. |

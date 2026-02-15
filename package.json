@@ -12,7 +12,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:snapshots": "vitest run apps/desktop/src/analytics-snapshots.integration.test.ts",
+    "test:snapshots:update": "vitest run apps/desktop/src/analytics-snapshots.integration.test.ts -u",
     "test:watch": "vitest",
+    "fixtures:golden": "node --experimental-strip-types scripts/generate-insight-golden-db.ts",
     "dev": "node scripts/dev-desktop.mjs",
     "dev:ui": "pnpm --filter @moze/ui exec vite --host localhost --port 5173",
     "dev:desktop": "pnpm --filter @moze/desktop run dev"

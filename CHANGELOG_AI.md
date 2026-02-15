@@ -13,6 +13,61 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-15 (v33)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `.github/workflows/ci.yml`
+  - `.gitignore`
+  - `package.json`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/analytics-snapshots.integration.test.ts`
+  - `apps/desktop/src/__snapshots__/analytics-snapshots.integration.test.ts.snap`
+  - `packages/core/src/migrations/006-analytics-trace-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/observability/analytics-tracing.ts`
+  - `packages/core/src/semantic/index.ts`
+  - `packages/core/src/semantic/metrics-semantic-layer.ts`
+  - `packages/core/src/queries/metrics-queries.ts`
+  - `packages/core/src/queries/channel-queries.ts`
+  - `packages/core/src/index.ts`
+  - `packages/core/src/analytics-tracing.integration.test.ts`
+  - `packages/core/src/semantic-metrics.integration.test.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/reports/src/report-service.ts`
+  - `scripts/generate-insight-golden-db.ts`
+  - `scripts/tsconfig.json`
+  - `fixtures/insight_golden.db`
+  - `docs/adr/000-template.md`
+  - `docs/adr/001-evidence-lineage-trace.md`
+  - `docs/adr/002-semantic-metrics-catalog.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 10.5 (Hardening) end-to-end.
+  - Dodano golden fixture DB i generator danych (`fixtures/insight_golden.db`).
+  - Dodano snapshot tests analityki (23 snapshoty) i krok snapshotów w CI.
+  - Dodano trwałe trace + lineage (`analytics_trace_runs`, `analytics_trace_lineage`) oraz wrapper `runWithAnalyticsTrace(...)`.
+  - Dodano Semantic Layer z katalogiem 20 metryk i wspólnym API odczytu.
+  - Przepięto krytyczne ścieżki (KPI/timeseries/channel/report/ML) pod trace i semantic layer.
+  - Dodano ADR template + 2 ADR dla evidence/lineage i semantic catalog.
+  - Zaktualizowano dokumentację statusów: 10.5 = DONE, następna faza = 11.
+- Dlaczego:
+  - Celem było ustabilizowanie liczb, wykrywanie regresji i przygotowanie foundation pod Fazę 11 (LLM Assistant Lite) w modelu evidence-first.
+- Ryzyko/regresja:
+  - Każde zapytanie z trace dodaje minimalny narzut I/O do SQLite.
+  - Golden DB to fixture deterministyczny, ale trzeba go świadomie regenerować przy zmianach modelu danych.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS
+  - `pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 11: LLM Assistant Lite (whitelist tooli read-only, structured answer + evidence, LocalStub, UI chat).
+
 ## 2026-02-15 (v32)
 
 - Data: 2026-02-15

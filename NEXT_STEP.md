@@ -17,8 +17,9 @@
 | 8 | Auth + Profile + Settings | DONE |
 | 9 | Import + Enrichment + Search | DONE |
 | 10 | Anomaly Detection + Trend Analysis | DONE |
-| 10.5 | Hardening (spojnosc liczb + regresje + trace + semantic layer) | **NASTEPNA** |
-| 11-19 | Reszta | Oczekuje |
+| 10.5 | Hardening (spojnosc liczb + regresje + trace + semantic layer) | DONE |
+| 11 | LLM Assistant (Lite) | **NASTEPNA** |
+| 12-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -85,37 +86,66 @@
   - `pnpm test` PASS (84/84)
   - `pnpm build` PASS
 
-## Co robic teraz - Faza 10.5: Hardening
+## Co zostalo zrobione (Faza 10.5)
 
-**Cel:** ustabilizowac liczby i debugowalnosc analityki przed startem asystenta LLM.
-
-**Zakres:**
-1. Golden DB:
-   - `fixtures/insight_golden.db` (3 kanaly, ~20 filmow, 90 dni + edge-case).
-2. Snapshot tests analityki:
-   - minimum 20 contract queries,
-   - komendy: `pnpm test:snapshots` oraz `pnpm test:snapshots:update`.
-3. Trace ID + lineage (MVP):
-   - `trace_id` dla kluczowych operacji,
-   - log operacji, parametrow, czasu i liczby rekordow,
-   - lineage: tabela, klucze glowne, zakres czasu, filtry.
-4. Semantic Layer (step 1):
-   - katalog 15-25 metryk + wspolny interfejs,
-   - migracja starego kodu tylko dla krytycznych ekranow.
-5. ADR mini + scope freeze:
-   - `docs/adr/000-template.md`,
-   - min. 2 ADR (evidence/lineage + model metryk),
-   - 10-min scope freeze "robimy / nie robimy" przed faza.
+- Golden DB:
+  - dodano generator `scripts/generate-insight-golden-db.ts`,
+  - wygenerowano `fixtures/insight_golden.db` (3 kanaly, 20 filmow, 90 dni, edge-case).
+- Snapshot tests analityki:
+  - dodano `apps/desktop/src/analytics-snapshots.integration.test.ts` (23 snapshoty kontraktowe),
+  - dodano komendy `pnpm test:snapshots` oraz `pnpm test:snapshots:update`,
+  - dodano krok snapshotow do CI (`.github/workflows/ci.yml`).
+- Trace ID + lineage:
+  - migracja `006-analytics-trace-schema` (tabele `analytics_trace_runs`, `analytics_trace_lineage`),
+  - wrapper `runWithAnalyticsTrace(...)` w `packages/core/src/observability/analytics-tracing.ts`,
+  - podpiete kluczowe operacje: metrics/channel/reports/ml (desktop main).
+- Semantic Layer (step 1):
+  - dodano `packages/core/src/semantic/metrics-semantic-layer.ts` (katalog 20 metryk + wspolne API),
+  - migrowano krytyczne sciezki: `getKpis`, `getTimeseries`, `generateDashboardReport`.
+- ADR + scope freeze:
+  - dodano `docs/adr/000-template.md`,
+  - dodano ADR: `docs/adr/001-evidence-lineage-trace.md` i `docs/adr/002-semantic-metrics-catalog.md`,
+  - scope freeze 10.5:
+    - robimy: golden DB, snapshoty, trace + lineage, semantic layer, ADR-y, testy regresji.
+    - nie robimy: cache/incremental (Faza 12), nowe modele ML, zmiany UX/feature scope poza hardening.
+- Testy i regresja:
+  - `pnpm lint` PASS,
+  - `pnpm typecheck` PASS,
+  - `pnpm test` PASS,
+  - `pnpm test:snapshots:update` PASS.
 
 **Definition of Done (Faza 10.5):**
-- [ ] Snapshot tests przechodza local/CI i lapia regresje liczb.
-- [ ] `trace_id` jest generowany i zapisany dla kluczowych operacji analitycznych.
-- [ ] Semantic Layer ma 15-25 metryk i jest podpiety pod min. 2 krytyczne miejsca UI.
-- [ ] Jest template ADR i min. 2 ADR w repo.
-- [ ] Przygotowana gotowosc do Fazy 11 Lite (evidence-first, liczby z DB).
+- [x] Snapshot tests przechodza local/CI i lapia regresje liczb.
+- [x] `trace_id` jest generowany i zapisany dla kluczowych operacji analitycznych.
+- [x] Semantic Layer ma 15-25 metryk i jest podpiety pod min. 2 krytyczne miejsca UI.
+- [x] Jest template ADR i min. 2 ADR w repo.
+- [x] Przygotowana gotowosc do Fazy 11 Lite (evidence-first, liczby z DB).
+- [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
+- [x] Wpis w `CHANGELOG_AI.md`.
+- [x] Aktualizacja `README.md` i `NEXT_STEP.md`.
+
+## Co robic teraz - Faza 11: LLM Assistant (Lite)
+
+**Cel:** uruchomic asystenta AI evidence-first, ktory odpowiada tylko na podstawie danych z DB i whitelisty narzedzi.
+
+**Zakres:**
+1. Tooling i kontrakty:
+   - kontrakty IPC + DTO dla zapytan asystenta i odpowiedzi z evidence.
+2. Executor asystenta:
+   - whitelist narzedzi read-only (bez dowolnego SQL),
+   - odpowiedz strukturalna: `answer`, `evidence[]`, `confidence`, `followUpQuestions[]`.
+3. Persistencja:
+   - historia rozmow + evidence w SQLite.
+4. UI:
+   - zakladka asystenta (chat + lista evidence + status confidence).
+5. Tryb offline:
+   - deterministyczny LocalStub.
+
+**Definition of Done (Faza 11):**
+- [ ] Odpowiedzi asystenta zawieraja evidence z konkretnymi rekordami DB.
+- [ ] Dziala tryb LocalStub offline.
+- [ ] UI asystenta dziala przez IPC bez naruszenia granic architektury.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
-- [ ] Wpis w `CHANGELOG_AI.md`.
-- [ ] Aktualizacja `README.md` i `NEXT_STEP.md`.
 
 ## Krytyczne zasady (nie pomijaj)
 
