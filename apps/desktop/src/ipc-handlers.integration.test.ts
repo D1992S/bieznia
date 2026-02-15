@@ -17,6 +17,8 @@ import {
   handleAuthConnect,
   handleAuthDisconnect,
   handleAuthGetStatus,
+  handleImportCsvPreview,
+  handleImportCsvRun,
   handleDbGetChannelInfo,
   handleDbGetKpis,
   handleDbGetTimeseries,
@@ -29,6 +31,7 @@ import {
   handleReportsGenerate,
   handleSettingsGet,
   handleSettingsUpdate,
+  handleSearchContent,
   handleSyncResume,
   handleSyncStart,
   type DesktopIpcBackend,
@@ -230,6 +233,69 @@ function createTestContext(): TestContext {
       };
       return ok(authStatus);
     },
+    previewCsvImport: (input) =>
+      ok({
+        channelId: input.channelId,
+        sourceName: input.sourceName,
+        detectedDelimiter: 'comma',
+        headers: ['date', 'views', 'subscribers', 'videos', 'title'],
+        rowsTotal: 2,
+        sampleRows: [
+          {
+            date: '2026-02-01',
+            views: '100',
+            subscribers: '10',
+            videos: '1',
+            title: 'Film A',
+          },
+        ],
+        suggestedMapping: {
+          date: 'date',
+          views: 'views',
+          subscribers: 'subscribers',
+          videos: 'videos',
+          title: 'title',
+        },
+      }),
+    runCsvImport: (input) =>
+      ok({
+        importId: 11,
+        channelId: input.channelId,
+        sourceName: input.sourceName,
+        rowsTotal: 3,
+        rowsValid: 2,
+        rowsInvalid: 1,
+        importedDateFrom: '2026-02-01',
+        importedDateTo: '2026-02-02',
+        pipelineFeatures: 2,
+        latestFeatureDate: '2026-02-02',
+        validationIssues: [
+          {
+            rowNumber: 4,
+            column: 'views',
+            code: 'CSV_IMPORT_INVALID_NUMBER',
+            message: 'Wartosc metryki nie jest liczba nieujemna.',
+            value: 'abc',
+          },
+        ],
+      }),
+    searchContent: (input) =>
+      ok({
+        channelId: input.channelId,
+        query: input.query,
+        total: 1,
+        items: [
+          {
+            documentId: 'video:VID-001',
+            videoId: 'VID-001',
+            title: 'Film testowy',
+            publishedAt: '2026-01-01T12:00:00.000Z',
+            snippet: '... test ...',
+            source: 'title',
+            score: -1.2,
+          },
+        ],
+      }),
     startSync: () =>
       ok({
         syncRunId: 1,
@@ -463,6 +529,50 @@ describe('Desktop IPC handlers integration', () => {
       expect(authDisconnectResult.value.connected).toBe(false);
     }
 
+    const csvPreviewResult = handleImportCsvPreview(ctx.backend, {
+      channelId: ctx.channelId,
+      sourceName: 'manual-csv',
+      csvText: 'date,views,subscribers,videos,title\n2026-02-01,100,10,1,Film A',
+      delimiter: 'auto',
+      hasHeader: true,
+      previewRowsLimit: 10,
+    });
+    expect(csvPreviewResult.ok).toBe(true);
+    if (csvPreviewResult.ok) {
+      expect(csvPreviewResult.value.headers).toContain('date');
+    }
+
+    const csvRunResult = await handleImportCsvRun(ctx.backend, {
+      channelId: ctx.channelId,
+      sourceName: 'manual-csv',
+      csvText: 'date,views,subscribers,videos,title\n2026-02-01,100,10,1,Film A',
+      delimiter: 'auto',
+      hasHeader: true,
+      mapping: {
+        date: 'date',
+        views: 'views',
+        subscribers: 'subscribers',
+        videos: 'videos',
+        title: 'title',
+      },
+    });
+    expect(csvRunResult.ok).toBe(true);
+    if (csvRunResult.ok) {
+      expect(csvRunResult.value.importId).toBe(11);
+      expect(csvRunResult.value.validationIssues.length).toBe(1);
+    }
+
+    const searchResult = handleSearchContent(ctx.backend, {
+      channelId: ctx.channelId,
+      query: 'film',
+      limit: 20,
+      offset: 0,
+    });
+    expect(searchResult.ok).toBe(true);
+    if (searchResult.ok) {
+      expect(searchResult.value.items.length).toBeGreaterThan(0);
+    }
+
     const startSyncResult = await handleSyncStart(ctx.backend, {
       channelId: ctx.channelId,
       profileId: 'PROFILE-001',
@@ -624,6 +734,38 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidAuthDisconnectPayload.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidCsvPreview = handleImportCsvPreview(ctx.backend, {
+      channelId: ctx.channelId,
+      csvText: '',
+    });
+    expect(invalidCsvPreview.ok).toBe(false);
+    if (!invalidCsvPreview.ok) {
+      expect(invalidCsvPreview.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidCsvRun = await handleImportCsvRun(ctx.backend, {
+      channelId: ctx.channelId,
+      sourceName: 'manual-csv',
+      csvText: 'date,views\n2026-01-01,100',
+      mapping: {
+        date: 'date',
+        views: 'views',
+      },
+    });
+    expect(invalidCsvRun.ok).toBe(false);
+    if (!invalidCsvRun.ok) {
+      expect(invalidCsvRun.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidSearch = handleSearchContent(ctx.backend, {
+      channelId: ctx.channelId,
+      query: '',
+    });
+    expect(invalidSearch.ok).toBe(false);
+    if (!invalidSearch.ok) {
+      expect(invalidSearch.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidSyncStart = await handleSyncStart(ctx.backend, { recentLimit: 10 });
     expect(invalidSyncStart.ok).toBe(false);
     if (!invalidSyncStart.ok) {
@@ -674,6 +816,9 @@ describe('Desktop IPC handlers integration', () => {
       getAuthStatus: () => ctx.backend.getAuthStatus(),
       connectAuth: (input) => ctx.backend.connectAuth(input),
       disconnectAuth: () => ctx.backend.disconnectAuth(),
+      previewCsvImport: (input) => ctx.backend.previewCsvImport(input),
+      runCsvImport: (input) => ctx.backend.runCsvImport(input),
+      searchContent: (input) => ctx.backend.searchContent(input),
       startSync: (input) => ctx.backend.startSync(input),
       resumeSync: (input) => ctx.backend.resumeSync(input),
       runMlBaseline: (input) => ctx.backend.runMlBaseline(input),
