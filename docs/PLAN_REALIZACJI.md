@@ -56,6 +56,11 @@
    - Komentarze w kodzie — po angielsku.
    - Szczegółowe zasady w `AGENTS.md` sekcja „Język aplikacji".
 
+10. **ADR mini + scope freeze przed każdą nową fazą** *(nowe, stałe)*
+   - Przed startem fazy tworzymy mini ADR (krótki kontekst, decyzja, alternatywy, ryzyka, metryki sukcesu).
+   - Dodatkowo 10-minutowy **scope freeze**: jawna lista „robimy / nie robimy" dla bieżącej fazy.
+   - Każdy PR fazowy linkuje ADR i potwierdza brak rozszerzania scope poza freeze.
+
 ---
 
 ## 2. Struktura repo (docelowa)
@@ -492,40 +497,70 @@ apps/ui/src/store/index.ts
 
 ---
 
-### Faza 11 — LLM Assistant
+### Faza 10.5 — Hardening (spójność liczb, regresje, trace, fundament pod Fazę 11)
 
-**Cel:** Odpowiedzi oparte na danych z evidence.
+**Cel:** Ustabilizować metryki i debugowalność pipeline przed asystentem LLM, aby każda liczba była reprodukowalna i łatwa do wyjaśnienia.
 
-**Zakres:**
-- Chat UI + historia (persist w SQLite).
-- Provider registry: OpenAI, Anthropic, local (Ollama), LocalStub fallback.
-- Orchestrator pattern: **planner** (co trzeba sprawdzić) → **executor** (SQL queries, feature lookup) → **summarizer** (odpowiedź z evidence).
-- Evidence attachment: każda odpowiedź ma linki do źródłowych danych.
-- Context window management: automatyczne streszczanie długich historii.
-- Structured output: LLM zwraca JSON z `answer`, `evidence[]`, `confidence`, `follow_up_questions[]`.
+**Zakres (MVP, krótka faza):**
+- **Golden DB**: dodać `fixtures/insight_golden.db` (3 kanały, ~20 filmów, 90 dni, edge-case: braki danych, spike, częściowe dni).
+- **Snapshot tests**: uruchamianie contract queries i snapshoty JSON (minimum 20 zapytań):
+  - overview `last30d` (`views`, `watch_time`, `avg_view_duration`, `ctr`),
+  - top videos `last30d`,
+  - compare `last7d` vs `previous7d`,
+  - trend (`slope` + `confidence`) dla kluczowych metryk,
+  - anomalies (punkty + score).
+- Komendy testowe: `pnpm test:snapshots` i `pnpm test:snapshots:update` (świadoma aktualizacja).
+- **Trace ID + lineage (minimum)**: każde wywołanie analityczne ma `trace_id`; logujemy operację, parametry, czas i liczbę rekordów; lineage zawiera tabelę, klucze główne, zakres czasu i filtry.
+- **Semantic Layer (krok 1)**: katalog 15-25 kluczowych metryk + wspólny interfejs pobierania; nowy kod korzysta z katalogu, migracja starego kodu tylko dla krytycznych ekranów.
+- **ADR mini + scope freeze (operacyjnie)**:
+  - `docs/adr/000-template.md`,
+  - minimum 2 ADR (format evidence/lineage, model metryk; opcjonalnie trzeci: zasady cache pod Fazę 12),
+  - obowiązkowy scope freeze „robimy / nie robimy" przed startem kolejnych faz.
 
 **Definition of Done:**
-- Pytanie "jak szły moje filmy w ostatnim miesiącu?" → odpowiedź z konkretnymi liczbami z DB.
-- LocalStub mode: odpowiedź template (bez real LLM) z poprawnymi danymi.
-- Evidence linki prowadzą do konkretnych rekordów.
+- Snapshot tests działają local/CI i wykrywają regresję liczbową.
+- `trace_id` jest generowany i zapisany dla kluczowych operacji analitycznych.
+- Semantic Layer zawiera min. 15-25 metryk i jest użyty w co najmniej 2 krytycznych miejscach UI.
+- W repo istnieje template ADR i co najmniej 2 ADR związane z evidence/metrykami.
 
 ---
 
-### Faza 12 — LLM Guardrails + Cost Control
+### Faza 11 — LLM Assistant (Lite)
 
-**Cel:** Kontrola kosztu i bezpieczeństwa.
+**Cel:** Dostarczyć praktycznego asystenta bez budowania pełnej platformy LLM — tylko bezpieczne narzędzia i odpowiedzi oparte o evidence.
 
 **Zakres:**
-- Limity dzienne: tokeny, koszt ($), liczba requestów.
-- Redaction: PII, API keys — nigdy nie wysyłane do LLM.
-- Semantic cache: embedding similarity → cache hit jeśli pytanie "wystarczająco podobne".
-- Usage tracking: `llm_usage` table (tokens_in, tokens_out, cost, model, latency, cache_hit).
-- Dashboard usage: wykres kosztu/użycia, top pytania, cache efficiency.
+- **Whitelist tooli** (bez dowolnego SQL na start): executor korzysta tylko z zatwierdzonych narzędzi read-only.
+- Structured output JSON: `answer`, `evidence[]`, `confidence`, `follow_up_questions[]`.
+- Persist rozmów i evidence w SQLite.
+- UI: zakładka asystenta z chatem, historią i evidence viewer.
+- LocalStub offline działa deterministycznie.
+- Minimalne streszczanie długich rozmów (context compaction).
+- Executor zawsze robi realne lookupy przez tools (nigdy odpowiedź „z głowy").
 
 **Definition of Done:**
-- Limit dzienny blokuje dalsze requesty z informacją w UI.
-- Redaction test: dane wrażliwe nigdy nie opuszczają aplikacji (unit test).
-- Cache hit-rate mierzalny i widoczny w diagnostyce.
+- Pytanie "jak szły moje filmy w ostatnim miesiącu?" → odpowiedź z konkretnymi liczbami z DB.
+- LocalStub mode zwraca poprawną odpowiedź bez zewnętrznego API.
+- Evidence linki prowadzą do konkretnych rekordów.
+- UI + IPC dla asystenta są stabilne: `lint/typecheck/test/build` przechodzą.
+
+---
+
+### Faza 12 — Performance i stabilność (cache + inkrementalność)
+
+**Cel:** Przyspieszyć analitykę po ustabilizowaniu metryk i uprościć ponowne przeliczenia bez naruszania spójności danych.
+
+**Zakres:**
+- Cache wyników analitycznych po `(metric_id, params_hash)`.
+- TTL + invalidacja cache po sync/import.
+- Inkrementalne przeliczenia tam, gdzie ma to sens kosztowo.
+- Mierniki czasu wykonania i spójny monitoring wydajności (p50/p95 + cache hit-rate).
+- Dodatkowo: podstawowe guardrails kosztowe i bezpieczeństwa utrzymane jako polityki runtime (bez budowy dużej platformy).
+
+**Definition of Done:**
+- Cache działa i raportuje hit/miss dla kluczowych zapytań.
+- Po sync/import cache jest poprawnie unieważniany.
+- Inkrementalne ścieżki skracają czas wybranych przeliczeń bez zmiany wyniku merytorycznego.
 
 ---
 
@@ -749,8 +784,8 @@ Task jest zamknięty **dopiero** gdy:
 ### Milestone 4: User-Ready (Fazy 8-9)
 **Wynik:** Auth, multi-profile, import, search. Aplikacja użyteczna solo.
 
-### Milestone 5: Analytics Beast (Fazy 10-15)
-**Wynik:** Anomaly detection, LLM assistant, quality scoring, competitor intel, topic intel, planning. **Pełny "potwór analityczny".**
+### Milestone 5: Analytics Beast (Fazy 10-15, z hardeningiem 10.5)
+**Wynik:** Anomaly detection + hardening liczb, LLM assistant Lite, quality scoring, competitor intel, topic intel, planning. **Pełny "potwór analityczny" budowany etapowo.**
 
 ### Milestone 6: Production (Fazy 16-19)
 **Wynik:** Diagnostics + polish pod użycie lokalne single-user (bez plugin runtime, packagingu dystrybucyjnego i telemetry opt-in).
@@ -770,6 +805,8 @@ Task jest zamknięty **dopiero** gdy:
    - Wpisem do `CHANGELOG_AI.md`.
    - Listą ryzyk.
    - "Następny krok" — co powinien zrobić kolejny model.
+
+2a. Przed każdą nową fazą obowiązuje mini ADR + 10-minutowy scope freeze (jawne „robimy / nie robimy").
 
 3. **Zakaz "dużych refactorów bez ADR"** — każda zmiana architektury wymaga decyzji.
 
@@ -835,9 +872,10 @@ Task jest zamknięty **dopiero** gdy:
 
 - [x] Import CSV + FTS5 search + integracje IPC/UI + testy integracyjne. DONE Faza 9
 - [x] Anomaly detection + trend decomposition + CUSUM + UI feed + overlay + testy integracyjne. DONE Faza 10
+- [ ] Hardening 10.5: golden DB + snapshot tests + trace_id + lineage + Semantic Layer (step 1).
+- [ ] Hardening 10.5: docs/adr/000-template.md + minimum 2 ADR + scope freeze checklist.
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---
 
 > Ten dokument jest „żywy": aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
-

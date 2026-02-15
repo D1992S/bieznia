@@ -13,6 +13,36 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-15 (v32)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5.2-Codex
+- Zakres plików:
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Wprowadzono nową fazę `10.5` (Hardening) pomiędzy Fazą 10 i 11.
+  - Doprecyzowano zakres Fazy 10.5: Golden DB, snapshot tests, trace_id + lineage, Semantic Layer (step 1), ADR mini + scope freeze.
+  - Zmieniono Fazę 11 na `LLM Assistant (Lite)` z whitelist tooli, evidence-first i LocalStub deterministycznym.
+  - Zmieniono Fazę 12 na `Performance i stabilność` (cache + inkrementalność po stabilizacji metryk).
+  - Dodano stałą zasadę procesu: mini ADR + 10-min scope freeze przed każdą nową fazą.
+  - Zsynchronizowano status i mapę faz w `NEXT_STEP.md` oraz tabelę postępu w `README.md` (następna faza = 10.5).
+- Dlaczego:
+  - Celem było utrzymanie spójności roadmapy po domknięciu Faz 0-10 i dodanie minimalnych, praktycznych zabezpieczeń przed wdrażaniem asystenta LLM.
+- Ryzyko/regresja:
+  - Zmiany są dokumentacyjne; brak ryzyka runtime.
+  - Ryzyko organizacyjne: bez pilnowania scope freeze faza 10.5 może nadmiernie rozrosnąć zakres.
+- Jak zweryfikowano:
+  - Odczyt i porównanie sekcji faz w `docs/PLAN_REALIZACJI.md`, `NEXT_STEP.md`, `README.md`.
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS
+  - `pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć implementację Fazy 10.5 zgodnie z DoD i zamknąć ADR/evidence baseline przed startem Fazy 11 Lite.
+
 ## 2026-02-15 (v31)
 
 - Data: 2026-02-15
