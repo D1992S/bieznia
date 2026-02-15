@@ -191,7 +191,7 @@ export function runWithAnalyticsTrace<T>(input: RunWithAnalyticsTraceInput<T>): 
     operationResult = err(
       AppError.create(
         'ANALYTICS_OPERATION_THROWN',
-        'Operacja analityczna zakończyła się nieobsłużonym błędem.',
+        'Analytics operation resulted in an unhandled error.',
         'error',
         {
           operationName: input.operationName,

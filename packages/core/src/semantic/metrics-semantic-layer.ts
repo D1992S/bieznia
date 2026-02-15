@@ -323,7 +323,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
 
   if (Number.isNaN(from) || Number.isNaN(to)) {
     return err(
-      AppError.create('SEMANTIC_METRIC_INVALID_DATE', 'Zakres dat metryki jest niepoprawny.', 'error', {
+      AppError.create('SEMANTIC_METRIC_INVALID_DATE', 'Metric date range is invalid.', 'error', {
         dateFrom,
         dateTo,
       }),
@@ -334,7 +334,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
     return err(
       AppError.create(
         'SEMANTIC_METRIC_INVALID_DATE_RANGE',
-        'Data początkowa nie może być późniejsza niż końcowa.',
+        'Start date cannot be later than end date.',
         'error',
         { dateFrom, dateTo },
       ),
@@ -372,7 +372,7 @@ function readSnapshotMetric(
     return err(
       AppError.create(
         'SEMANTIC_METRIC_SNAPSHOT_READ_FAILED',
-        'Nie udało się odczytać metryki snapshot.',
+        'Failed to read metric snapshot.',
         'error',
         { metricId: metric.id, channelId },
         toError(cause),
@@ -433,7 +433,7 @@ function readFactMetric(
       return err(
         AppError.create(
           'SEMANTIC_METRIC_LATEST_READ_FAILED',
-          'Nie udało się odczytać ostatniej wartości metryki.',
+          'Failed to read the latest metric value.',
           'error',
           {
             metricId: metric.id,
@@ -496,7 +496,7 @@ function readFactMetric(
     return err(
       AppError.create(
         'SEMANTIC_METRIC_FACT_READ_FAILED',
-        'Nie udało się odczytać metryki z fact_channel_day.',
+        'Failed to read metric from fact_channel_day.',
         'error',
         {
           metricId: metric.id,
@@ -563,7 +563,7 @@ function readCountFromTable(
       return err(
         AppError.create(
           'SEMANTIC_METRIC_UNSUPPORTED_SOURCE',
-          'Metryka ma nieobsługiwane źródło tabeli.',
+          'Metric uses an unsupported source table.',
           'error',
           { metricId: metric.id, sourceTable: metric.sourceTable },
         ),
@@ -583,7 +583,7 @@ function readCountFromTable(
     return err(
       AppError.create(
         'SEMANTIC_METRIC_COUNT_READ_FAILED',
-        'Nie udało się odczytać licznikowej metryki semantycznej.',
+        'Failed to read semantic count metric.',
         'error',
         {
           metricId: metric.id,
@@ -616,7 +616,7 @@ function readMaxVideoMetric(
     return err(
       AppError.create(
         'SEMANTIC_METRIC_VIDEO_READ_FAILED',
-        'Nie udało się odczytać metryki video.',
+        'Failed to read video metric.',
         'error',
         { metricId: metric.id, channelId },
         toError(cause),
@@ -683,7 +683,7 @@ function resolveMetricValue(
     return err(
       AppError.create(
         'SEMANTIC_METRIC_CYCLE',
-        'Wykryto cykliczną zależność metryk semantycznych.',
+        'Detected a cyclic dependency between semantic metrics.',
         'error',
         { metricId: input.metricId },
       ),
@@ -695,7 +695,7 @@ function resolveMetricValue(
     return err(
       AppError.create(
         'SEMANTIC_METRIC_NOT_FOUND',
-        'Nie znaleziono metryki semantycznej.',
+        'Semantic metric was not found.',
         'error',
         { metricId: input.metricId },
       ),
@@ -875,7 +875,7 @@ export function createSemanticMetricService(db: Database.Database): SemanticMetr
         return err(
           AppError.create(
             'SEMANTIC_METRIC_TIMESERIES_FAILED',
-            'Nie udało się odczytać szeregu czasowego z semantic layer.',
+            'Failed to read time series from semantic layer.',
             'error',
             {
               channelId: input.channelId,

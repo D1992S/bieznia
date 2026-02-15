@@ -103,7 +103,7 @@ function buildDateRangeSummary(dateFrom: string, dateTo: string): Result<DateRan
     return err(
       AppError.create(
         'REPORT_INVALID_DATE',
-        'Zakres dat raportu jest niepoprawny.',
+        'Report date range is invalid.',
         'error',
         { dateFrom, dateTo },
       ),
@@ -114,7 +114,7 @@ function buildDateRangeSummary(dateFrom: string, dateTo: string): Result<DateRan
     return err(
       AppError.create(
         'REPORT_INVALID_DATE_RANGE',
-        'Data poczatkowa raportu nie moze byc pozniejsza niz koncowa.',
+        'Report start date cannot be later than end date.',
         'error',
         { dateFrom, dateTo },
       ),
@@ -177,7 +177,7 @@ function readActiveForecast(
       return err(
         AppError.create(
           'REPORT_FORECAST_MODEL_INVALID',
-          'Model prognozy ma niepoprawny typ.',
+          'Forecast model type is invalid.',
           'error',
           {
             channelId,
@@ -205,7 +205,7 @@ function readActiveForecast(
         return err(
           AppError.create(
             'REPORT_FORECAST_POINT_INVALID',
-            'Punkt prognozy ma niepoprawny format.',
+            'Forecast point format is invalid.',
             'error',
             {
               channelId,
@@ -230,7 +230,7 @@ function readActiveForecast(
     return err(
       AppError.create(
         'REPORT_FORECAST_READ_FAILED',
-        'Nie udalo sie odczytac prognozy do raportu.',
+        'Failed to read forecast for report.',
         'error',
         { channelId, targetMetric },
         toError(cause),
@@ -271,7 +271,7 @@ function readTopVideos(
         return err(
           AppError.create(
             'REPORT_TOP_VIDEOS_INVALID',
-            'Lista top filmow ma niepoprawny format.',
+            'Top videos list format is invalid.',
             'error',
             { channelId, rowIndex: index, issues: parsed.error.issues },
           ),
@@ -285,7 +285,7 @@ function readTopVideos(
     return err(
       AppError.create(
         'REPORT_TOP_VIDEOS_READ_FAILED',
-        'Nie udalo sie odczytac top filmow.',
+        'Failed to read top videos.',
         'error',
         { channelId, limit },
         toError(cause),
@@ -559,7 +559,7 @@ function writeExportFile(
     return err(
       AppError.create(
         'REPORT_EXPORT_WRITE_FAILED',
-        'Nie udalo sie zapisac pliku raportu.',
+        'Failed to write report file.',
         'error',
         { filePath },
         toError(cause),
@@ -631,7 +631,7 @@ export function generateDashboardReport(input: GenerateDashboardReportInput): Re
         return err(
           AppError.create(
             'REPORT_INVALID_INPUT',
-            'Parametry raportu sa niepoprawne.',
+            'Report parameters are invalid.',
             'error',
             { issues: parsedInput.error.issues },
           ),
@@ -731,7 +731,7 @@ export function generateDashboardReport(input: GenerateDashboardReportInput): Re
         return err(
           AppError.create(
             'REPORT_INVALID_OUTPUT',
-            'Wygenerowany raport ma niepoprawny format.',
+            'Generated report format is invalid.',
             'error',
             { issues: parsedOutput.error.issues },
           ),
@@ -780,7 +780,7 @@ export function exportDashboardReport(input: ExportDashboardReportInput): Result
         return err(
           AppError.create(
             'REPORT_EXPORT_INVALID_INPUT',
-            'Parametry eksportu raportu sa niepoprawne.',
+            'Report export parameters are invalid.',
             'error',
             { issues: parsedInput.error.issues },
           ),
@@ -813,7 +813,7 @@ export function exportDashboardReport(input: ExportDashboardReportInput): Result
         return err(
           AppError.create(
             'REPORT_EXPORT_DIR_CREATE_FAILED',
-            'Nie udalo sie przygotowac katalogu eksportu raportu.',
+            'Failed to prepare report export directory.',
             'error',
             { reportDir },
             toError(cause),
@@ -876,7 +876,7 @@ export function exportDashboardReport(input: ExportDashboardReportInput): Result
         return err(
           AppError.create(
             'REPORT_EXPORT_INVALID_OUTPUT',
-            'Wynik eksportu raportu ma niepoprawny format.',
+            'Report export result format is invalid.',
             'error',
             { issues: parsedOutput.error.issues },
           ),
