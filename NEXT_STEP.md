@@ -26,7 +26,7 @@
 | 16 | Planning System | DONE |
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) |
 | 18 | Diagnostics + Recovery | DONE |
-| 19 | Polish + Local UX | Oczekuje |
+| 19 | Polish + Local UX | DONE |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -434,7 +434,7 @@
 - [x] UI pokazuje status i pozwala uruchomic recovery bez bledow IPC.
 - [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
-## Co robic teraz - Faza 19: Polish + Local UX
+## Co zostalo zrobione - Faza 19: Polish + Local UX
 
 > Faza 17 jest **SKIP (solo)** i nie implementujemy plugin runtime.
 
@@ -460,9 +460,15 @@
    - brak regresji IPC i danych przy codziennym scenariuszu uzycia.
 
 **Definition of Done (Faza 19):**
-- [ ] Kluczowe flow sa spójne i czytelne UX-owo w codziennym uzyciu.
-- [ ] Brak krytycznych brakow copy/pl i brakow ergonomii w glownych panelach.
-- [ ] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
+- [x] Kluczowe flow sa spójne i czytelne UX-owo w codziennym uzyciu.
+- [x] Brak krytycznych brakow copy/pl i brakow ergonomii w glownych panelach.
+- [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
+
+**Kolejny krok (po fazach 0-19):**
+- Tryb utrzymania i testow regresyjnych:
+  - uruchamiaj pelny regression check przy kazdej zmianie,
+  - utrzymuj spojnosc UI po polsku i ergonomie codziennych flow,
+  - zbieraj uwagi z testow manualnych i domykaj poprawki jako male PR-y.
 
 ## Krytyczne zasady (nie pomijaj)
 

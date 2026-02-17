@@ -13,6 +13,43 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v45)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/010-polish-local-ux.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 19 (Polish + Local UX).
+  - W UI (`App.tsx`) dodano:
+    - onboarding first-run z lokalnym zapisem stanu,
+    - skróty klawiszowe (Ctrl+1..5, Ctrl+Enter, Alt+S),
+    - one-click „przebieg tygodniowy” (sync → analiza → plan → raport),
+    - spójne akcje retry dla kluczowych paneli,
+    - poprawki copy PL i responsywności (układ asystenta na mniejszych ekranach).
+  - Dodano ADR `docs/adr/010-polish-local-ux.md` z decyzją i scope freeze.
+  - Zaktualizowano statusy dokumentacji:
+    - `NEXT_STEP.md`: Faza 19 oznaczona jako DONE,
+    - `docs/PLAN_REALIZACJI.md`: checklista uzupełniona o DONE Faza 19,
+    - `README.md`: odświeżony status projektu i instrukcja uruchomienia.
+- Dlaczego:
+  - Celem było domknięcie ergonomii codziennej pracy single-user i przygotowanie aplikacji do wygodnego używania oraz testów manualnych/regresyjnych.
+- Ryzyko/regresja:
+  - Umiarkowane: nowy one-click flow uruchamia kilka mutacji sekwencyjnie, więc przy niestabilnych danych wejściowych może kończyć się wcześniej na pierwszym błędzie.
+  - Niskie: zmiany nie łamią kontraktów IPC i nie wprowadzają migracji DB.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Tryb utrzymania: manual QA na głównych flow oraz małe poprawki UX/copy wg zgłoszeń.
+
 ## 2026-02-17 (v44)
 
 - Data: 2026-02-17
