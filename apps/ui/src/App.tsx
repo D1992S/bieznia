@@ -572,6 +572,10 @@ export function App() {
   });
   const qualityScores = qualityScoresQuery.data;
   const competitorInsights = competitorInsightsQuery.data;
+  const isCompetitorSyncDisabled = syncCompetitorsMutation.isPending
+    || !dataEnabled
+    || channelId.trim().length === 0
+    || !isDateRangeValid(dateRange);
   const assistantThreads = assistantThreadsQuery.data?.items ?? [];
   const assistantMessages = assistantThreadMessagesQuery.data?.messages ?? [];
 
@@ -1248,6 +1252,9 @@ export function App() {
             <button
               type="button"
               onClick={() => {
+                if (isCompetitorSyncDisabled) {
+                  return;
+                }
                 syncCompetitorsMutation.mutate({
                   channelId,
                   dateFrom: dateRange.dateFrom,
@@ -1255,7 +1262,7 @@ export function App() {
                   competitorCount: 3,
                 });
               }}
-              disabled={syncCompetitorsMutation.isPending}
+              disabled={isCompetitorSyncDisabled}
             >
               {syncCompetitorsMutation.isPending ? 'Synchronizacja konkurencji...' : 'Synchronizuj konkurencję'}
             </button>

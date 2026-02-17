@@ -12,7 +12,7 @@ Po Fazie 13 aplikacja umiala oceniac jakosc naszych filmow, ale brakowalo warstw
 - czy konkurenci publikuja szybciej lub wolniej od nas,
 - kiedy konkurencja publikuje "hity" znaczaco ponad swoim baseline.
 
-Bez tego decyzje strategiczne (tempo publikacji, reakcja na ruchy rynku) sa robione bez twardych sygnalow.
+Bez tego decyzje strategiczne (tempo publikacji, reakcja na ruchy rynku) są robione bez twardych sygnalow.
 
 ## Decyzja
 
@@ -51,7 +51,7 @@ Wprowadzamy modul Competitor Intelligence oparty o dzienne snapshoty i analityke
   - testy integracyjne i aktualizacje dokumentacji.
 - Nie robimy:
   - realnego pobierania z YouTube Data API (pelna integracja providerow zostaje na kolejne iteracje),
-  - radar chart wizualnego (MVP pokazuje porownanie tabelaryczne/tekstowe),
+  - wizualny wykres radarowy (MVP pokazuje porownanie tabelaryczne/tekstowe),
   - alerting push/notification center,
   - persystencji progow konfigurowanych przez uzytkownika.
 

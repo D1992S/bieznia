@@ -735,6 +735,10 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
 
   const hits: CompetitorInsightsResultDTO['hits'] = [];
   const items: CompetitorInsightsResultDTO['items'] = [];
+  const totalCompetitorsViews = Array.from(grouped.values()).reduce(
+    (sum, rows) => sum + rows.reduce((rowSum, row) => rowSum + row.views, 0),
+    0,
+  );
 
   for (const [competitorChannelId, rows] of grouped.entries()) {
     if (rows.length === 0) {
@@ -753,8 +757,8 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     const relativeGrowth = competitorGrowthRate - ownerGrowthRate;
     const uploadsPerWeek = calculateUploadsPerWeek(first.videos, last.videos, rows.length);
     const uploadFrequencyDelta = uploadsPerWeek - ownerUploadsPerWeek;
-    const marketShare = totalViews + ownerTotalViews > 0
-      ? totalViews / (totalViews + ownerTotalViews)
+    const marketShare = totalCompetitorsViews + ownerTotalViews > 0
+      ? totalViews / (totalCompetitorsViews + ownerTotalViews)
       : 0;
 
     const viewSeries = rows.map((row) => row.views);

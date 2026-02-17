@@ -1287,14 +1287,27 @@ function syncCompetitorsCommand(input: CompetitorSyncInputDTO): Result<Competito
       },
     ],
     estimateRowCount: (value) => value.snapshotsProcessed,
-    execute: () =>
-      syncCompetitorSnapshots({
+    execute: () => {
+      const syncResult = syncCompetitorSnapshots({
         db,
         channelId: input.channelId,
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
         competitorCount: input.competitorCount,
-      }),
+      });
+
+      if (syncResult.ok) {
+        invalidateAnalyticsCache('competitor-sync', {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          competitorCount: input.competitorCount,
+          snapshotsProcessed: syncResult.value.snapshotsProcessed,
+        });
+      }
+
+      return syncResult;
+    },
   });
 }
 

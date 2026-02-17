@@ -34,7 +34,7 @@ function createSeededDb() {
   const dateFrom = allDates[0];
   const dateTo = allDates[allDates.length - 1];
   if (!dateFrom || !dateTo) {
-    throw new Error('Brak dat w fixture channelDaily.');
+    throw new Error('No data in fixture channelDaily.');
   }
 
   return {
@@ -79,8 +79,6 @@ describe('Competitor intelligence integration', () => {
           FROM fact_competitor_day
           WHERE channel_id = @channelId
             AND date BETWEEN @dateFrom AND @dateTo
-          ORDER BY total ASC
-          LIMIT 1
         `,
       )
       .get({

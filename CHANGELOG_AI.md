@@ -13,6 +13,44 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v41)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/desktop/src/main.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/006-competitor-intelligence.md`
+  - `packages/analytics/src/competitor-intelligence.integration.test.ts`
+  - `packages/analytics/src/competitor-intelligence.ts`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Poprawiono invalidację cache po udanym `syncCompetitorSnapshots` w `syncCompetitorsCommand`:
+    - po sukcesie wywoływane jest `invalidateAnalyticsCache('competitor-sync', ...)`.
+  - Zabezpieczono przycisk synchronizacji konkurencji w UI:
+    - dodano flagę `isCompetitorSyncDisabled`,
+    - przycisk jest blokowany dla niepoprawnego kontekstu,
+    - `onClick` ma guard i nie wysyła mutacji przy niepoprawnych danych.
+  - Poprawiono literówki/gramatykę w ADR 006:
+    - `sa robione` -> `są robione`,
+    - `radar chart wizualnego` -> `wizualny wykres radarowy`.
+  - W teście integracyjnym competitor:
+    - zmieniono komunikat błędu fixture na angielski (`No data in fixture channelDaily.`),
+    - usunięto zbędne `ORDER BY ... LIMIT 1` z zapytania `COUNT(*)`.
+  - W `getCompetitorInsights` zmieniono liczenie `marketShare` na udział w pełnym rynku:
+    - denominator uwzględnia `ownerTotalViews + totalCompetitorsViews`.
+- Dlaczego:
+  - Celem było domknięcie review: świeżość cache po sync, brak invalid payloadów z UI, czystość testów i poprawna semantyka market share.
+- Ryzyko/regresja:
+  - Niskie: zmiany punktowe, pokryte lint/typecheck/test.
+  - Umiarkowane: zmiana definicji `marketShare` może nieznacznie zmienić wartości prezentowane w UI.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test -- packages/analytics/src/competitor-intelligence.integration.test.ts apps/desktop/src/ipc-handlers.integration.test.ts packages/shared/src/ipc/contracts.test.ts` - PASS
+- Następny krok:
+  - Dodać te poprawki do istniejącego PR #18 i kontynuować review bez merge automatycznego.
+
 ## 2026-02-17 (v40)
 
 - Data: 2026-02-17
