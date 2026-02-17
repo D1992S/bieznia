@@ -25,6 +25,7 @@ import {
   handleMlGetForecast,
   handleMlGetAnomalies,
   handleMlGetTrend,
+  handleAnalyticsGetQualityScores,
   handleMlDetectAnomalies,
   handleMlRunBaseline,
   handleProfileCreate,
@@ -452,6 +453,64 @@ function createTestContext(): TestContext {
           },
         ],
       }),
+    getQualityScores: (input) =>
+      ok({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        total: 2,
+        calculatedAt: '2026-02-17T10:00:00.000Z',
+        items: [
+          {
+            videoId: 'VID-001',
+            channelId: input.channelId,
+            title: 'Film testowy',
+            publishedAt: '2026-01-01T12:00:00.000Z',
+            score: 91.5,
+            confidence: 'high',
+            daysWithData: 62,
+            components: {
+              velocity: 0.95,
+              efficiency: 0.9,
+              engagement: 0.92,
+              retention: 0.8,
+              consistency: 0.85,
+            },
+            rawComponents: {
+              velocity: 2200,
+              efficiency: 0.45,
+              engagement: 0.12,
+              retention: 0.71,
+              consistency: 0.79,
+            },
+            calculatedAt: '2026-02-17T10:00:00.000Z',
+          },
+          {
+            videoId: 'VID-002',
+            channelId: input.channelId,
+            title: 'Film testowy 2',
+            publishedAt: '2026-01-03T12:00:00.000Z',
+            score: 73.1,
+            confidence: 'medium',
+            daysWithData: 35,
+            components: {
+              velocity: 0.7,
+              efficiency: 0.65,
+              engagement: 0.75,
+              retention: 0.6,
+              consistency: 0.68,
+            },
+            rawComponents: {
+              velocity: 1700,
+              efficiency: 0.31,
+              engagement: 0.09,
+              retention: 0.62,
+              consistency: 0.66,
+            },
+            calculatedAt: '2026-02-17T10:00:00.000Z',
+          },
+        ],
+      }),
     generateReport: (input) =>
       ok({
         generatedAt: '2026-02-12T22:30:00.000Z',
@@ -854,6 +913,18 @@ describe('Desktop IPC handlers integration', () => {
       expect(mlTrendResult.value.summary.trendDirection).toBe('up');
     }
 
+    const qualityScoresResult = await handleAnalyticsGetQualityScores(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      limit: 10,
+    });
+    expect(qualityScoresResult.ok).toBe(true);
+    if (qualityScoresResult.ok) {
+      expect(qualityScoresResult.value.items.length).toBeGreaterThan(0);
+      expect(qualityScoresResult.value.items[0]?.score).toBeGreaterThan(0);
+    }
+
     const reportGenerateResult = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -1100,6 +1171,16 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidMlTrend.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidQualityScores = await handleAnalyticsGetQualityScores(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: '2026-02-02',
+      dateTo: '2026-01-01',
+    });
+    expect(invalidQualityScores.ok).toBe(false);
+    if (!invalidQualityScores.ok) {
+      expect(invalidQualityScores.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidReportGenerate = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: '2026-01-01',
@@ -1148,6 +1229,7 @@ describe('Desktop IPC handlers integration', () => {
       detectMlAnomalies: (input) => ctx.backend.detectMlAnomalies(input),
       getMlAnomalies: (input) => ctx.backend.getMlAnomalies(input),
       getMlTrend: (input) => ctx.backend.getMlTrend(input),
+      getQualityScores: (input) => ctx.backend.getQualityScores(input),
       generateReport: (input) => ctx.backend.generateReport(input),
       exportReport: (input) => ctx.backend.exportReport(input),
       askAssistant: (input) => ctx.backend.askAssistant(input),

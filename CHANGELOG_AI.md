@@ -13,6 +13,62 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v38)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/009-quality-scoring-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/analytics/src/quality-scoring.ts`
+  - `packages/analytics/src/quality-scoring.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/package.json`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/005-quality-scoring.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `pnpm-lock.yaml`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Faze 13 (Quality Scoring) end-to-end.
+  - Dodano kontrakty IPC/DTO dla quality scoring oraz kanal `analytics:getQualityScores`.
+  - Dodano migracje `009-quality-scoring-schema` z tabela `agg_quality_scores`.
+  - Wdrozone `@moze/analytics/getQualityScores(...)`:
+    - komponenty velocity/efficiency/engagement/retention/consistency,
+    - normalizacja percentile rank w kanale,
+    - confidence labels na podstawie dni historii,
+    - zapis breakdown do SQLite.
+  - Podlaczono desktop backend + IPC + preload + UI API + hooki React Query.
+  - Dodano panel "Quality scoring (Faza 13)" w zakladce `Statystyki`.
+  - Dodano i rozszerzono testy integracyjne (analytics/shared/desktop/core).
+  - Dodano ADR `005-quality-scoring.md` oraz zaktualizowano statusy dokumentacji (README/NEXT_STEP/PLAN).
+- Dlaczego:
+  - Celem bylo dostarczenie wielowymiarowego rankingu jakosci contentu z jawna wiarygodnoscia wyniku i pelna sciezka IPC/UI.
+- Ryzyko/regresja:
+  - Score jest relatywny (percentile wewnatrz kanalu), wiec zmienia sie wraz z rozkladem danych.
+  - Kazde odswiezenie rankingu wykonuje przeliczenie i persystencje `agg_quality_scores` dla zakresu.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (98/98)
+  - `corepack pnpm build` - PASS
+- Nastepny krok:
+  - Rozpoczac Faze 14 (Competitor Intelligence): schema konkurencji, ingestion snapshotow i hit detection z integracja UI/IPC.
+
 ## 2026-02-17 (v37)
 
 - Data: 2026-02-17

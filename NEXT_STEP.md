@@ -20,7 +20,7 @@
 | 10.5 | Hardening (spojnosc liczb + regresje + trace + semantic layer) | DONE |
 | 11 | LLM Assistant (Lite) | DONE |
 | 12 | Performance i stabilnosc (cache + inkrementalnosc) | DONE |
-| 13 | Quality Scoring | **NASTEPNA** |
+| 13 | Quality Scoring | DONE |
 | 14-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
@@ -211,28 +211,72 @@
 - [x] Inkrementalne sciezki skracaja czas bez zmiany wyniku.
 - [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
 
-## Co robic teraz - Faza 13: Quality Scoring
+## Co zostalo zrobione (Faza 13)
 
-**Cel:** uruchomic wielowymiarowy scoring jakosci contentu, oparty o metryki z danych historycznych i confidence.
+- Kontrakty `shared` rozszerzono o quality scoring:
+  - `analytics:getQualityScores`,
+  - DTO/result schemas:
+    - `QualityScoreQueryInputDTO`,
+    - `QualityScoreItemDTO`,
+    - `QualityScoreResultDTO`,
+    - `QualityScoreConfidence`.
+- `core` dostal migracje `009-quality-scoring-schema`:
+  - tabela `agg_quality_scores`,
+  - indeksy pod odczyt po `channel_id/date_from/date_to` i `score`.
+- Dodano serwis `@moze/analytics`:
+  - `getQualityScores(...)` (velocity/efficiency/engagement/retention/consistency),
+  - normalizacja percentile rank wewnatrz kanalu,
+  - confidence labels (`high`/`medium`/`low`) na podstawie `daysWithData`,
+  - persystencja breakdown do `agg_quality_scores`.
+- Desktop runtime i IPC:
+  - nowa komenda backendu i tracing `analytics.getQualityScores`,
+  - handlery IPC + preload bridge dla `analytics:getQualityScores`.
+- UI:
+  - nowy panel "Quality scoring (Faza 13)" w zakladce `Statystyki`,
+  - ranking z wynikiem, confidence i breakdown komponentow.
+- Testy:
+  - `packages/analytics/src/quality-scoring.integration.test.ts`,
+  - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`,
+  - rozszerzone `packages/core/src/data-core.integration.test.ts` (nowa tabela migracji 009).
+- ADR:
+  - dodano `docs/adr/005-quality-scoring.md`.
+- Regresja:
+  - `corepack pnpm lint` PASS
+  - `corepack pnpm typecheck` PASS
+  - `corepack pnpm test` PASS (98/98)
+  - `corepack pnpm build` PASS
+
+**Definition of Done (Faza 13):**
+- [x] Ranking quality score z breakdown komponentow dziala dla aktywnego kanalu.
+- [x] Confidence labels sa zgodne z dlugoscia historii.
+- [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
+
+## Co robic teraz - Faza 14: Competitor Intelligence
+
+**Cel:** uruchomic analize konkurencji oparta o porownywalne metryki i sygnaly hitow.
 
 **Zakres (MVP):**
 1. Schemat i storage:
-   - tabela `agg_quality_scores` (video_id, score, components_json, confidence, calculated_at),
-   - indeksy pod odczyt po `channel_id/date`.
-2. Silnik scoringu:
-   - komponenty: velocity, efficiency, engagement, retention, consistency,
-   - normalizacja percentile rank wewnatrz kanalu,
-   - finalny score + breakdown.
-3. Confidence:
-   - `high` / `medium` / `low` zalezne od ilosci historii danych.
+   - `dim_competitor`, `fact_competitor_day`,
+   - indeksy pod odczyt po `channel_id/date` i per konkurent.
+2. Ingestion:
+   - warstwa pobierania publicznych metryk konkurencji,
+   - snapshot dzienny z delta detection.
+3. Silnik analityczny:
+   - relative growth,
+   - content frequency comparison,
+   - hit detection (outlier > 3 sigma vs baseline konkurenta).
 4. Integracja UI/IPC:
-   - odczyt rankingow i breakdown na dashboardzie.
+   - panel porownawczy "my kanal vs konkurenci",
+   - podstawowy ranking momentum.
 5. Testy:
-   - seeded scenariusze ze znanym rankingiem i planted high-engagement.
+   - seeded scenariusze z planted hit videos i znanym porzadkiem momentum.
 
-**Definition of Done (Faza 13):**
-- [ ] Ranking quality score z breakdown komponentow dziala dla aktywnego kanalu.
-- [ ] Confidence labels sa zgodne z dlugoscia historii.
+**Definition of Done (Faza 14):**
+- [ ] Dane konkurencji sa zapisywane i odczytywane przez IPC.
+- [ ] Hit detection flaguje planted outliers.
+- [ ] UI pokazuje porownanie min. 3 kanalow.
 - [ ] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
 ## Krytyczne zasady (nie pomijaj)

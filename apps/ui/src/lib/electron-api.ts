@@ -26,6 +26,8 @@ import type {
   MlRunBaselineResultDTO,
   MlTrendQueryInputDTO,
   MlTrendResultDTO,
+  QualityScoreQueryInputDTO,
+  QualityScoreResultDTO,
   ProfileListResultDTO,
   ProfileCreateInputDTO,
   ProfileSetActiveInputDTO,
@@ -208,6 +210,12 @@ export async function fetchMlAnomalies(input: MlAnomalyQueryInputDTO): Promise<M
 export async function fetchMlTrend(input: MlTrendQueryInputDTO): Promise<MlTrendResultDTO> {
   const api = ensureElectronApi();
   const result = await api.mlGetTrend(input);
+  return unwrapResult(result);
+}
+
+export async function fetchQualityScores(input: QualityScoreQueryInputDTO): Promise<QualityScoreResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.analyticsGetQualityScores(input);
   return unwrapResult(result);
 }
 

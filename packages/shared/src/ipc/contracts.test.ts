@@ -13,6 +13,8 @@ import {
   MlAnomalyListResultDTOSchema,
   MlTrendQueryInputDTOSchema,
   MlTrendResultDTOSchema,
+  QualityScoreQueryInputDTOSchema,
+  QualityScoreResultDTOSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   AuthConnectInputDTOSchema,
@@ -399,6 +401,63 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Quality scoring DTO', () => {
+    it('applies defaults and validates quality scoring payloads', () => {
+      const query = QualityScoreQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+
+      expect(query.limit).toBe(20);
+
+      const result = QualityScoreResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        total: 1,
+        calculatedAt: '2026-02-17T12:00:00.000Z',
+        items: [
+          {
+            videoId: 'VID-001',
+            channelId: 'UC123',
+            title: 'Film testowy',
+            publishedAt: '2026-01-01T12:00:00.000Z',
+            score: 87.5,
+            confidence: 'high',
+            daysWithData: 31,
+            components: {
+              velocity: 0.95,
+              efficiency: 0.85,
+              engagement: 0.9,
+              retention: 0.7,
+              consistency: 0.8,
+            },
+            rawComponents: {
+              velocity: 2100,
+              efficiency: 0.45,
+              engagement: 0.12,
+              retention: 0.64,
+              consistency: 0.73,
+            },
+            calculatedAt: '2026-02-17T12:00:00.000Z',
+          },
+        ],
+      });
+
+      expect(result.items[0]?.confidence).toBe('high');
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        QualityScoreQueryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+    });
+  });
+
   describe('Reports DTO', () => {
     it('applies defaults for report generate input', () => {
       const parsed = ReportGenerateInputDTOSchema.parse({
@@ -775,6 +834,7 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.ML_GET_TREND).toBe('ml:getTrend');
       expect(IPC_CHANNELS.REPORTS_GENERATE).toBe('reports:generate');
       expect(IPC_CHANNELS.REPORTS_EXPORT).toBe('reports:export');
+      expect(IPC_CHANNELS.ANALYTICS_GET_QUALITY_SCORES).toBe('analytics:getQualityScores');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');

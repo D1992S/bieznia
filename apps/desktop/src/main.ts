@@ -18,6 +18,7 @@ import {
 import { runDataPipeline } from '@moze/data-pipeline';
 import { createAssistantLiteService, type AssistantLiteService } from '@moze/llm';
 import { getLatestMlForecast, getMlAnomalies, getMlTrend, runAnomalyTrendAnalysis, runMlBaseline } from '@moze/ml';
+import { getQualityScores } from '@moze/analytics';
 import { exportDashboardReport, generateDashboardReport } from '@moze/reports';
 import {
   createCachedDataProvider,
@@ -58,6 +59,8 @@ import {
   type MlRunBaselineResultDTO,
   type MlTrendQueryInputDTO,
   type MlTrendResultDTO,
+  type QualityScoreQueryInputDTO,
+  type QualityScoreResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResultDTO,
   type ProfileSetActiveInputDTO,
@@ -1195,6 +1198,54 @@ function getMlTrendCommand(input: MlTrendQueryInputDTO): Result<MlTrendResultDTO
   });
 }
 
+function getQualityScoresCommand(input: QualityScoreQueryInputDTO): Result<QualityScoreResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'analytics.getQualityScores',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      limit: input.limit,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_video_day,dim_video,fact_channel_day',
+        primaryKeys: ['video_id', 'channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+          limit: input.limit,
+        },
+      },
+      {
+        sourceTable: 'agg_quality_scores',
+        primaryKeys: ['channel_id', 'video_id', 'date_from', 'date_to'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.total,
+    execute: () =>
+      getQualityScores({
+        db,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        limit: input.limit,
+      }),
+  });
+}
+
 function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGenerateResultDTO, AppError> {
   const db = backendState.connection?.db;
   if (!db) {
@@ -1254,6 +1305,7 @@ const ipcBackend: DesktopIpcBackend = {
   detectMlAnomalies: (input) => detectMlAnomaliesCommand(input),
   getMlAnomalies: (input) => getMlAnomaliesCommand(input),
   getMlTrend: (input) => getMlTrendCommand(input),
+  getQualityScores: (input) => getQualityScoresCommand(input),
   generateReport: (input) => generateReportCommand(input),
   exportReport: (input) => exportReportCommand(input),
   askAssistant: (input) => askAssistantCommand(input),

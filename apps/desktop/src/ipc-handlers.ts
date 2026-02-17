@@ -39,6 +39,9 @@ import {
   MlTrendQueryInputDTOSchema,
   MlTrendResultDTOSchema,
   MlTrendResultSchema,
+  QualityScoreQueryInputDTOSchema,
+  QualityScoreResultDTOSchema,
+  QualityScoreResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultDTOSchema,
   ProfileListResultSchema,
@@ -110,6 +113,9 @@ import {
   type MlTrendQueryInputDTO,
   type MlTrendResult,
   type MlTrendResultDTO,
+  type QualityScoreQueryInputDTO,
+  type QualityScoreResult,
+  type QualityScoreResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileListResultDTO,
@@ -169,6 +175,7 @@ export interface DesktopIpcBackend {
   detectMlAnomalies: (input: MlDetectAnomaliesInputDTO) => Result<MlDetectAnomaliesResultDTO, AppError> | Promise<Result<MlDetectAnomaliesResultDTO, AppError>>;
   getMlAnomalies: (input: MlAnomalyQueryInputDTO) => Result<MlAnomalyListResultDTO, AppError> | Promise<Result<MlAnomalyListResultDTO, AppError>>;
   getMlTrend: (input: MlTrendQueryInputDTO) => Result<MlTrendResultDTO, AppError> | Promise<Result<MlTrendResultDTO, AppError>>;
+  getQualityScores: (input: QualityScoreQueryInputDTO) => Result<QualityScoreResultDTO, AppError> | Promise<Result<QualityScoreResultDTO, AppError>>;
   generateReport: (input: ReportGenerateInputDTO) => Result<ReportGenerateResultDTO, AppError> | Promise<Result<ReportGenerateResultDTO, AppError>>;
   exportReport: (input: ReportExportInputDTO) => Result<ReportExportResultDTO, AppError> | Promise<Result<ReportExportResultDTO, AppError>>;
   askAssistant: (input: AssistantAskInputDTO) => Result<AssistantAskResultDTO, AppError> | Promise<Result<AssistantAskResultDTO, AppError>>;
@@ -551,6 +558,19 @@ export async function handleMlGetTrend(
   );
 }
 
+export async function handleAnalyticsGetQualityScores(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<QualityScoreResult> {
+  return runHandlerAsync(
+    payload,
+    QualityScoreQueryInputDTOSchema,
+    QualityScoreResultDTOSchema,
+    QualityScoreResultSchema,
+    (input) => backend.getQualityScores(input),
+  );
+}
+
 export async function handleReportsGenerate(
   backend: DesktopIpcBackend,
   payload: unknown,
@@ -669,6 +689,7 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.ML_DETECT_ANOMALIES, (_event, payload) => handleMlDetectAnomalies(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ML_GET_ANOMALIES, (_event, payload) => handleMlGetAnomalies(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ML_GET_TREND, (_event, payload) => handleMlGetTrend(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ANALYTICS_GET_QUALITY_SCORES, (_event, payload) => handleAnalyticsGetQualityScores(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_GENERATE, (_event, payload) => handleReportsGenerate(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_EXPORT, (_event, payload) => handleReportsExport(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ASSISTANT_ASK, (_event, payload) => handleAssistantAsk(backend, payload));

@@ -12,6 +12,7 @@
     "build:watch": "node scripts/build-desktop.mjs --watch"
   },
   "dependencies": {
+    "@moze/analytics": "workspace:*",
     "@moze/core": "workspace:*",
     "@moze/data-pipeline": "workspace:*",
     "@moze/llm": "workspace:*",
