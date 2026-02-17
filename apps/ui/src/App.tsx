@@ -1,4 +1,4 @@
-﻿import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   CsvImportColumnMappingDTO,
   DataMode,
@@ -83,9 +83,18 @@ type AppTab = 'stats' | 'reports' | 'settings' | 'import' | 'assistant';
 type TrendDirection = 'up' | 'down' | 'flat';
 type ChangePointDirection = 'up' | 'down';
 type AnomalyMethod = 'zscore' | 'iqr' | 'consensus';
+type WeeklyPackageStage = 'idle' | 'sync' | 'anomaly' | 'competitors' | 'topics' | 'planning' | 'report' | 'done' | 'failed';
+
+interface WeeklyPackageState {
+  stage: WeeklyPackageStage;
+  message: string;
+  error: string | null;
+  finishedAt: string | null;
+}
 
 const ALL_DATA_MODES: DataMode[] = ['fake', 'real', 'record'];
 const ML_ANOMALY_SEVERITY_VALUES: ReadonlyArray<MlAnomalySeverity> = ['low', 'medium', 'high', 'critical'];
+const ONBOARDING_STORAGE_KEY = 'moze.ui.onboarding.v1.completed';
 const STUDIO_THEME = {
   bg: '#0c0d10',
   panel: '#191b20',
@@ -140,6 +149,22 @@ const STUDIO_CSS = `
 .studio-app th,
 .studio-app td {
   border-color: #2a2f37 !important;
+}
+
+.studio-app .shortcut-hint {
+  color: #8c949f;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+@media (max-width: 1100px) {
+  .studio-app .assistant-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .studio-app .assistant-messages {
+    max-height: 320px !important;
+  }
 }
 `;
 
@@ -338,6 +363,29 @@ function getDiagnosticsStatusColor(status: 'ok' | 'warning' | 'error' | 'skipped
   }
 }
 
+function getWeeklyStageLabel(stage: WeeklyPackageStage): string {
+  switch (stage) {
+    case 'idle':
+      return 'Gotowe do uruchomienia';
+    case 'sync':
+      return 'Synchronizacja danych';
+    case 'anomaly':
+      return 'Analiza anomalii i trendów';
+    case 'competitors':
+      return 'Synchronizacja konkurencji';
+    case 'topics':
+      return 'Analiza tematów';
+    case 'planning':
+      return 'Generowanie planu publikacji';
+    case 'report':
+      return 'Odświeżanie i eksport raportu';
+    case 'done':
+      return 'Przebieg ukończony';
+    case 'failed':
+      return 'Przebieg przerwany błędem';
+  }
+}
+
 function mergeSeriesWithForecast(
   actualPoints: TimeseriesPoint[] | undefined,
   forecastPoints: MlForecastPointDTO[] | undefined,
@@ -420,6 +468,13 @@ export function App() {
   const [assistantQuestion, setAssistantQuestion] = useState('Jak szły moje filmy w ostatnim miesiącu?');
   const [activeAssistantThreadId, setActiveAssistantThreadId] = useState<string | null>(null);
   const [isCreatingNewThread, setIsCreatingNewThread] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [weeklyPackageState, setWeeklyPackageState] = useState<WeeklyPackageState>({
+    stage: 'idle',
+    message: 'Uruchom przebieg tygodniowy jednym kliknięciem.',
+    error: null,
+    finishedAt: null,
+  });
 
   const statusQuery = useAppStatusQuery();
   const dataModeQuery = useDataModeStatusQuery(isDesktopRuntime);
@@ -521,6 +576,10 @@ export function App() {
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
   const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
   const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
+  const syncRunning = statusQuery.data?.syncRunning === true || startSyncMutation.isPending || resumeSyncMutation.isPending;
+  const isWeeklyPackageRunning = weeklyPackageState.stage !== 'idle'
+    && weeklyPackageState.stage !== 'done'
+    && weeklyPackageState.stage !== 'failed';
 
   useEffect(() => {
     setInitialized(statusQuery.data?.dbReady === true);
@@ -616,6 +675,222 @@ export function App() {
     }
   }, [activeAssistantThreadId, assistantThreadsQuery.data, dataEnabled, isCreatingNewThread]);
 
+  const startSyncRun = useCallback(() => {
+    if (!dataReady || syncRunning) {
+      return;
+    }
+    startSyncMutation.mutate({
+      channelId,
+      profileId: statusQuery.data?.profileId ?? null,
+      recentLimit: 10,
+    });
+  }, [channelId, dataReady, startSyncMutation, statusQuery.data?.profileId, syncRunning]);
+
+  const submitAssistantQuestion = useCallback(() => {
+    const nextQuestion = assistantQuestion.trim();
+    if (nextQuestion.length < 3 || askAssistantMutation.isPending) {
+      return;
+    }
+
+    askAssistantMutation.mutate(
+      {
+        threadId: activeAssistantThreadId,
+        channelId,
+        question: nextQuestion,
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo,
+        targetMetric: mlTargetMetric,
+      },
+      {
+        onSuccess: (response) => {
+          setActiveAssistantThreadId(response.threadId);
+          setIsCreatingNewThread(false);
+          setAssistantQuestion('');
+        },
+      },
+    );
+  }, [
+    activeAssistantThreadId,
+    askAssistantMutation,
+    assistantQuestion,
+    channelId,
+    dateRange.dateFrom,
+    dateRange.dateTo,
+    mlTargetMetric,
+  ]);
+
+  const runWeeklyPackage = useCallback(async () => {
+    if (!dataEnabled || syncRunning || isWeeklyPackageRunning) {
+      return;
+    }
+
+    const setStep = (stage: WeeklyPackageStage, message: string) => {
+      setWeeklyPackageState({
+        stage,
+        message,
+        error: null,
+        finishedAt: null,
+      });
+    };
+
+    try {
+      setStep('sync', 'Uruchamianie synchronizacji danych...');
+      await startSyncMutation.mutateAsync({
+        channelId,
+        profileId: statusQuery.data?.profileId ?? null,
+        recentLimit: 14,
+      });
+
+      setStep('anomaly', 'Uruchamianie analizy anomalii i trendów...');
+      await detectMlAnomaliesMutation.mutateAsync({
+        channelId,
+        targetMetric: mlTargetMetric,
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo,
+      });
+
+      setStep('competitors', 'Synchronizacja danych konkurencji...');
+      await syncCompetitorsMutation.mutateAsync({
+        channelId,
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo,
+        competitorCount: 3,
+      });
+
+      setStep('topics', 'Przeliczanie analizy tematów...');
+      await runTopicIntelligenceMutation.mutateAsync({
+        channelId,
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo,
+        clusterLimit: topicClusterLimit,
+        gapLimit: topicGapLimit,
+      });
+
+      setStep('planning', 'Generowanie planu publikacji...');
+      await generatePlanningPlanMutation.mutateAsync({
+        channelId,
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo,
+        maxRecommendations: 7,
+        clusterLimit: topicClusterLimit,
+        gapLimit: topicGapLimit,
+      });
+
+      setStep('report', 'Odświeżanie i eksport raportu...');
+      await reportQuery.refetch();
+      await exportReportMutation.mutateAsync({
+        channelId,
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo,
+        targetMetric: mlTargetMetric,
+        formats: exportFormats,
+      });
+
+      setWeeklyPackageState({
+        stage: 'done',
+        message: 'Przebieg tygodniowy zakończony. Raport został wyeksportowany.',
+        error: null,
+        finishedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      setWeeklyPackageState({
+        stage: 'failed',
+        message: 'Przebieg tygodniowy został przerwany.',
+        error: readMutationErrorMessage(error, 'Nie udało się ukończyć przebiegu tygodniowego.'),
+        finishedAt: new Date().toISOString(),
+      });
+    }
+  }, [
+    channelId,
+    dataEnabled,
+    dateRange.dateFrom,
+    dateRange.dateTo,
+    detectMlAnomaliesMutation,
+    exportFormats,
+    exportReportMutation,
+    generatePlanningPlanMutation,
+    isWeeklyPackageRunning,
+    mlTargetMetric,
+    reportQuery,
+    runTopicIntelligenceMutation,
+    startSyncMutation,
+    syncCompetitorsMutation,
+    syncRunning,
+    statusQuery.data?.profileId,
+    topicClusterLimit,
+    topicGapLimit,
+  ]);
+
+  useEffect(() => {
+    if (!isDesktopRuntime) {
+      return;
+    }
+
+    try {
+      const wasOnboardingCompleted = window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+      setShowOnboarding(!wasOnboardingCompleted);
+    } catch {
+      setShowOnboarding(true);
+    }
+  }, [isDesktopRuntime]);
+
+  useEffect(() => {
+    if (!isDesktopRuntime) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const pressedWithCtrl = event.ctrlKey || event.metaKey;
+      const target = event.target as HTMLElement | null;
+      const isEditable = target?.tagName === 'INPUT'
+        || target?.tagName === 'TEXTAREA'
+        || target?.tagName === 'SELECT'
+        || target?.isContentEditable === true;
+
+      if (pressedWithCtrl && !event.altKey && !event.shiftKey) {
+        if (event.key === '1') {
+          event.preventDefault();
+          setActiveTab('stats');
+          return;
+        }
+        if (event.key === '2') {
+          event.preventDefault();
+          setActiveTab('assistant');
+          return;
+        }
+        if (event.key === '3') {
+          event.preventDefault();
+          setActiveTab('reports');
+          return;
+        }
+        if (event.key === '4') {
+          event.preventDefault();
+          setActiveTab('import');
+          return;
+        }
+        if (event.key === '5') {
+          event.preventDefault();
+          setActiveTab('settings');
+          return;
+        }
+        if (event.key === 'Enter' && activeTab === 'assistant' && isEditable) {
+          event.preventDefault();
+          submitAssistantQuestion();
+        }
+      }
+
+      if (event.altKey && !pressedWithCtrl && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        startSyncRun();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeTab, isDesktopRuntime, startSyncRun, submitAssistantQuestion]);
+
   if (!isDesktopRuntime) {
     return (
       <main style={{ minHeight: '100vh', padding: '2rem', background: STUDIO_THEME.bg, color: STUDIO_THEME.text, fontFamily: '"Segoe UI", "Trebuchet MS", sans-serif' }}>
@@ -669,7 +944,6 @@ export function App() {
     ]
     : [];
   const availableModes = new Set(modeStatus?.availableModes ?? []);
-  const syncRunning = appStatus.syncRunning || startSyncMutation.isPending || resumeSyncMutation.isPending;
   const profileSwitchBlocked = syncRunning;
   const createProfileErrorMessage = createProfileMutation.isError
     ? readMutationErrorMessage(createProfileMutation.error, 'Nie udało się utworzyć profilu.')
@@ -716,7 +990,7 @@ export function App() {
       className="studio-app"
       style={{
         minHeight: '100vh',
-        padding: '2rem',
+        padding: 'clamp(12px, 2.6vw, 2rem)',
         background: STUDIO_THEME.bg,
         fontFamily: '"Segoe UI", "Trebuchet MS", sans-serif',
         color: STUDIO_THEME.text,
@@ -727,12 +1001,83 @@ export function App() {
       <header style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ marginBottom: 6, color: STUDIO_THEME.text }}>Mozetobedzieto - Panel</h1>
         <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
-          Status DB: {appStatus.dbReady ? 'Gotowa' : 'Niegotowa'} | Profil: {appStatus.profileId ?? 'Brak'} | Sync: {syncRunning ? 'w trakcie' : 'bez aktywnego procesu'}
+          Stan bazy: {appStatus.dbReady ? 'Gotowa' : 'Niegotowa'} | Profil: {appStatus.profileId ?? 'Brak'} | Synchronizacja: {syncRunning ? 'w trakcie' : 'bez aktywnego procesu'}
         </p>
         <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
-          Ostatni sync: {appStatus.lastSyncAt ?? 'Brak'}
+          Ostatnia synchronizacja: {appStatus.lastSyncAt ?? 'Brak'}
         </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowOnboarding(true);
+            }}
+          >
+            Pokaż samouczek
+          </button>
+          <span className="shortcut-hint">
+            Skróty: Ctrl+1..5 (zakładki), Ctrl+Enter (wyślij pytanie asystenta), Alt+S (synchronizacja).
+          </span>
+        </div>
       </header>
+
+      {showOnboarding && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.55)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 14,
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              width: 'min(760px, 100%)',
+              border: `1px solid ${STUDIO_THEME.border}`,
+              borderRadius: 16,
+              background: STUDIO_THEME.panelElevated,
+              padding: 16,
+            }}
+          >
+            <h2 style={{ marginTop: 0 }}>Szybki start</h2>
+            <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
+              Ten panel prowadzi przez codzienny przepływ: synchronizacja danych, analiza, plan publikacji i raport.
+            </p>
+            <ol style={{ marginTop: 0, marginBottom: 12, paddingLeft: 20 }}>
+              <li>W zakładce Statystyki uruchom „Przebieg tygodniowy”.</li>
+              <li>Sprawdź wykres, anomalie, jakość treści i konkurencję.</li>
+              <li>W „Systemie planowania” zatwierdź rekomendacje publikacji.</li>
+              <li>W zakładce „Raporty i eksport” pobierz gotowy raport.</li>
+            </ol>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOnboarding(false);
+                  try {
+                    window.localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+                  } catch {
+                    // Ignore localStorage failures in restricted environments.
+                  }
+                }}
+              >
+                Rozpocznij pracę
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOnboarding(false);
+                }}
+              >
+                Zamknij
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: '1rem' }}>
         {([
@@ -762,6 +1107,51 @@ export function App() {
           </button>
         ))}
       </nav>
+
+      {activeTab === 'stats' && (
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
+        <h2 style={{ marginTop: 0, marginBottom: 8 }}>Tryb codziennej pracy (Faza 19)</h2>
+        <p style={{ marginTop: 0, marginBottom: 10, color: STUDIO_THEME.title }}>
+          Jeden przycisk uruchamia pełny przebieg: synchronizacja → analiza → plan → raport.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => {
+              void runWeeklyPackage();
+            }}
+            disabled={isWeeklyPackageRunning || !dataEnabled || syncRunning}
+          >
+            {isWeeklyPackageRunning ? 'Trwa przebieg tygodniowy...' : 'Uruchom przebieg tygodniowy'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('reports');
+            }}
+          >
+            Przejdź do raportów
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('assistant');
+            }}
+          >
+            Otwórz asystenta
+          </button>
+        </div>
+        <p style={{ marginBottom: 0, color: weeklyPackageState.stage === 'failed' ? STUDIO_THEME.danger : STUDIO_THEME.title }}>
+          Status: <strong>{getWeeklyStageLabel(weeklyPackageState.stage)}</strong> | {weeklyPackageState.message}
+          {weeklyPackageState.finishedAt ? ` | zakończono: ${new Date(weeklyPackageState.finishedAt).toLocaleString('pl-PL')}` : ''}
+        </p>
+        {weeklyPackageState.error && (
+          <p style={{ marginBottom: 0, color: STUDIO_THEME.danger }}>
+            {weeklyPackageState.error}
+          </p>
+        )}
+      </section>
+      )}
 
       {activeTab === 'settings' && (
       <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
@@ -876,7 +1266,7 @@ export function App() {
               onChange={(event) => {
                 setAuthAccessToken(event.target.value);
               }}
-              placeholder="Access token"
+              placeholder="Token dostępu"
             />
             <input
               type="password"
@@ -884,7 +1274,7 @@ export function App() {
               onChange={(event) => {
                 setAuthRefreshToken(event.target.value);
               }}
-              placeholder="Refresh token (opcjonalnie)"
+              placeholder="Token odświeżania (opcjonalnie)"
             />
             <button
               type="button"
@@ -934,7 +1324,7 @@ export function App() {
                 onChange={(event) => {
                   setSettingsChannelIdDraft(event.target.value);
                 }}
-                placeholder="Domyślny channelId"
+                placeholder="Domyślny identyfikator kanału"
                 style={{ minWidth: 280 }}
               />
               <button
@@ -1079,7 +1469,15 @@ export function App() {
       <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <h2 style={{ marginTop: 0, marginBottom: 12 }}>Statystyki</h2>
         {kpisQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Liczenie KPI...</p>}
-        {kpisQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się pobrać KPI dla wybranego zakresu.</p>}
+        {kpisQuery.isError && (
+          <p style={{ color: STUDIO_THEME.danger }}>
+            Nie udało się pobrać KPI dla wybranego zakresu.
+            {' '}
+            <button type="button" onClick={() => { void kpisQuery.refetch(); }}>
+              Spróbuj ponownie
+            </button>
+          </p>
+        )}
         {kpiCards.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 14 }}>
             {kpiCards.map((card) => (
@@ -1139,6 +1537,19 @@ export function App() {
           {timeseriesQuery.isLoading || mlForecastQuery.isLoading ? <p style={{ color: STUDIO_THEME.muted }}>Ładowanie wykresu...</p> : null}
           {timeseriesQuery.isError ? <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać szeregu czasowego.</p> : null}
           {mlForecastQuery.isError ? <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać prognozy ML.</p> : null}
+          {(timeseriesQuery.isError || mlForecastQuery.isError) && (
+            <p style={{ marginTop: 0 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  void timeseriesQuery.refetch();
+                  void mlForecastQuery.refetch();
+                }}
+              >
+                Ponów odczyt wykresu i prognozy
+              </button>
+            </p>
+          )}
           {chartPoints.length > 0 && (
             <Suspense fallback={<p style={{ color: STUDIO_THEME.muted }}>Ładowanie modułu wykresu...</p>}>
               <StudioForecastChart
@@ -1319,7 +1730,15 @@ export function App() {
             Ranking jakości treści na podstawie dynamiki, efektywności, zaangażowania, retencji i stabilności.
           </p>
           {qualityScoresQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Obliczanie oceny jakości...</p>}
-          {qualityScoresQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać oceny jakości.</p>}
+          {qualityScoresQuery.isError && (
+            <p style={{ color: STUDIO_THEME.danger }}>
+              Nie udało się odczytać oceny jakości.
+              {' '}
+              <button type="button" onClick={() => { void qualityScoresQuery.refetch(); }}>
+                Spróbuj ponownie
+              </button>
+            </p>
+          )}
           {qualityScores && (
             <>
               <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
@@ -1413,7 +1832,15 @@ export function App() {
           )}
 
           {competitorInsightsQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie analizy konkurencji...</p>}
-          {competitorInsightsQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać analizy konkurencji.</p>}
+          {competitorInsightsQuery.isError && (
+            <p style={{ color: STUDIO_THEME.danger }}>
+              Nie udało się odczytać analizy konkurencji.
+              {' '}
+              <button type="button" onClick={() => { void competitorInsightsQuery.refetch(); }}>
+                Spróbuj ponownie
+              </button>
+            </p>
+          )}
 
           {competitorInsights && (
             <>
@@ -1455,7 +1882,7 @@ export function App() {
                 ))}
                 {competitorInsights.items.length === 0 && (
                   <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
-                    Brak danych konkurencji dla wybranego zakresu. Uruchom synchronizację konkurencji.
+                    Brak danych konkurencji dla wybranego zakresu. Uruchom synchronizacjęhronizację konkurencji.
                   </p>
                 )}
               </div>
@@ -1523,7 +1950,15 @@ export function App() {
           )}
 
           {topicIntelligenceQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie analizy tematów...</p>}
-          {topicIntelligenceQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać analizy tematów.</p>}
+          {topicIntelligenceQuery.isError && (
+            <p style={{ color: STUDIO_THEME.danger }}>
+              Nie udało się odczytać analizy tematów.
+              {' '}
+              <button type="button" onClick={() => { void topicIntelligenceQuery.refetch(); }}>
+                Spróbuj ponownie
+              </button>
+            </p>
+          )}
 
           {topicIntelligence && (
             <>
@@ -1667,7 +2102,15 @@ export function App() {
           )}
 
           {planningPlanQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie planu publikacji...</p>}
-          {planningPlanQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać planu publikacji.</p>}
+          {planningPlanQuery.isError && (
+            <p style={{ color: STUDIO_THEME.danger }}>
+              Nie udało się odczytać planu publikacji.
+              {' '}
+              <button type="button" onClick={() => { void planningPlanQuery.refetch(); }}>
+                Spróbuj ponownie
+              </button>
+            </p>
+          )}
 
           {planningPlan && (
             <>
@@ -1790,7 +2233,15 @@ export function App() {
           </div>
 
           {diagnosticsHealthQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie diagnostyki...</p>}
-          {diagnosticsHealthQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać diagnostyki.</p>}
+          {diagnosticsHealthQuery.isError && (
+            <p style={{ color: STUDIO_THEME.danger }}>
+              Nie udało się odczytać diagnostyki.
+              {' '}
+              <button type="button" onClick={() => { void diagnosticsHealthQuery.refetch(); }}>
+                Spróbuj ponownie
+              </button>
+            </p>
+          )}
 
           {runDiagnosticsRecoveryMutation.isPending && (
             <p style={{ color: STUDIO_THEME.muted, marginBottom: 0 }}>
@@ -1876,13 +2327,21 @@ export function App() {
       <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <h2 style={{ marginTop: 0 }}>Asystent AI (Lite)</h2>
         <p style={{ color: STUDIO_THEME.title }}>
-          Odpowiedzi są budowane tylko z danych SQLite przez whitelistowane narzędzia read-only.
+          Odpowiedzi są budowane tylko z danych SQLite przez whitelistowane narzędzia tylko do odczytu.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) minmax(0, 1fr)', gap: 12 }}>
+        <div className="assistant-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) minmax(0, 1fr)', gap: 12 }}>
           <aside style={{ border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 12, padding: 10, background: STUDIO_THEME.panelElevated }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Wątki</h3>
             {assistantThreadsQuery.isLoading && <p style={{ margin: 0 }}>Ładowanie wątków...</p>}
-            {assistantThreadsQuery.isError && <p style={{ margin: 0, color: STUDIO_THEME.danger }}>Nie udało się odczytać wątków.</p>}
+            {assistantThreadsQuery.isError && (
+              <p style={{ margin: 0, color: STUDIO_THEME.danger }}>
+                Nie udało się odczytać wątków.
+                {' '}
+                <button type="button" onClick={() => { void assistantThreadsQuery.refetch(); }}>
+                  Spróbuj ponownie
+                </button>
+              </p>
+            )}
             <div style={{ display: 'grid', gap: 8 }}>
               {assistantThreads.map((thread) => (
                 <button
@@ -1915,9 +2374,17 @@ export function App() {
           <div style={{ border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 12, padding: 10, background: STUDIO_THEME.panelElevated }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Rozmowa</h3>
             {assistantThreadMessagesQuery.isLoading && activeAssistantThreadId && <p>Ładowanie historii...</p>}
-            {assistantThreadMessagesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać historii wątku.</p>}
+            {assistantThreadMessagesQuery.isError && (
+              <p style={{ color: STUDIO_THEME.danger }}>
+                Nie udało się odczytać historii wątku.
+                {' '}
+                <button type="button" onClick={() => { void assistantThreadMessagesQuery.refetch(); }}>
+                  Spróbuj ponownie
+                </button>
+              </p>
+            )}
 
-            <div style={{ display: 'grid', gap: 8, maxHeight: 420, overflowY: 'auto', marginBottom: 12 }}>
+            <div className="assistant-messages" style={{ display: 'grid', gap: 8, maxHeight: 420, overflowY: 'auto', marginBottom: 12 }}>
               {assistantMessages.map((message) => (
                 <article
                   key={`assistant-message-${message.messageId}`}
@@ -1930,7 +2397,7 @@ export function App() {
                 >
                   <p style={{ margin: '0 0 4px', color: STUDIO_THEME.muted, fontSize: 12 }}>
                     {message.role === 'assistant' ? 'Asystent' : 'Ty'} | {new Date(message.createdAt).toLocaleString('pl-PL')}
-                    {message.confidence ? ` | pewność: ${message.confidence}` : ''}
+                    {message.confidence ? ` | pewność: ${getPlanningConfidenceLabel(message.confidence)}` : ''}
                   </p>
                   <p style={{ margin: 0 }}>{message.text}</p>
                   {message.evidence.length > 0 && (
@@ -1988,30 +2455,7 @@ export function App() {
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button
                 type="button"
-                onClick={() => {
-                  const nextQuestion = assistantQuestion.trim();
-                  if (nextQuestion.length < 3) {
-                    return;
-                  }
-
-                  askAssistantMutation.mutate(
-                    {
-                      threadId: activeAssistantThreadId,
-                      channelId,
-                      question: nextQuestion,
-                      dateFrom: dateRange.dateFrom,
-                      dateTo: dateRange.dateTo,
-                      targetMetric: mlTargetMetric,
-                    },
-                    {
-                      onSuccess: (response) => {
-                        setActiveAssistantThreadId(response.threadId);
-                        setIsCreatingNewThread(false);
-                        setAssistantQuestion('');
-                      },
-                    },
-                  );
-                }}
+                onClick={submitAssistantQuestion}
                 disabled={askAssistantMutation.isPending || assistantQuestion.trim().length < 3}
               >
                 {askAssistantMutation.isPending ? 'Analiza...' : 'Zapytaj asystenta'}
@@ -2081,10 +2525,18 @@ export function App() {
         )}
 
         {reportQuery.isLoading && <p>Generowanie raportu...</p>}
-        {reportQuery.isError && <p>Nie udało się wygenerować raportu.</p>}
+        {reportQuery.isError && (
+          <p>
+            Nie udało się wygenerować raportu.
+            {' '}
+            <button type="button" onClick={() => { void reportQuery.refetch(); }}>
+              Spróbuj ponownie
+            </button>
+          </p>
+        )}
         {report && (
           <>
-            <h3>Insighty</h3>
+            <h3>Wnioski</h3>
             <ul>
               {report.insights.map((insight) => (
                 <li key={insight.code}>
@@ -2093,7 +2545,7 @@ export function App() {
               ))}
             </ul>
 
-            <h3>Top filmy</h3>
+            <h3>Najlepsze filmy</h3>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -2142,7 +2594,7 @@ export function App() {
           </label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <label>
-              Delimiter:
+              Separator:
               <select
                 value={csvDelimiter}
                 onChange={(event) => {
@@ -2224,7 +2676,7 @@ export function App() {
         {csvPreviewMutation.data && (
           <>
             <p style={{ marginBottom: 8 }}>
-              Wykryto delimiter: <strong>{csvPreviewMutation.data.detectedDelimiter}</strong>, wiersze: <strong>{formatNumber(csvPreviewMutation.data.rowsTotal)}</strong>
+              Wykryto separator: <strong>{csvPreviewMutation.data.detectedDelimiter}</strong>, wiersze: <strong>{formatNumber(csvPreviewMutation.data.rowsTotal)}</strong>
             </p>
             <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
               {IMPORT_MAPPING_FIELDS.map((fieldConfig) => (
@@ -2374,20 +2826,14 @@ export function App() {
         <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Narzędzia techniczne (Faza 3/5/6)</summary>
 
         <div style={{ marginTop: 12 }}>
-          <h3>Sync orchestrator</h3>
+          <h3>Orkiestracja synchronizacji</h3>
           <button
             type="button"
-            onClick={() => {
-              startSyncMutation.mutate({
-                channelId,
-                profileId: appStatus.profileId,
-                recentLimit: 10,
-              });
-            }}
+            onClick={startSyncRun}
             disabled={startSyncMutation.isPending || syncRunning}
             style={{ marginRight: '0.5rem' }}
           >
-            Uruchom sync
+            Uruchom synchronizację
           </button>
           <button
             type="button"
@@ -2403,7 +2849,7 @@ export function App() {
             }}
             disabled={resumeSyncMutation.isPending || syncRunning || resumeSyncRunId === null}
           >
-            Wznów ostatni nieudany sync
+            Wznów ostatnią nieudaną synchronizację
           </button>
           {startSyncMutation.isError && <p>Nie udało się uruchomić synchronizacji.</p>}
           {resumeSyncMutation.isError && <p>Nie udało się wznowić synchronizacji.</p>}
@@ -2414,16 +2860,16 @@ export function App() {
           )}
           {lastCompleteEvent && (
             <p>
-              Zakończono sync #{lastCompleteEvent.syncRunId}. Rekordy: {formatNumber(lastCompleteEvent.recordsProcessed)}, czas: {formatNumber(Math.round(lastCompleteEvent.duration))} ms.
+              Zakończono synchronizację #{lastCompleteEvent.syncRunId}. Rekordy: {formatNumber(lastCompleteEvent.recordsProcessed)}, czas: {formatNumber(Math.round(lastCompleteEvent.duration))} ms.
             </p>
           )}
           {lastErrorEvent && (
             <p>
-              Błąd sync ({lastErrorEvent.code}): {lastErrorEvent.message} {lastErrorEvent.retryable ? '(możliwe ponowienie)' : '(wymagana interwencja)'}
+              Błąd synchronizacji ({lastErrorEvent.code}): {lastErrorEvent.message} {lastErrorEvent.retryable ? '(możliwe ponowienie)' : '(wymagana interwencja)'}
             </p>
           )}
 
-          <h3>ML baseline</h3>
+          <h3>Model bazowy ML</h3>
           <button
             type="button"
             onClick={() => {
@@ -2486,15 +2932,15 @@ export function App() {
                 }}
                 disabled={probeModeMutation.isPending}
               >
-                Probe trybu danych
+                Sprawdzenie trybu danych
               </button>
             </>
           )}
           {setModeErrorMessage && <p>{setModeErrorMessage}</p>}
-          {probeModeMutation.isError && <p>Probe trybu danych zakończył się błędem.</p>}
+          {probeModeMutation.isError && <p>Sprawdzenie trybu danych zakończyło się błędem.</p>}
           {probeModeMutation.data && (
             <p>
-              Probe: provider={probeModeMutation.data.providerName}, recent={probeModeMutation.data.recentVideos}, stats={probeModeMutation.data.videoStats}
+              Sprawdzenie: dostawca={probeModeMutation.data.providerName}, ostatnie={probeModeMutation.data.recentVideos}, statystyki={probeModeMutation.data.videoStats}
             </p>
           )}
         </div>
@@ -2509,6 +2955,10 @@ export function App() {
     </main>
   );
 }
+
+
+
+
 
 
 

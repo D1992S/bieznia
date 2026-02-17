@@ -881,6 +881,7 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Topic Intelligence: `dim_topic_cluster` + `fact_topic_pressure_day` + `agg_topic_gaps`, klasteryzacja i gap detection z integracją IPC/UI. DONE Faza 15
 - [x] Planning System: `planning_plans` + `planning_recommendations`, planner deterministyczny, evidence/rationale/confidence, integracja IPC/UI. DONE Faza 16
 - [x] Diagnostics + Recovery: `diagnostics:getHealth` + `diagnostics:runRecovery`, health checks DB/cache/pipeline/IPC, akcje recovery i panel UI. DONE Faza 18
+- [x] Polish + Local UX: onboarding first-run, skróty klawiszowe, one-click przebieg tygodniowy i spójne komunikaty/retry w kluczowych panelach. DONE Faza 19
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---
