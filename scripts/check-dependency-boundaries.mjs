@@ -1,4 +1,4 @@
-﻿import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
@@ -70,10 +70,6 @@ function readWorkspacePackages(groupDirName) {
 
   for (const dir of dirs) {
     const packageJsonPath = path.join(groupPath, dir.name, 'package.json');
-    if (!statSync(path.join(groupPath, dir.name)).isDirectory()) {
-      continue;
-    }
-
     try {
       const parsed = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
       packages.push({
@@ -123,6 +119,7 @@ const allowedDeps = new Map([
       '@moze/reports',
       '@moze/llm',
       '@moze/diagnostics',
+      '@moze/plugins',
     ],
   ],
 ]);

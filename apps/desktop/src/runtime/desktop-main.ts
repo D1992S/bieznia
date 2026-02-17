@@ -110,7 +110,7 @@ import {
   type AssistantThreadMessagesInputDTO,
   type AssistantThreadMessagesResultDTO,
 } from '@moze/shared';
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -191,7 +191,7 @@ function emitSyncEvent(eventName: string, payload: unknown): void {
 function createDbNotReadyError(): AppError {
   return AppError.create(
     'APP_DB_NOT_READY',
-    'Baza danych nie jest gotowa. Uruchom ponownie aplikacje.',
+    'Database is not ready. Restart the application.',
     'error',
     { dbPath: backendState.dbPath },
   );
@@ -200,7 +200,7 @@ function createDbNotReadyError(): AppError {
 function createDataModeNotReadyError(): AppError {
   return AppError.create(
     'APP_DATA_MODE_NOT_READY',
-    'Tryb danych nie jest gotowy. Uruchom ponownie aplikacje.',
+    'Data mode manager is not ready. Restart the application.',
     'error',
     {},
   );
@@ -209,7 +209,7 @@ function createDataModeNotReadyError(): AppError {
 function createSyncNotReadyError(): AppError {
   return AppError.create(
     'APP_SYNC_NOT_READY',
-    'Orkiestrator synchronizacji nie jest gotowy. Uruchom ponownie aplikacje.',
+    'Sync orchestrator is not ready. Restart the application.',
     'error',
     {},
   );
@@ -218,7 +218,7 @@ function createSyncNotReadyError(): AppError {
 function createAssistantNotReadyError(): AppError {
   return AppError.create(
     'APP_ASSISTANT_NOT_READY',
-    'Asystent nie jest gotowy. Uruchom ponownie aplikacje.',
+    'Assistant service is not ready. Restart the application.',
     'error',
     {},
   );
@@ -231,7 +231,7 @@ function logAnalyticsPerformanceSnapshot(trigger: string, context: Record<string
 
   const snapshotResult = backendState.analyticsCache.getPerformanceSnapshot({ windowHours: 24 });
   if (!snapshotResult.ok) {
-    logger.warning('Nie udalo sie odczytac metryk wydajnosci cache analityki.', {
+    logger.warning('Failed to read analytics cache performance metrics.', {
       trigger,
       context,
       error: snapshotResult.error.toDTO(),
@@ -239,7 +239,7 @@ function logAnalyticsPerformanceSnapshot(trigger: string, context: Record<string
     return;
   }
 
-  logger.info('Snapshot wydajnosci analityki.', {
+  logger.info('Analytics performance snapshot.', {
     trigger,
     context,
     cache: snapshotResult.value.cache,
@@ -254,7 +254,7 @@ function invalidateAnalyticsCache(reason: string, context: Record<string, unknow
 
   const invalidateResult = backendState.analyticsCache.invalidateAll({ reason });
   if (!invalidateResult.ok) {
-    logger.warning('Nie udalo sie zainwalidowac cache analityki.', {
+    logger.warning('Failed to invalidate analytics cache.', {
       reason,
       context,
       error: invalidateResult.error.toDTO(),
@@ -262,7 +262,7 @@ function invalidateAnalyticsCache(reason: string, context: Record<string, unknow
     return;
   }
 
-  logger.info('Zainwalidowano cache analityki.', {
+  logger.info('Analytics cache invalidated.', {
     reason,
     context,
     revision: invalidateResult.value.revision,
@@ -274,7 +274,7 @@ function invalidateAnalyticsCache(reason: string, context: Record<string, unknow
 function createProfileReloadFailedError(details: Record<string, unknown>): AppError {
   return AppError.create(
     'APP_PROFILE_RELOAD_FAILED',
-    'Nie udalo sie przelaczyc aktywnego profilu.',
+    'Failed to reload active profile.',
     'error',
     details,
   );
@@ -283,7 +283,7 @@ function createProfileReloadFailedError(details: Record<string, unknown>): AppEr
 function createProfileSwitchBlockedError(details: Record<string, unknown>): AppError {
   return AppError.create(
     'APP_PROFILE_SWITCH_BLOCKED_SYNC_RUNNING',
-    'Nie mozna przelaczyc aktywnego profilu podczas trwajacej synchronizacji.',
+    'Cannot switch active profile while synchronization is running.',
     'error',
     details,
   );
@@ -307,6 +307,13 @@ function createSafeStorageAdapter(): SecretCryptoAdapter {
     encryptString: (plainText) => safeStorage.encryptString(plainText),
     decryptString: (cipherText) => safeStorage.decryptString(cipherText),
   };
+}
+
+function resolveInitialDataMode(value: string | undefined): 'fake' | 'real' | 'record' {
+  if (value === 'fake' || value === 'real' || value === 'record') {
+    return value;
+  }
+  return 'fake';
 }
 
 function initializeDataModes(): Result<DataModeManager, AppError> {
@@ -361,7 +368,7 @@ function initializeDataModes(): Result<DataModeManager, AppError> {
   });
 
   const manager = createDataModeManager({
-    initialMode: (process.env.MOZE_DATA_MODE as 'fake' | 'real' | 'record' | undefined) ?? 'fake',
+    initialMode: resolveInitialDataMode(process.env.MOZE_DATA_MODE),
     fakeProvider,
     realProvider,
     recordProvider: recordingProvider,
@@ -1887,6 +1894,11 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+function showStartupErrorAndQuit(title: string, message: string, error: AppError): void {
+  dialog.showErrorBox(title, `${message}\n\n${JSON.stringify(error.toDTO(), null, 2)}`);
+  app.quit();
+}
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -1912,6 +1924,12 @@ if (!gotTheLock) {
       logger.error('Nie udalo sie zainicjalizowac menedzera profili.', {
         error: profileManagerInit.error.toDTO(),
       });
+      showStartupErrorAndQuit(
+        'Blad uruchamiania',
+        'Nie udalo sie zainicjalizowac menedzera profili.',
+        profileManagerInit.error,
+      );
+      return;
     }
 
     const backendInit = initializeBackend();
@@ -1919,6 +1937,8 @@ if (!gotTheLock) {
       logger.error('Nie udalo sie zainicjalizowac backendu.', {
         error: backendInit.error.toDTO(),
       });
+      showStartupErrorAndQuit('Blad uruchamiania', 'Nie udalo sie zainicjalizowac backendu.', backendInit.error);
+      return;
     }
 
     mainWindow = createWindow();

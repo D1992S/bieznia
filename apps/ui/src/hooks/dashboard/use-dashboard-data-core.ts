@@ -376,10 +376,14 @@ export function useAssistantThreadsQuery(channelId: string, enabled: boolean) {
 export function useAssistantThreadMessagesQuery(threadId: string | null, enabled: boolean) {
   return useQuery<AssistantThreadMessagesResultDTO>({
     queryKey: ['assistant', 'thread', threadId],
-    queryFn: () =>
-      fetchAssistantThreadMessages({
-        threadId: threadId ?? '',
-      }),
+    queryFn: () => {
+      if (!threadId) {
+        throw new Error('threadId is required to fetch assistant thread messages.');
+      }
+      return fetchAssistantThreadMessages({
+        threadId,
+      });
+    },
     enabled: enabled && Boolean(threadId),
     staleTime: 5_000,
   });
@@ -503,15 +507,16 @@ export function useMlAnomaliesQuery(
   severities: MlAnomalySeverity[],
   enabled: boolean,
 ) {
+  const sortedSeverities = [...severities].sort();
   return useQuery({
-    queryKey: ['ml', 'anomalies', channelId, targetMetric, range.dateFrom, range.dateTo, severities.join(',')],
+    queryKey: ['ml', 'anomalies', channelId, targetMetric, range.dateFrom, range.dateTo, sortedSeverities.join(',')],
     queryFn: () =>
       fetchMlAnomalies({
         channelId,
         targetMetric,
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
-        severities: severities.length > 0 ? severities : undefined,
+        severities: sortedSeverities.length > 0 ? sortedSeverities : undefined,
       }),
     enabled,
     staleTime: 30_000,

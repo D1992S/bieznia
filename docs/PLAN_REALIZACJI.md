@@ -888,5 +888,5 @@ Task jest zamknięty **dopiero** gdy:
 
 ---
 
-> Ten dokument jest „żywy": aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
+> Ten dokument jest „żywy”: aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
 
