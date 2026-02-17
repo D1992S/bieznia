@@ -79,6 +79,10 @@ interface MessageEvidenceRow {
   sourceRecordId: string;
 }
 
+interface MessageEvidenceBatchRow extends MessageEvidenceRow {
+  messageId: number;
+}
+
 interface DateRange {
   dateFrom: string;
   dateTo: string;
@@ -469,20 +473,36 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
     `,
   );
 
-  const listEvidenceStmt = input.db.prepare<{ messageId: number }, MessageEvidenceRow>(
-    `
-      SELECT
-        evidence_id AS evidenceId,
-        tool_name AS tool,
-        label,
-        value,
-        source_table AS sourceTable,
-        source_record_id AS sourceRecordId
-      FROM assistant_message_evidence
-      WHERE message_id = @messageId
-      ORDER BY id ASC
-    `,
-  );
+  const listEvidenceForMessages = (messageIds: readonly number[]): MessageEvidenceBatchRow[] => {
+    if (messageIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = messageIds
+      .map((_, index) => `@messageId${String(index)}`)
+      .join(', ');
+    const statement = input.db.prepare<Record<string, number>, MessageEvidenceBatchRow>(
+      `
+        SELECT
+          message_id AS messageId,
+          evidence_id AS evidenceId,
+          tool_name AS tool,
+          label,
+          value,
+          source_table AS sourceTable,
+          source_record_id AS sourceRecordId
+        FROM assistant_message_evidence
+        WHERE message_id IN (${placeholders})
+        ORDER BY message_id ASC, id ASC
+      `,
+    );
+    const parameters: Record<string, number> = {};
+    for (const [index, messageId] of messageIds.entries()) {
+      parameters[`messageId${String(index)}`] = messageId;
+    }
+
+    return statement.all(parameters);
+  };
 
   const executeReadChannelInfo = (
     context: ToolExecutionContext,
@@ -916,17 +936,27 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       }
 
       const messageRows = listMessagesStmt.all({ threadId: threadInput.threadId });
-      const messages = messageRows.map((row) => {
-        const evidenceRows = listEvidenceStmt.all({ messageId: row.messageId });
-        const evidence: AssistantEvidenceItemDTO[] = evidenceRows.map((item) => ({
+      const messageIds = messageRows.map((row) => row.messageId);
+      const evidenceRows = listEvidenceForMessages(messageIds);
+      const evidenceByMessageId = new Map<number, AssistantEvidenceItemDTO[]>();
+      for (const item of evidenceRows) {
+        const evidenceItem: AssistantEvidenceItemDTO = {
           evidenceId: item.evidenceId,
           tool: parseEvidenceTool(item.tool),
           label: item.label,
           value: item.value,
           sourceTable: item.sourceTable,
           sourceRecordId: item.sourceRecordId,
-        }));
+        };
+        const grouped = evidenceByMessageId.get(item.messageId);
+        if (grouped) {
+          grouped.push(evidenceItem);
+        } else {
+          evidenceByMessageId.set(item.messageId, [evidenceItem]);
+        }
+      }
 
+      const messages = messageRows.map((row) => {
         return {
           messageId: row.messageId,
           threadId: row.threadId,
@@ -934,7 +964,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
           text: row.text,
           confidence: row.confidence,
           followUpQuestions: parseJsonStringArray(row.followUpQuestionsJson),
-          evidence,
+          evidence: evidenceByMessageId.get(row.messageId) ?? [],
           createdAt: row.createdAt,
         };
       });

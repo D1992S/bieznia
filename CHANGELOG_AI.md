@@ -13,6 +13,28 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v36)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/ui/src/App.tsx`
+  - `packages/llm/src/assistant-lite.ts`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Ujednolicono diakrytyke w user-facing tekstach zakladki Asystent AI (naglowki, opisy, stany ladowania/bledow, placeholder, CTA "Nowy watek").
+  - Usunieto N+1 query w `getThreadMessages`: evidence jest pobierane jednym zapytaniem batchowym dla wszystkich `messageId`, a potem grupowane per wiadomosc.
+- Dlaczego:
+  - Celem bylo domkniecie uwag review dotyczacych lokalizacji UI oraz wydajnosci odczytu historii watku.
+- Ryzyko/regresja:
+  - Niskie: zmiany obejmuja teksty UI i warstwe odczytu evidence bez modyfikacji kontraktow DTO/IPC.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (91/91)
+- Nastepny krok:
+  - Zaktualizowac PR #15 o ten commit i przejrzec diff pod katem copy w zakladce Asystent AI.
+
 ## 2026-02-17 (v35)
 
 - Data: 2026-02-17

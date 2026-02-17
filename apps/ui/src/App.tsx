@@ -298,7 +298,7 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [anomalySeverityFilter, setAnomalySeverityFilter] = useState<'all' | MlAnomalySeverity>('all');
   const [lastAutoAnomalyRunKey, setLastAutoAnomalyRunKey] = useState<string | null>(null);
-  const [assistantQuestion, setAssistantQuestion] = useState('Jak szly moje filmy w ostatnim miesiacu?');
+  const [assistantQuestion, setAssistantQuestion] = useState('Jak szły moje filmy w ostatnim miesiącu?');
   const [activeAssistantThreadId, setActiveAssistantThreadId] = useState<string | null>(null);
   const [isCreatingNewThread, setIsCreatingNewThread] = useState(false);
 
@@ -1156,13 +1156,13 @@ export function App() {
       <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
         <h2 style={{ marginTop: 0 }}>Asystent AI (Lite)</h2>
         <p style={{ color: STUDIO_THEME.title }}>
-          Odpowiedzi sa budowane tylko z danych SQLite przez whitelistowane narzedzia read-only.
+          Odpowiedzi są budowane tylko z danych SQLite przez whitelistowane narzędzia read-only.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) minmax(0, 1fr)', gap: 12 }}>
           <aside style={{ border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 12, padding: 10, background: STUDIO_THEME.panelElevated }}>
-            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Watki</h3>
-            {assistantThreadsQuery.isLoading && <p style={{ margin: 0 }}>Ladowanie watkow...</p>}
-            {assistantThreadsQuery.isError && <p style={{ margin: 0, color: STUDIO_THEME.danger }}>Nie udalo sie odczytac watkow.</p>}
+            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Wątki</h3>
+            {assistantThreadsQuery.isLoading && <p style={{ margin: 0 }}>Ładowanie wątków...</p>}
+            {assistantThreadsQuery.isError && <p style={{ margin: 0, color: STUDIO_THEME.danger }}>Nie udało się odczytać wątków.</p>}
             <div style={{ display: 'grid', gap: 8 }}>
               {assistantThreads.map((thread) => (
                 <button
@@ -1187,15 +1187,15 @@ export function App() {
                 </button>
               ))}
               {assistantThreads.length === 0 && !assistantThreadsQuery.isLoading && (
-                <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak zapisanych watkow.</p>
+                <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak zapisanych wątków.</p>
               )}
             </div>
           </aside>
 
           <div style={{ border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 12, padding: 10, background: STUDIO_THEME.panelElevated }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>Rozmowa</h3>
-            {assistantThreadMessagesQuery.isLoading && activeAssistantThreadId && <p>Ladowanie historii...</p>}
-            {assistantThreadMessagesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udalo sie odczytac historii watku.</p>}
+            {assistantThreadMessagesQuery.isLoading && activeAssistantThreadId && <p>Ładowanie historii...</p>}
+            {assistantThreadMessagesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać historii wątku.</p>}
 
             <div style={{ display: 'grid', gap: 8, maxHeight: 420, overflowY: 'auto', marginBottom: 12 }}>
               {assistantMessages.map((message) => (
@@ -1248,7 +1248,7 @@ export function App() {
               ))}
               {assistantMessages.length === 0 && (
                 <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
-                  Zacznij rozmowe: zadaj pytanie o wyniki kanalu, filmy lub anomalie.
+                  Zacznij rozmowę: zadaj pytanie o wyniki kanału, filmy lub anomalie.
                 </p>
               )}
             </div>
@@ -1261,7 +1261,7 @@ export function App() {
                   setAssistantQuestion(event.target.value);
                 }}
                 rows={3}
-                placeholder="Np. Jak szly moje filmy w ostatnim miesiacu?"
+                placeholder="Np. Jak szły moje filmy w ostatnim miesiącu?"
                 style={{ width: '100%', resize: 'vertical' }}
               />
             </label>
@@ -1303,12 +1303,12 @@ export function App() {
                   setIsCreatingNewThread(true);
                 }}
               >
-                Nowy watek
+                Nowy wątek
               </button>
             </div>
             {askAssistantMutation.isError && (
               <p style={{ marginBottom: 0, color: STUDIO_THEME.danger }}>
-                {readMutationErrorMessage(askAssistantMutation.error, 'Nie udalo sie uzyskac odpowiedzi asystenta.')}
+                {readMutationErrorMessage(askAssistantMutation.error, 'Nie udało się uzyskać odpowiedzi asystenta.')}
               </p>
             )}
           </div>
