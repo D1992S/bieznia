@@ -8,6 +8,7 @@ import type {
   DataMode,
   MlAnomalySeverity,
   MlTargetMetric,
+  PlanningPlanResultDTO,
   QualityScoreResultDTO,
   TopicIntelligenceResultDTO,
   ReportExportFormat,
@@ -19,6 +20,7 @@ import {
   createProfile,
   detectMlAnomalies,
   disconnectAuth,
+  fetchPlanningPlan,
   exportDashboardReport,
   fetchAppStatus,
   fetchAuthStatus,
@@ -41,6 +43,7 @@ import {
   probeDataMode,
   resumeSync,
   runCsvImport,
+  generatePlanningPlan,
   runMlBaseline,
   runTopicIntelligence,
   syncCompetitors,
@@ -122,6 +125,7 @@ function invalidateProfileScopedQueries(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: ['db'] });
   void queryClient.invalidateQueries({ queryKey: ['ml'] });
   void queryClient.invalidateQueries({ queryKey: ['analytics'] });
+  void queryClient.invalidateQueries({ queryKey: ['planning'] });
   void queryClient.invalidateQueries({ queryKey: ['reports'] });
   void queryClient.invalidateQueries({ queryKey: ['assistant'] });
 }
@@ -315,6 +319,7 @@ export function useCsvImportRunMutation() {
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['planning', 'plan', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['search', 'content', input.channelId] });
     },
@@ -397,6 +402,7 @@ export function useStartSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic'] });
+      void queryClient.invalidateQueries({ queryKey: ['planning'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -415,6 +421,7 @@ export function useResumeSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic'] });
+      void queryClient.invalidateQueries({ queryKey: ['planning'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -551,6 +558,9 @@ export function useSyncCompetitorsMutation() {
       void queryClient.invalidateQueries({
         queryKey: ['analytics', 'competitor', input.channelId, input.dateFrom, input.dateTo],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ['planning', 'plan', input.channelId, input.dateFrom, input.dateTo],
+      });
     },
   });
 }
@@ -598,6 +608,9 @@ export function useRunTopicIntelligenceMutation() {
       void queryClient.invalidateQueries({
         queryKey: ['analytics', 'topic', input.channelId, input.dateFrom, input.dateTo, clusterLimit, gapLimit],
       });
+      void queryClient.invalidateQueries({
+        queryKey: ['planning', 'plan', input.channelId, input.dateFrom, input.dateTo],
+      });
     },
   });
 }
@@ -622,6 +635,53 @@ export function useTopicIntelligenceQuery(
         dateTo: range.dateTo,
         clusterLimit,
         gapLimit,
+      }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useGeneratePlanningPlanMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      channelId: string;
+      dateFrom: string;
+      dateTo: string;
+      maxRecommendations?: number;
+      clusterLimit?: number;
+      gapLimit?: number;
+    }) =>
+      generatePlanningPlan({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        maxRecommendations: input.maxRecommendations ?? 7,
+        clusterLimit: input.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT,
+        gapLimit: input.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT,
+      }),
+    onSuccess: (_result, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['planning', 'plan', input.channelId, input.dateFrom, input.dateTo],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['analytics', 'quality', input.channelId, input.dateFrom, input.dateTo],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ['analytics', 'topic', input.channelId, input.dateFrom, input.dateTo],
+      });
+    },
+  });
+}
+
+export function usePlanningPlanQuery(channelId: string, range: DateRange, enabled: boolean) {
+  return useQuery<PlanningPlanResultDTO>({
+    queryKey: ['planning', 'plan', channelId, range.dateFrom, range.dateTo],
+    queryFn: () =>
+      fetchPlanningPlan({
+        channelId,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
       }),
     enabled,
     staleTime: 30_000,

@@ -13,6 +13,70 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v43)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/012-planning-system-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/analytics/src/planning-system.ts`
+  - `packages/analytics/src/planning-system.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/008-planning-system.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Fazę 16 (Planning System) end-to-end.
+  - Dodano kontrakty IPC/DTO i kanały:
+    - `planning:generatePlan`,
+    - `planning:getPlan`.
+  - Dodano migrację `012-planning-system-schema`:
+    - `planning_plans`,
+    - `planning_recommendations`.
+  - W `@moze/analytics` dodano serwis planera:
+    - `generatePlanningPlan(...)`,
+    - `getPlanningPlan(...)`,
+    - deterministyczny ranking z sygnałów quality + competitor + topic,
+    - conflict resolution (deduplikacja tematów + kara za kanibalizację),
+    - persystencja i read-only odczyt planu.
+  - W runtime desktop + IPC + preload podłączono nowe komendy `planning:*` z tracingiem.
+  - W UI dodano panel `System planowania (Faza 16)`:
+    - generowanie planu publikacji,
+    - lista rekomendacji ze slotami, confidence, rationale i evidence,
+    - ostrzeżenia o ryzyku kanibalizacji.
+  - Dodano ADR `docs/adr/008-planning-system.md` oraz zaktualizowano statusy:
+    - Faza 16 = DONE,
+    - Faza 17 = SKIP (solo),
+    - następna Faza 18.
+- Dlaczego:
+  - Celem było zamknięcie etapu planowania publikacji na bazie istniejących sygnałów analitycznych i przygotowanie wejścia do Fazy 18 (Diagnostics + Recovery), przy zachowaniu decyzji że Faza 17 jest skipowana.
+- Ryzyko/regresja:
+  - Umiarkowane: heurystyczne wagi i progi planera mogą wymagać strojenia na danych produkcyjnych.
+  - Niskie: ścieżka IPC/UI i kontrakty są pokryte testami integracyjnymi i walidacją Zod.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (110/110)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 18 (Diagnostics + Recovery) i utrzymać Faza 17 jako SKIP (solo) bez implementacji plugin runtime.
+
 ## 2026-02-17 (v42)
 
 - Data: 2026-02-17

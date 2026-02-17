@@ -588,6 +588,70 @@ export type TopicIntelligenceResultDTO = z.infer<typeof TopicIntelligenceResultD
 export const TopicIntelligenceResultSchema = IpcResultSchema(TopicIntelligenceResultDTOSchema);
 export type TopicIntelligenceResult = z.infer<typeof TopicIntelligenceResultSchema>;
 
+export const PlanningConfidenceSchema = z.enum(['low', 'medium', 'high']);
+export type PlanningConfidence = z.infer<typeof PlanningConfidenceSchema>;
+
+export const PlanningEvidenceSourceSchema = z.enum([
+  'quality_scoring',
+  'competitor_intelligence',
+  'topic_intelligence',
+]);
+export type PlanningEvidenceSource = z.infer<typeof PlanningEvidenceSourceSchema>;
+
+export const PlanningGenerateInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  maxRecommendations: z.number().int().min(1).max(30).default(7),
+  clusterLimit: z.number().int().min(3).max(30).default(12),
+  gapLimit: z.number().int().min(1).max(30).default(10),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type PlanningGenerateInputDTO = z.infer<typeof PlanningGenerateInputDTOSchema>;
+
+export const PlanningGetPlanInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type PlanningGetPlanInputDTO = z.infer<typeof PlanningGetPlanInputDTOSchema>;
+
+export const PlanningEvidenceItemDTOSchema = z.object({
+  evidenceId: z.string().min(1),
+  source: PlanningEvidenceSourceSchema,
+  label: z.string().min(1),
+  value: z.string().min(1),
+  context: z.string().nullable(),
+});
+export type PlanningEvidenceItemDTO = z.infer<typeof PlanningEvidenceItemDTOSchema>;
+
+export const PlanningRecommendationItemDTOSchema = z.object({
+  recommendationId: z.string().min(1),
+  slotDate: z.iso.date(),
+  slotOrder: z.number().int().positive(),
+  topicClusterId: z.string().min(1),
+  topicLabel: z.string().min(1),
+  suggestedTitle: z.string().min(1),
+  priorityScore: z.number().min(0).max(100),
+  confidence: PlanningConfidenceSchema,
+  rationale: z.string().min(1),
+  evidence: z.array(PlanningEvidenceItemDTOSchema).min(1),
+  warnings: z.array(z.string().min(1)),
+});
+export type PlanningRecommendationItemDTO = z.infer<typeof PlanningRecommendationItemDTOSchema>;
+
+export const PlanningPlanResultDTOSchema = z.object({
+  planId: z.string().min(1),
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  generatedAt: z.iso.datetime(),
+  totalRecommendations: z.number().int().nonnegative(),
+  items: z.array(PlanningRecommendationItemDTOSchema),
+});
+export type PlanningPlanResultDTO = z.infer<typeof PlanningPlanResultDTOSchema>;
+export const PlanningPlanResultSchema = IpcResultSchema(PlanningPlanResultDTOSchema);
+export type PlanningPlanResult = z.infer<typeof PlanningPlanResultSchema>;
+
 export const ReportDateRangeDTOSchema = z.object({
   dateFrom: z.iso.date(),
   dateTo: z.iso.date(),
@@ -1024,6 +1088,8 @@ export const IPC_CHANNELS = {
   ANALYTICS_GET_COMPETITOR_INSIGHTS: 'analytics:getCompetitorInsights',
   ANALYTICS_RUN_TOPIC_INTELLIGENCE: 'analytics:runTopicIntelligence',
   ANALYTICS_GET_TOPIC_INTELLIGENCE: 'analytics:getTopicIntelligence',
+  PLANNING_GENERATE_PLAN: 'planning:generatePlan',
+  PLANNING_GET_PLAN: 'planning:getPlan',
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',

@@ -52,6 +52,10 @@ import {
   TopicIntelligenceQueryInputDTOSchema,
   TopicIntelligenceResultDTOSchema,
   TopicIntelligenceResultSchema,
+  PlanningGenerateInputDTOSchema,
+  PlanningGetPlanInputDTOSchema,
+  PlanningPlanResultDTOSchema,
+  PlanningPlanResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultDTOSchema,
   ProfileListResultSchema,
@@ -136,6 +140,10 @@ import {
   type TopicIntelligenceQueryInputDTO,
   type TopicIntelligenceResult,
   type TopicIntelligenceResultDTO,
+  type PlanningGenerateInputDTO,
+  type PlanningGetPlanInputDTO,
+  type PlanningPlanResult,
+  type PlanningPlanResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileListResultDTO,
@@ -200,6 +208,8 @@ export interface DesktopIpcBackend {
   getCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Result<CompetitorInsightsResultDTO, AppError> | Promise<Result<CompetitorInsightsResultDTO, AppError>>;
   runTopicIntelligence: (input: TopicIntelligenceRunInputDTO) => Result<TopicIntelligenceResultDTO, AppError> | Promise<Result<TopicIntelligenceResultDTO, AppError>>;
   getTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Result<TopicIntelligenceResultDTO, AppError> | Promise<Result<TopicIntelligenceResultDTO, AppError>>;
+  generatePlanningPlan: (input: PlanningGenerateInputDTO) => Result<PlanningPlanResultDTO, AppError> | Promise<Result<PlanningPlanResultDTO, AppError>>;
+  getPlanningPlan: (input: PlanningGetPlanInputDTO) => Result<PlanningPlanResultDTO, AppError> | Promise<Result<PlanningPlanResultDTO, AppError>>;
   generateReport: (input: ReportGenerateInputDTO) => Result<ReportGenerateResultDTO, AppError> | Promise<Result<ReportGenerateResultDTO, AppError>>;
   exportReport: (input: ReportExportInputDTO) => Result<ReportExportResultDTO, AppError> | Promise<Result<ReportExportResultDTO, AppError>>;
   askAssistant: (input: AssistantAskInputDTO) => Result<AssistantAskResultDTO, AppError> | Promise<Result<AssistantAskResultDTO, AppError>>;
@@ -647,6 +657,32 @@ export async function handleAnalyticsGetTopicIntelligence(
   );
 }
 
+export async function handlePlanningGeneratePlan(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<PlanningPlanResult> {
+  return runHandlerAsync(
+    payload,
+    PlanningGenerateInputDTOSchema,
+    PlanningPlanResultDTOSchema,
+    PlanningPlanResultSchema,
+    (input) => backend.generatePlanningPlan(input),
+  );
+}
+
+export async function handlePlanningGetPlan(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<PlanningPlanResult> {
+  return runHandlerAsync(
+    payload,
+    PlanningGetPlanInputDTOSchema,
+    PlanningPlanResultDTOSchema,
+    PlanningPlanResultSchema,
+    (input) => backend.getPlanningPlan(input),
+  );
+}
+
 export async function handleReportsGenerate(
   backend: DesktopIpcBackend,
   payload: unknown,
@@ -770,6 +806,8 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.ANALYTICS_GET_COMPETITOR_INSIGHTS, (_event, payload) => handleAnalyticsGetCompetitorInsights(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ANALYTICS_RUN_TOPIC_INTELLIGENCE, (_event, payload) => handleAnalyticsRunTopicIntelligence(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ANALYTICS_GET_TOPIC_INTELLIGENCE, (_event, payload) => handleAnalyticsGetTopicIntelligence(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.PLANNING_GENERATE_PLAN, (_event, payload) => handlePlanningGeneratePlan(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.PLANNING_GET_PLAN, (_event, payload) => handlePlanningGetPlan(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_GENERATE, (_event, payload) => handleReportsGenerate(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_EXPORT, (_event, payload) => handleReportsExport(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ASSISTANT_ASK, (_event, payload) => handleAssistantAsk(backend, payload));

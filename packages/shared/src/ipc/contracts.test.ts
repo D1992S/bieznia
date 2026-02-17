@@ -22,6 +22,9 @@ import {
   TopicIntelligenceRunInputDTOSchema,
   TopicIntelligenceQueryInputDTOSchema,
   TopicIntelligenceResultDTOSchema,
+  PlanningGenerateInputDTOSchema,
+  PlanningGetPlanInputDTOSchema,
+  PlanningPlanResultDTOSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   AuthConnectInputDTOSchema,
@@ -628,6 +631,78 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Planning system DTO', () => {
+    it('applies defaults and validates planning payloads', () => {
+      const generateInput = PlanningGenerateInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-02-20',
+        dateTo: '2026-02-28',
+      });
+
+      expect(generateInput.maxRecommendations).toBe(7);
+      expect(generateInput.clusterLimit).toBe(12);
+      expect(generateInput.gapLimit).toBe(10);
+
+      const getInput = PlanningGetPlanInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-02-20',
+        dateTo: '2026-02-28',
+      });
+      expect(getInput.channelId).toBe('UC123');
+
+      const result = PlanningPlanResultDTOSchema.parse({
+        planId: 'plan-UC123-2026-02-20-2026-02-28',
+        channelId: 'UC123',
+        dateFrom: '2026-02-20',
+        dateTo: '2026-02-28',
+        generatedAt: '2026-02-17T18:00:00.000Z',
+        totalRecommendations: 1,
+        items: [
+          {
+            recommendationId: 'rec-001',
+            slotDate: '2026-02-20',
+            slotOrder: 1,
+            topicClusterId: 'topic-ai',
+            topicLabel: 'AI',
+            suggestedTitle: 'AI w praktyce: 3 błędy i jak ich uniknąć',
+            priorityScore: 84.5,
+            confidence: 'high',
+            rationale: 'Wysokie ciśnienie niszy, dobra jakość historyczna i aktywność konkurencji.',
+            evidence: [
+              {
+                evidenceId: 'ev-1',
+                source: 'topic_intelligence',
+                label: 'Wynik luki',
+                value: '7200.50',
+                context: 'topic-overlaptopic',
+              },
+            ],
+            warnings: ['Wysokie ryzyko kanibalizacji. Zachowaj odstęp od podobnych publikacji.'],
+          },
+        ],
+      });
+
+      expect(result.items[0]?.confidence).toBe('high');
+      expect(result.items[0]?.evidence.length).toBeGreaterThan(0);
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        PlanningGenerateInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-03-01',
+          dateTo: '2026-02-28',
+        })).toThrow();
+
+      expect(() =>
+        PlanningGetPlanInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-03-01',
+          dateTo: '2026-02-28',
+        })).toThrow();
+    });
+  });
+
   describe('Reports DTO', () => {
     it('applies defaults for report generate input', () => {
       const parsed = ReportGenerateInputDTOSchema.parse({
@@ -1009,6 +1084,8 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.ANALYTICS_GET_COMPETITOR_INSIGHTS).toBe('analytics:getCompetitorInsights');
       expect(IPC_CHANNELS.ANALYTICS_RUN_TOPIC_INTELLIGENCE).toBe('analytics:runTopicIntelligence');
       expect(IPC_CHANNELS.ANALYTICS_GET_TOPIC_INTELLIGENCE).toBe('analytics:getTopicIntelligence');
+      expect(IPC_CHANNELS.PLANNING_GENERATE_PLAN).toBe('planning:generatePlan');
+      expect(IPC_CHANNELS.PLANNING_GET_PLAN).toBe('planning:getPlan');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');

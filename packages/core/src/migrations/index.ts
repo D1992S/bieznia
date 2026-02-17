@@ -11,6 +11,7 @@ import { analyticsQueryCacheSchemaMigration } from './008-analytics-query-cache-
 import { qualityScoringSchemaMigration } from './009-quality-scoring-schema.ts';
 import { competitorIntelligenceSchemaMigration } from './010-competitor-intelligence-schema.ts';
 import { topicIntelligenceSchemaMigration } from './011-topic-intelligence-schema.ts';
+import { planningSystemSchemaMigration } from './012-planning-system-schema.ts';
 import type { MigrationDefinition } from './types.ts';
 
 export type { MigrationDefinition } from './types.ts';
@@ -32,6 +33,7 @@ export const MIGRATIONS: ReadonlyArray<MigrationDefinition> = [
   qualityScoringSchemaMigration,
   competitorIntelligenceSchemaMigration,
   topicIntelligenceSchemaMigration,
+  planningSystemSchemaMigration,
 ];
 
 function toError(cause: unknown): Error {

@@ -39,6 +39,7 @@ import {
   useMlTrendQuery,
   useQualityScoresQuery,
   useProbeDataModeMutation,
+  usePlanningPlanQuery,
   useProfileSettingsQuery,
   useProfilesQuery,
   useResumeSyncMutation,
@@ -47,6 +48,7 @@ import {
   useSearchContentMutation,
   useSetActiveProfileMutation,
   useSetDataModeMutation,
+  useGeneratePlanningPlanMutation,
   useSyncCompetitorsMutation,
   useTopicIntelligenceQuery,
   useStartSyncMutation,
@@ -259,6 +261,17 @@ function getTopicConfidenceLabel(confidence: 'low' | 'medium' | 'high'): string 
   }
 }
 
+function getPlanningConfidenceLabel(confidence: 'low' | 'medium' | 'high'): string {
+  switch (confidence) {
+    case 'high':
+      return 'wysoka';
+    case 'medium':
+      return 'średnia';
+    case 'low':
+      return 'niska';
+  }
+}
+
 function mergeSeriesWithForecast(
   actualPoints: TimeseriesPoint[] | undefined,
   forecastPoints: MlForecastPointDTO[] | undefined,
@@ -365,6 +378,7 @@ export function App() {
   const askAssistantMutation = useAskAssistantMutation();
   const syncCompetitorsMutation = useSyncCompetitorsMutation();
   const runTopicIntelligenceMutation = useRunTopicIntelligenceMutation();
+  const generatePlanningPlanMutation = useGeneratePlanningPlanMutation();
 
   useEffect(() => {
     const defaultDatePreset = settingsQuery.data?.defaultDatePreset;
@@ -435,6 +449,7 @@ export function App() {
     clusterLimit: topicClusterLimit,
     gapLimit: topicGapLimit,
   });
+  const planningPlanQuery = usePlanningPlanQuery(channelId, dateRange, dataEnabled);
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
   const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
   const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
@@ -606,11 +621,16 @@ export function App() {
   const qualityScores = qualityScoresQuery.data;
   const competitorInsights = competitorInsightsQuery.data;
   const topicIntelligence = topicIntelligenceQuery.data;
+  const planningPlan = planningPlanQuery.data;
   const isCompetitorSyncDisabled = syncCompetitorsMutation.isPending
     || !dataEnabled
     || channelId.trim().length === 0
     || !isDateRangeValid(dateRange);
   const isTopicIntelligenceRunDisabled = runTopicIntelligenceMutation.isPending
+    || !dataEnabled
+    || channelId.trim().length === 0
+    || !isDateRangeValid(dateRange);
+  const isPlanningGenerateDisabled = generatePlanningPlanMutation.isPending
     || !dataEnabled
     || channelId.trim().length === 0
     || !isDateRangeValid(dateRange);
@@ -1524,6 +1544,126 @@ export function App() {
                     )}
                   </div>
                 </section>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            border: `1px solid ${STUDIO_THEME.border}`,
+            borderRadius: 16,
+            background: STUDIO_THEME.panelElevated,
+            padding: 14,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div>
+              <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>System planowania (Faza 16)</h3>
+              <p style={{ marginTop: 6, marginBottom: 0, color: STUDIO_THEME.muted }}>
+                Deterministyczny plan publikacji oparty o quality scoring, konkurencję i luki tematyczne.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (isPlanningGenerateDisabled) {
+                  return;
+                }
+                generatePlanningPlanMutation.mutate({
+                  channelId,
+                  dateFrom: dateRange.dateFrom,
+                  dateTo: dateRange.dateTo,
+                  maxRecommendations: 7,
+                  clusterLimit: topicClusterLimit,
+                  gapLimit: topicGapLimit,
+                });
+              }}
+              disabled={isPlanningGenerateDisabled}
+            >
+              {generatePlanningPlanMutation.isPending ? 'Generowanie planu...' : 'Generuj plan publikacji'}
+            </button>
+          </div>
+
+          {generatePlanningPlanMutation.isError && (
+            <p style={{ color: STUDIO_THEME.danger, marginBottom: 0 }}>
+              {readMutationErrorMessage(generatePlanningPlanMutation.error, 'Nie udało się wygenerować planu publikacji.')}
+            </p>
+          )}
+
+          {planningPlanQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie planu publikacji...</p>}
+          {planningPlanQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać planu publikacji.</p>}
+
+          {planningPlan && (
+            <>
+              <p style={{ marginTop: 8, marginBottom: 10, color: STUDIO_THEME.title }}>
+                Plan: {planningPlan.planId} | wygenerowano: {new Date(planningPlan.generatedAt).toLocaleString('pl-PL')} | rekomendacje:{' '}
+                {formatNumber(planningPlan.totalRecommendations)}
+              </p>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                {planningPlan.items.map((item) => {
+                  const confidenceColor = item.confidence === 'high'
+                    ? STUDIO_THEME.success
+                    : item.confidence === 'medium'
+                      ? STUDIO_THEME.warning
+                      : STUDIO_THEME.muted;
+                  return (
+                    <article
+                      key={item.recommendationId}
+                      style={{
+                        border: `1px solid ${STUDIO_THEME.border}`,
+                        borderRadius: 10,
+                        background: STUDIO_THEME.panel,
+                        padding: 10,
+                      }}
+                    >
+                      <p style={{ margin: 0 }}>
+                        <strong>#{item.slotOrder}</strong> | slot: <strong>{item.slotDate}</strong> | temat: <strong>{item.topicLabel}</strong> | wynik:{' '}
+                        <strong>{item.priorityScore.toFixed(2)}</strong> | pewność:{' '}
+                        <span style={{ color: confidenceColor }}>{getPlanningConfidenceLabel(item.confidence)}</span>
+                      </p>
+                      <p style={{ margin: '4px 0', color: STUDIO_THEME.title, fontSize: 13 }}>
+                        Proponowany tytuł: {item.suggestedTitle}
+                      </p>
+                      <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                        {item.rationale}
+                      </p>
+                      <div style={{ marginTop: 6 }}>
+                        <p style={{ margin: '0 0 4px', color: STUDIO_THEME.muted, fontSize: 12 }}>
+                          Dowody:
+                        </p>
+                        <ul style={{ margin: 0, paddingLeft: 18 }}>
+                          {item.evidence.map((evidence) => (
+                            <li key={evidence.evidenceId} style={{ color: STUDIO_THEME.title, fontSize: 12 }}>
+                              [{evidence.source}] {evidence.label}: {evidence.value}{evidence.context ? ` (${evidence.context})` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {item.warnings.length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          <p style={{ margin: '0 0 4px', color: STUDIO_THEME.warning, fontSize: 12 }}>
+                            Ostrzeżenia:
+                          </p>
+                          <ul style={{ margin: 0, paddingLeft: 18 }}>
+                            {item.warnings.map((warning) => (
+                              <li key={`${item.recommendationId}-${warning}`} style={{ color: STUDIO_THEME.warning, fontSize: 12 }}>
+                                {warning}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+                {planningPlan.items.length === 0 && (
+                  <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
+                    Brak rekomendacji dla wybranego zakresu. Uzupełnij dane i wygeneruj plan ponownie.
+                  </p>
+                )}
               </div>
             </>
           )}
