@@ -1,4 +1,8 @@
-import type { DatabaseConnection } from '@moze/core';
+import {
+  createPlanningQueries,
+  createPlanningRepository,
+  type DatabaseConnection,
+} from '@moze/core';
 import {
   AppError,
   type CompetitorInsightsResultDTO,
@@ -115,7 +119,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
     return err(
       createPlanningError(
         'PLANNING_INVALID_DATE_RANGE',
-        'Start date cannot be later than end date.',
+        'Data poczatkowa nie moze byc pozniejsza niz data koncowa.',
         { dateFrom, dateTo },
       ),
     );
@@ -162,7 +166,7 @@ function parseJsonStringArray(jsonText: string, context: Record<string, unknown>
       return err(
         createPlanningError(
           'PLANNING_INVALID_JSON_ARRAY',
-          'Invalid JSON array in persisted planning payload.',
+          'Nieprawidlowy JSON tablicy w zapisanym payloadzie planowania.',
           context,
         ),
       );
@@ -176,7 +180,7 @@ function parseJsonStringArray(jsonText: string, context: Record<string, unknown>
     return err(
       createPlanningError(
         'PLANNING_JSON_PARSE_FAILED',
-        'Failed to parse persisted planning JSON payload.',
+        'Nie udalo sie sparsowac zapisanego payloadu JSON planowania.',
         context,
         cause,
       ),
@@ -201,7 +205,7 @@ function parsePlanningEvidence(jsonText: string, context: Record<string, unknown
       return err(
         createPlanningError(
           'PLANNING_EVIDENCE_INVALID',
-          'Invalid evidence payload in persisted planning recommendation.',
+          'Nieprawidlowy payload evidence w zapisanej rekomendacji planowania.',
           { ...context, issues: validated.error.issues },
         ),
       );
@@ -211,7 +215,7 @@ function parsePlanningEvidence(jsonText: string, context: Record<string, unknown
     return err(
       createPlanningError(
         'PLANNING_EVIDENCE_PARSE_FAILED',
-        'Failed to parse persisted planning evidence.',
+        'Nie udalo sie sparsowac zapisanego evidence planowania.',
         context,
         cause,
       ),
@@ -270,117 +274,73 @@ function persistPlan(
     items: PlanningRecommendationItemDTO[];
   },
 ): Result<void, AppError> {
-  try {
-    const deletePlansStmt = input.db.prepare<{ channelId: string; dateFrom: string; dateTo: string }>(
-      `
-        DELETE FROM planning_plans
-        WHERE channel_id = @channelId
-          AND date_from = @dateFrom
-          AND date_to = @dateTo
-      `,
-    );
+  const planningRepository = createPlanningRepository(input.db);
+  const persistResult = planningRepository.runInTransaction(() => {
+    const deleteResult = planningRepository.deletePlansWindow({
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+    });
+    if (!deleteResult.ok) {
+      return deleteResult;
+    }
 
-    const insertPlanStmt = input.db.prepare<{
-      planId: string;
-      channelId: string;
-      dateFrom: string;
-      dateTo: string;
-      generatedAt: string;
-      algorithmVersion: string;
-      recommendationsCount: number;
-    }>(
-      `
-        INSERT INTO planning_plans (
-          plan_id, channel_id, date_from, date_to, algorithm_version, generated_at, recommendations_count
-        )
-        VALUES (
-          @planId, @channelId, @dateFrom, @dateTo, @algorithmVersion, @generatedAt, @recommendationsCount
-        )
-      `,
-    );
+    const insertPlanResult = planningRepository.insertPlan({
+      planId: input.planId,
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      generatedAt: input.generatedAt,
+      algorithmVersion: ALGORITHM_VERSION,
+      recommendationsCount: input.items.length,
+    });
+    if (!insertPlanResult.ok) {
+      return insertPlanResult;
+    }
 
-    const insertRecommendationStmt = input.db.prepare<{
-      recommendationId: string;
-      planId: string;
-      channelId: string;
-      slotDate: string;
-      slotOrder: number;
-      topicClusterId: string;
-      topicLabel: string;
-      suggestedTitle: string;
-      priorityScore: number;
-      confidence: PlanningConfidence;
-      rationale: string;
-      evidenceJson: string;
-      warningsJson: string;
-      createdAt: string;
-    }>(
-      `
-        INSERT INTO planning_recommendations (
-          recommendation_id, plan_id, channel_id, slot_date, slot_order, topic_cluster_id, topic_label,
-          suggested_title, priority_score, confidence, rationale, evidence_json, warnings_json, created_at
-        )
-        VALUES (
-          @recommendationId, @planId, @channelId, @slotDate, @slotOrder, @topicClusterId, @topicLabel,
-          @suggestedTitle, @priorityScore, @confidence, @rationale, @evidenceJson, @warningsJson, @createdAt
-        )
-      `,
-    );
-
-    const tx = input.db.transaction(() => {
-      deletePlansStmt.run({
-        channelId: input.channelId,
-        dateFrom: input.dateFrom,
-        dateTo: input.dateTo,
-      });
-
-      insertPlanStmt.run({
+    for (const item of input.items) {
+      const insertRecommendationResult = planningRepository.insertRecommendation({
+        recommendationId: item.recommendationId,
         planId: input.planId,
         channelId: input.channelId,
-        dateFrom: input.dateFrom,
-        dateTo: input.dateTo,
-        generatedAt: input.generatedAt,
-        algorithmVersion: ALGORITHM_VERSION,
-        recommendationsCount: input.items.length,
+        slotDate: item.slotDate,
+        slotOrder: item.slotOrder,
+        topicClusterId: item.topicClusterId,
+        topicLabel: item.topicLabel,
+        suggestedTitle: item.suggestedTitle,
+        priorityScore: item.priorityScore,
+        confidence: item.confidence,
+        rationale: item.rationale,
+        evidenceJson: JSON.stringify(item.evidence),
+        warningsJson: JSON.stringify(item.warnings),
+        createdAt: input.generatedAt,
       });
-
-      for (const item of input.items) {
-        insertRecommendationStmt.run({
-          recommendationId: item.recommendationId,
-          planId: input.planId,
-          channelId: input.channelId,
-          slotDate: item.slotDate,
-          slotOrder: item.slotOrder,
-          topicClusterId: item.topicClusterId,
-          topicLabel: item.topicLabel,
-          suggestedTitle: item.suggestedTitle,
-          priorityScore: item.priorityScore,
-          confidence: item.confidence,
-          rationale: item.rationale,
-          evidenceJson: JSON.stringify(item.evidence),
-          warningsJson: JSON.stringify(item.warnings),
-          createdAt: input.generatedAt,
-        });
+      if (!insertRecommendationResult.ok) {
+        return insertRecommendationResult;
       }
-    });
+    }
 
-    tx();
     return ok(undefined);
-  } catch (cause) {
+  });
+
+  if (!persistResult.ok) {
     return err(
       createPlanningError(
         'PLANNING_PERSIST_FAILED',
-        'Failed to persist planning recommendations.',
+        'Nie udalo sie zapisac rekomendacji planowania.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
           dateTo: input.dateTo,
           recommendations: input.items.length,
+          causeErrorCode: persistResult.error.code,
         },
-        cause,
+        persistResult.error,
       ),
     );
   }
+
+  return ok(undefined);
 }
 
 function buildCandidates(input: {
@@ -666,63 +626,50 @@ export function getPlanningPlan(input: GetPlanningPlanInput): Result<PlanningPla
     return rangeValidation;
   }
 
-  let persistedPlanRow: PersistedPlanRow | undefined;
+  const planningQueries = createPlanningQueries(input.db);
+  let persistedPlanRow: PersistedPlanRow | null = null;
   let persistedRecommendationRows: PersistedRecommendationRow[] = [];
-  try {
-    persistedPlanRow = input.db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string },
-      PersistedPlanRow
-    >(
-      `
-        SELECT
-          plan_id AS planId,
-          channel_id AS channelId,
-          date_from AS dateFrom,
-          date_to AS dateTo,
-          generated_at AS generatedAt
-        FROM planning_plans
-        WHERE channel_id = @channelId
-          AND date_from = @dateFrom
-          AND date_to = @dateTo
-        ORDER BY generated_at DESC, plan_id ASC
-        LIMIT 1
-      `,
-    ).get({
-      channelId: input.channelId,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-    });
-
-    if (persistedPlanRow) {
-      persistedRecommendationRows = input.db.prepare<{ planId: string }, PersistedRecommendationRow>(
-        `
-          SELECT
-            recommendation_id AS recommendationId,
-            slot_date AS slotDate,
-            slot_order AS slotOrder,
-            topic_cluster_id AS topicClusterId,
-            topic_label AS topicLabel,
-            suggested_title AS suggestedTitle,
-            priority_score AS priorityScore,
-            confidence AS confidence,
-            rationale AS rationale,
-            evidence_json AS evidenceJson,
-            warnings_json AS warningsJson
-          FROM planning_recommendations
-          WHERE plan_id = @planId
-          ORDER BY slot_order ASC, slot_date ASC, recommendation_id ASC
-        `,
-      ).all({ planId: persistedPlanRow.planId });
-    }
-  } catch (cause) {
+  const planRowResult = planningQueries.getLatestPlanHeader({
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+  });
+  if (!planRowResult.ok) {
     return err(
       createPlanningError(
         'PLANNING_READ_FAILED',
-        'Failed to read persisted planning data.',
-        { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
-        cause,
+        'Nie udalo sie odczytac zapisanych danych planowania.',
+        {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          causeErrorCode: planRowResult.error.code,
+        },
+        planRowResult.error,
       ),
     );
+  }
+  persistedPlanRow = planRowResult.value;
+
+  if (persistedPlanRow) {
+    const recommendationRowsResult = planningQueries.listRecommendationsByPlanId({ planId: persistedPlanRow.planId });
+    if (!recommendationRowsResult.ok) {
+      return err(
+        createPlanningError(
+          'PLANNING_READ_FAILED',
+          'Nie udalo sie odczytac zapisanych danych planowania.',
+          {
+            channelId: input.channelId,
+            dateFrom: input.dateFrom,
+            dateTo: input.dateTo,
+            planId: persistedPlanRow.planId,
+            causeErrorCode: recommendationRowsResult.error.code,
+          },
+          recommendationRowsResult.error,
+        ),
+      );
+    }
+    persistedRecommendationRows = recommendationRowsResult.value;
   }
 
   if (!persistedPlanRow) {
@@ -742,7 +689,7 @@ export function getPlanningPlan(input: GetPlanningPlanInput): Result<PlanningPla
     return err(
       createPlanningError(
         'PLANNING_ROW_INVALID',
-        'Persisted planning header has invalid format.',
+        'Zapisany naglowek planowania ma nieprawidlowy format.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -760,7 +707,7 @@ export function getPlanningPlan(input: GetPlanningPlanInput): Result<PlanningPla
       return err(
         createPlanningError(
           'PLANNING_RECOMMENDATION_ROW_INVALID',
-          'Persisted planning recommendation has invalid format.',
+          'Zapisana rekomendacja planowania ma nieprawidlowy format.',
           {
             channelId: input.channelId,
             dateFrom: input.dateFrom,

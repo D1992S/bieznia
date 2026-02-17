@@ -95,7 +95,7 @@ export function createChannelQueries(
             return err(
               AppError.create(
                 'DB_CHANNEL_NOT_FOUND',
-                'Channel not found.',
+                'Kanal nie zostal znaleziony.',
                 'error',
                 { channelId: query.channelId },
               ),
@@ -107,7 +107,7 @@ export function createChannelQueries(
             return err(
               AppError.create(
                 'DB_CHANNEL_INFO_INVALID',
-                'Channel data in DB is invalid.',
+                'Dane kanalu w bazie sa nieprawidlowe.',
                 'error',
                 {
                   channelId: query.channelId,
@@ -122,7 +122,7 @@ export function createChannelQueries(
           return err(
             AppError.create(
               'DB_QUERY_CHANNEL_INFO_FAILED',
-              'Failed to query channel data.',
+              'Nie udalo sie pobrac danych kanalu.',
               'error',
               { channelId: query.channelId },
               toError(cause),

@@ -23,6 +23,7 @@ import type {
 } from './types.ts';
 
 export interface CoreRepository {
+  deactivateAllProfiles: () => Result<void, AppError>;
   upsertProfile: (input: UpsertProfileInput) => Result<void, AppError>;
   setAppMetaEntry: (input: AppMetaEntryInput) => Result<void, AppError>;
   createSyncRun: (input: CreateSyncRunInput) => Result<number, AppError>;
@@ -86,6 +87,14 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
         name = excluded.name,
         is_active = excluded.is_active,
         updated_at = excluded.updated_at
+    `,
+  );
+
+  const deactivateAllProfilesStmt = db.prepare(
+    `
+      UPDATE profiles
+      SET is_active = 0
+      WHERE is_active <> 0
     `,
   );
 
@@ -527,6 +536,22 @@ export function createCoreRepository(db: Database.Database): CoreRepository {
   });
 
   return {
+    deactivateAllProfiles: () => {
+      try {
+        deactivateAllProfilesStmt.run();
+        return ok(undefined);
+      } catch (cause) {
+        return err(
+          createDbError(
+            'DB_PROFILE_DEACTIVATE_FAILED',
+            'Nie udalo sie dezaktywowac profili.',
+            {},
+            cause,
+          ),
+        );
+      }
+    },
+
     upsertProfile: (input) => {
       try {
         const now = new Date().toISOString();

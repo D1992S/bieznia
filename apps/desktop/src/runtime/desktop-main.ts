@@ -1,5 +1,6 @@
 ﻿import {
   createAnalyticsQueryCache,
+  createAppStatusQueries,
   createChannelQueries,
   createCoreRepository,
   createDatabaseConnection,
@@ -9,6 +10,7 @@
   createSettingsQueries,
   runMigrations,
   type AnalyticsQueryCache,
+  type AppStatusQueries,
   type ChannelQueries,
   type ImportSearchQueries,
   type DatabaseConnection,
@@ -138,6 +140,7 @@ interface BackendState {
   channelQueries: ChannelQueries | null;
   settingsQueries: SettingsQueries | null;
   importSearchQueries: ImportSearchQueries | null;
+  appStatusQueries: AppStatusQueries | null;
   assistantService: AssistantLiteService | null;
   dataModeManager: DataModeManager | null;
   syncOrchestrator: SyncOrchestrator | null;
@@ -152,6 +155,7 @@ const backendState: BackendState = {
   channelQueries: null,
   settingsQueries: null,
   importSearchQueries: null,
+  appStatusQueries: null,
   assistantService: null,
   dataModeManager: null,
   syncOrchestrator: null,
@@ -191,7 +195,7 @@ function emitSyncEvent(eventName: string, payload: unknown): void {
 function createDbNotReadyError(): AppError {
   return AppError.create(
     'APP_DB_NOT_READY',
-    'Database is not ready. Restart the application.',
+    'Baza danych nie jest gotowa. Uruchom ponownie aplikacje.',
     'error',
     { dbPath: backendState.dbPath },
   );
@@ -200,7 +204,7 @@ function createDbNotReadyError(): AppError {
 function createDataModeNotReadyError(): AppError {
   return AppError.create(
     'APP_DATA_MODE_NOT_READY',
-    'Data mode manager is not ready. Restart the application.',
+    'Menedzer trybu danych nie jest gotowy. Uruchom ponownie aplikacje.',
     'error',
     {},
   );
@@ -209,7 +213,7 @@ function createDataModeNotReadyError(): AppError {
 function createSyncNotReadyError(): AppError {
   return AppError.create(
     'APP_SYNC_NOT_READY',
-    'Sync orchestrator is not ready. Restart the application.',
+    'Orkiestrator synchronizacji nie jest gotowy. Uruchom ponownie aplikacje.',
     'error',
     {},
   );
@@ -218,7 +222,7 @@ function createSyncNotReadyError(): AppError {
 function createAssistantNotReadyError(): AppError {
   return AppError.create(
     'APP_ASSISTANT_NOT_READY',
-    'Assistant service is not ready. Restart the application.',
+    'Usluga asystenta nie jest gotowa. Uruchom ponownie aplikacje.',
     'error',
     {},
   );
@@ -274,7 +278,7 @@ function invalidateAnalyticsCache(reason: string, context: Record<string, unknow
 function createProfileReloadFailedError(details: Record<string, unknown>): AppError {
   return AppError.create(
     'APP_PROFILE_RELOAD_FAILED',
-    'Failed to reload active profile.',
+    'Nie udalo sie przeladowac aktywnego profilu.',
     'error',
     details,
   );
@@ -283,7 +287,7 @@ function createProfileReloadFailedError(details: Record<string, unknown>): AppEr
 function createProfileSwitchBlockedError(details: Record<string, unknown>): AppError {
   return AppError.create(
     'APP_PROFILE_SWITCH_BLOCKED_SYNC_RUNNING',
-    'Cannot switch active profile while synchronization is running.',
+    'Nie mozna przelaczyc profilu podczas trwajacej synchronizacji.',
     'error',
     details,
   );
@@ -445,19 +449,9 @@ function syncActiveProfileInDatabase(
   profile: ProfileSummaryDTO,
 ): Result<void, AppError> {
   const repository = createCoreRepository(db);
-
-  try {
-    db.prepare('UPDATE profiles SET is_active = 0 WHERE is_active <> 0').run();
-  } catch (cause) {
-    return err(
-      AppError.create(
-        'DB_PROFILE_DEACTIVATE_FAILED',
-        'Nie udalo sie zaktualizowac aktywnego profilu w bazie.',
-        'error',
-        { profileId: profile.id },
-        toError(cause),
-      ),
-    );
+  const deactivateResult = repository.deactivateAllProfiles();
+  if (!deactivateResult.ok) {
+    return deactivateResult;
   }
 
   return repository.upsertProfile({
@@ -522,6 +516,7 @@ function initializeBackend(): Result<void, AppError> {
   const channelQueries = createChannelQueries(connection.db, { cache: analyticsCache });
   const settingsQueries = createSettingsQueries(connection.db);
   const importSearchQueries = createImportSearchQueries(connection.db);
+  const appStatusQueries = createAppStatusQueries(connection.db);
   const assistantService = createAssistantLiteService({
     db: connection.db,
     mode: 'local-stub',
@@ -561,6 +556,7 @@ function initializeBackend(): Result<void, AppError> {
   backendState.channelQueries = channelQueries;
   backendState.settingsQueries = settingsQueries;
   backendState.importSearchQueries = importSearchQueries;
+  backendState.appStatusQueries = appStatusQueries;
   backendState.assistantService = assistantService;
   backendState.dataModeManager = dataModesResult.value;
   backendState.syncOrchestrator = syncOrchestrator;
@@ -590,6 +586,7 @@ function closeBackend(): void {
   backendState.channelQueries = null;
   backendState.settingsQueries = null;
   backendState.importSearchQueries = null;
+  backendState.appStatusQueries = null;
   backendState.assistantService = null;
   backendState.dataModeManager = null;
   backendState.syncOrchestrator = null;
@@ -619,43 +616,30 @@ function ensureProfileSwitchAllowed(): Result<void, AppError> {
     return ok(undefined);
   }
 
-  try {
-    const activeRunRow = db
-      .prepare<[], { syncRunId: number; stage: string | null }>(
-        `
-          SELECT
-            id AS syncRunId,
-            stage
-          FROM sync_runs
-          WHERE finished_at IS NULL
-            AND status = 'running'
-          ORDER BY started_at DESC, id DESC
-          LIMIT 1
-        `,
-      )
-      .get();
-
-    if (!activeRunRow) {
-      return ok(undefined);
-    }
-
-    return err(
-      createProfileSwitchBlockedError({
-        activeSyncRunId: activeRunRow.syncRunId,
-        activeSyncStage: activeRunRow.stage ?? null,
-      }),
-    );
-  } catch (cause) {
+  const repository = createCoreRepository(db);
+  const activeRunResult = repository.getLatestOpenSyncRun({ profileId: null });
+  if (!activeRunResult.ok) {
     return err(
       AppError.create(
         'APP_PROFILE_SWITCH_GUARD_FAILED',
         'Nie udalo sie sprawdzic stanu synchronizacji przed zmiana profilu.',
         'error',
         {},
-        toError(cause),
+        toError(activeRunResult.error),
       ),
     );
   }
+
+  if (!activeRunResult.value) {
+    return ok(undefined);
+  }
+
+  return err(
+    createProfileSwitchBlockedError({
+      activeSyncRunId: activeRunResult.value.id,
+      activeSyncStage: activeRunResult.value.stage ?? null,
+    }),
+  );
 }
 
 function readAppStatus(): Result<AppStatusDTO, AppError> {
@@ -675,67 +659,57 @@ function readAppStatus(): Result<AppStatusDTO, AppError> {
     });
   }
 
-  try {
-    const latestSyncRunRow = db
-      .prepare<[], { status: string; finishedAt: string | null }>(
-        `
-          SELECT
-            status,
-            finished_at AS finishedAt
-          FROM sync_runs
-          ORDER BY started_at DESC, id DESC
-          LIMIT 1
-        `,
-      )
-      .get();
-
-    const latestChannelSyncRow = db
-      .prepare<[], { lastSyncAt: string }>(
-        `
-          SELECT last_sync_at AS lastSyncAt
-          FROM dim_channel
-          WHERE last_sync_at IS NOT NULL
-          ORDER BY last_sync_at DESC, channel_id ASC
-          LIMIT 1
-        `,
-      )
-      .get();
-
-    let lastSyncAt = normalizeIsoDateTime(latestChannelSyncRow?.lastSyncAt ?? null);
-    if (!lastSyncAt) {
-      const latestFinishedSyncRunRow = db
-        .prepare<[], { finishedAt: string }>(
-          `
-            SELECT finished_at AS finishedAt
-            FROM sync_runs
-            WHERE finished_at IS NOT NULL
-            ORDER BY finished_at DESC, id DESC
-            LIMIT 1
-          `,
-        )
-        .get();
-
-      lastSyncAt = normalizeIsoDateTime(latestFinishedSyncRunRow?.finishedAt ?? null);
-    }
-
-    return ok({
-      version: app.getVersion(),
-      dbReady: true,
-      profileId: activeProfileResult.value.id,
-      syncRunning: Boolean(latestSyncRunRow && latestSyncRunRow.finishedAt === null),
-      lastSyncAt,
-    });
-  } catch (cause) {
+  const appStatusQueries = backendState.appStatusQueries ?? createAppStatusQueries(db);
+  const latestSyncRunStatusResult = appStatusQueries.getLatestSyncRunStatus();
+  if (!latestSyncRunStatusResult.ok) {
     return err(
       AppError.create(
         'APP_STATUS_READ_FAILED',
         'Nie udalo sie odczytac statusu aplikacji.',
         'error',
         {},
-        toError(cause),
+        toError(latestSyncRunStatusResult.error),
       ),
     );
   }
+
+  const latestChannelSyncAtResult = appStatusQueries.getLatestChannelSyncAt();
+  if (!latestChannelSyncAtResult.ok) {
+    return err(
+      AppError.create(
+        'APP_STATUS_READ_FAILED',
+        'Nie udalo sie odczytac statusu aplikacji.',
+        'error',
+        {},
+        toError(latestChannelSyncAtResult.error),
+      ),
+    );
+  }
+
+  let lastSyncAt = normalizeIsoDateTime(latestChannelSyncAtResult.value);
+  if (!lastSyncAt) {
+    const latestFinishedSyncAtResult = appStatusQueries.getLatestFinishedSyncAt();
+    if (!latestFinishedSyncAtResult.ok) {
+      return err(
+        AppError.create(
+          'APP_STATUS_READ_FAILED',
+          'Nie udalo sie odczytac statusu aplikacji.',
+          'error',
+          {},
+          toError(latestFinishedSyncAtResult.error),
+        ),
+      );
+    }
+    lastSyncAt = normalizeIsoDateTime(latestFinishedSyncAtResult.value);
+  }
+
+  return ok({
+    version: app.getVersion(),
+    dbReady: true,
+    profileId: activeProfileResult.value.id,
+    syncRunning: Boolean(latestSyncRunStatusResult.value && latestSyncRunStatusResult.value.finishedAt === null),
+    lastSyncAt,
+  });
 }
 
 function readKpis(query: KpiQueryDTO): Result<KpiResultDTO, AppError> {
@@ -1960,4 +1934,5 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
 

@@ -1,4 +1,8 @@
-import type { DatabaseConnection } from '@moze/core';
+﻿import {
+  createCompetitorQueries,
+  createCompetitorRepository,
+  type DatabaseConnection,
+} from '@moze/core';
 import {
   AppError,
   err,
@@ -36,15 +40,6 @@ interface CompetitorSnapshotRow {
   subscribers: number;
   views: number;
   videos: number;
-}
-
-interface PersistedSnapshotRow {
-  subscribers: number;
-  views: number;
-  videos: number;
-  subscribersDelta: number;
-  viewsDelta: number;
-  videosDelta: number;
 }
 
 export interface SyncCompetitorSnapshotsInput {
@@ -85,7 +80,7 @@ const COMPETITOR_SNAPSHOT_ROW_SCHEMA = z.object({
 const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   {
     competitorChannelId: 'UC-COMP-ALFA',
-    name: 'Kanał Alfa',
+    name: 'KanaĹ‚ Alfa',
     handle: '@kanal_alfa',
     viewsFactor: 1.08,
     viewsTrend: 0.22,
@@ -96,7 +91,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-BETA',
-    name: 'Kanał Beta',
+    name: 'KanaĹ‚ Beta',
     handle: '@kanal_beta',
     viewsFactor: 0.94,
     viewsTrend: 0.15,
@@ -107,7 +102,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-GAMMA',
-    name: 'Kanał Gamma',
+    name: 'KanaĹ‚ Gamma',
     handle: '@kanal_gamma',
     viewsFactor: 1.17,
     viewsTrend: 0.29,
@@ -118,7 +113,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-DELTA',
-    name: 'Kanał Delta',
+    name: 'KanaĹ‚ Delta',
     handle: '@kanal_delta',
     viewsFactor: 0.88,
     viewsTrend: 0.09,
@@ -129,7 +124,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-OMEGA',
-    name: 'Kanał Omega',
+    name: 'KanaĹ‚ Omega',
     handle: '@kanal_omega',
     viewsFactor: 1.26,
     viewsTrend: 0.31,
@@ -172,7 +167,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
     return err(
       createCompetitorError(
         'COMPETITOR_INVALID_DATE_RANGE',
-        'Data początkowa nie może być późniejsza niż końcowa.',
+        'Data poczÄ…tkowa nie moĹĽe byÄ‡ pĂłĹşniejsza niĹĽ koĹ„cowa.',
         { dateFrom, dateTo },
       ),
     );
@@ -186,52 +181,36 @@ function readOwnerDayRows(
   dateFrom: string,
   dateTo: string,
 ): Result<OwnerDayRow[], AppError> {
-  try {
-    const rows = db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string },
-      OwnerDayRow
-    >(
-      `
-        SELECT
-          date,
-          subscribers,
-          views,
-          videos
-        FROM fact_channel_day
-        WHERE channel_id = @channelId
-          AND date BETWEEN @dateFrom AND @dateTo
-        ORDER BY date ASC
-      `,
-    ).all({ channelId, dateFrom, dateTo });
-
-    const parsedRows: OwnerDayRow[] = [];
-    for (let index = 0; index < rows.length; index += 1) {
-      const parsed = OWNER_DAY_ROW_SCHEMA.safeParse(rows[index]);
-      if (!parsed.success) {
-        return err(
-          createCompetitorError(
-            'COMPETITOR_OWNER_ROW_INVALID',
-            'Dane kanału do analizy konkurencji mają niepoprawny format.',
-            { channelId, dateFrom, dateTo, rowIndex: index, issues: parsed.error.issues },
-          ),
-        );
-      }
-      parsedRows.push(parsed.data);
-    }
-
-    return ok(parsedRows);
-  } catch (cause) {
+  const competitorQueries = createCompetitorQueries(db);
+  const rowsResult = competitorQueries.listOwnerDayRows({ channelId, dateFrom, dateTo });
+  if (!rowsResult.ok) {
     return err(
       createCompetitorError(
         'COMPETITOR_OWNER_READ_FAILED',
-        'Nie udało się odczytać danych kanału do analizy konkurencji.',
-        { channelId, dateFrom, dateTo },
-        cause,
+        'Nie udalo sie odczytac danych kanalu do analizy konkurencji.',
+        { channelId, dateFrom, dateTo, causeErrorCode: rowsResult.error.code },
+        rowsResult.error,
       ),
     );
   }
-}
 
+  const parsedRows: OwnerDayRow[] = [];
+  for (let index = 0; index < rowsResult.value.length; index += 1) {
+    const parsed = OWNER_DAY_ROW_SCHEMA.safeParse(rowsResult.value[index]);
+    if (!parsed.success) {
+      return err(
+        createCompetitorError(
+          'COMPETITOR_OWNER_ROW_INVALID',
+          'Dane kanalu do analizy konkurencji maja niepoprawny format.',
+          { channelId, dateFrom, dateTo, rowIndex: index, issues: parsed.error.issues },
+        ),
+      );
+    }
+    parsedRows.push(parsed.data);
+  }
+
+  return ok(parsedRows);
+}
 function buildCompetitorProfiles(count: number): CompetitorBaseProfile[] {
   if (count <= DEFAULT_COMPETITOR_PROFILES.length) {
     return DEFAULT_COMPETITOR_PROFILES.slice(0, count);
@@ -243,7 +222,7 @@ function buildCompetitorProfiles(count: number): CompetitorBaseProfile[] {
     const sequence = index + 1;
     profiles.push({
       competitorChannelId: `UC-COMP-${String(sequence).padStart(3, '0')}`,
-      name: `Kanał ${sequence}`,
+      name: `KanaĹ‚ ${sequence}`,
       handle: `@kanal_${sequence}`,
       viewsFactor: 0.9 + (sequence % 5) * 0.08,
       viewsTrend: 0.07 + (sequence % 7) * 0.03,
@@ -361,7 +340,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
     return err(
       createCompetitorError(
         'COMPETITOR_SYNC_SOURCE_EMPTY',
-        'Brak danych kanału w wybranym zakresie do synchronizacji konkurencji.',
+        'Brak danych kanaĹ‚u w wybranym zakresie do synchronizacji konkurencji.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -372,108 +351,8 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
   }
 
   const profiles = buildCompetitorProfiles(competitorCount);
-
-  const upsertCompetitorStmt = input.db.prepare<{
-    channelId: string;
-    competitorChannelId: string;
-    name: string;
-    handle: string | null;
-    nowIso: string;
-  }>(
-    `
-      INSERT INTO dim_competitor (
-        channel_id,
-        competitor_channel_id,
-        name,
-        handle,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        @channelId,
-        @competitorChannelId,
-        @name,
-        @handle,
-        @nowIso,
-        @nowIso
-      )
-      ON CONFLICT(channel_id, competitor_channel_id)
-      DO UPDATE SET
-        name = excluded.name,
-        handle = excluded.handle,
-        updated_at = excluded.updated_at
-    `,
-  );
-
-  const readPersistedSnapshotStmt = input.db.prepare<
-    { channelId: string; competitorChannelId: string; date: string },
-    PersistedSnapshotRow
-  >(
-    `
-      SELECT
-        subscribers,
-        views,
-        videos,
-        subscribers_delta AS subscribersDelta,
-        views_delta AS viewsDelta,
-        videos_delta AS videosDelta
-      FROM fact_competitor_day
-      WHERE channel_id = @channelId
-        AND competitor_channel_id = @competitorChannelId
-        AND date = @date
-      ORDER BY date ASC
-      LIMIT 1
-    `,
-  );
-
-  const upsertSnapshotStmt = input.db.prepare<{
-    channelId: string;
-    competitorChannelId: string;
-    date: string;
-    subscribers: number;
-    views: number;
-    videos: number;
-    subscribersDelta: number;
-    viewsDelta: number;
-    videosDelta: number;
-    nowIso: string;
-  }>(
-    `
-      INSERT INTO fact_competitor_day (
-        channel_id,
-        competitor_channel_id,
-        date,
-        subscribers,
-        views,
-        videos,
-        subscribers_delta,
-        views_delta,
-        videos_delta,
-        updated_at
-      )
-      VALUES (
-        @channelId,
-        @competitorChannelId,
-        @date,
-        @subscribers,
-        @views,
-        @videos,
-        @subscribersDelta,
-        @viewsDelta,
-        @videosDelta,
-        @nowIso
-      )
-      ON CONFLICT(channel_id, competitor_channel_id, date)
-      DO UPDATE SET
-        subscribers = excluded.subscribers,
-        views = excluded.views,
-        videos = excluded.videos,
-        subscribers_delta = excluded.subscribers_delta,
-        views_delta = excluded.views_delta,
-        videos_delta = excluded.videos_delta,
-        updated_at = excluded.updated_at
-    `,
-  );
+  const competitorQueries = createCompetitorQueries(input.db);
+  const competitorRepository = createCompetitorRepository(input.db);
 
   try {
     const counters = {
@@ -483,7 +362,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
       unchanged: 0,
     };
 
-    const runTx = input.db.transaction(() => {
+    const runTxResult = competitorRepository.runInTransaction(() => {
       const previousByCompetitor = new Map<string, { subscribers: number; views: number; videos: number }>();
 
       for (let competitorIndex = 0; competitorIndex < profiles.length; competitorIndex += 1) {
@@ -492,13 +371,16 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
           continue;
         }
 
-        upsertCompetitorStmt.run({
+        const upsertCompetitorResult = competitorRepository.upsertCompetitorProfile({
           channelId: input.channelId,
           competitorChannelId: profile.competitorChannelId,
           name: profile.name,
           handle: profile.handle,
           nowIso: generatedAt,
         });
+        if (!upsertCompetitorResult.ok) {
+          return upsertCompetitorResult;
+        }
 
         for (let dayIndex = 0; dayIndex < ownerRowsResult.value.length; dayIndex += 1) {
           const ownerRow = ownerRowsResult.value[dayIndex];
@@ -539,11 +421,15 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
             videos: parsedSnapshot.data.videos,
           });
 
-          const persisted = readPersistedSnapshotStmt.get({
+          const persistedResult = competitorQueries.getPersistedSnapshot({
             channelId: input.channelId,
             competitorChannelId: parsedSnapshot.data.competitorChannelId,
             date: parsedSnapshot.data.date,
           });
+          if (!persistedResult.ok) {
+            return persistedResult;
+          }
+          const persisted = persistedResult.value;
 
           if (
             persisted
@@ -558,7 +444,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
             continue;
           }
 
-          upsertSnapshotStmt.run({
+          const upsertSnapshotResult = competitorRepository.upsertSnapshot({
             channelId: input.channelId,
             competitorChannelId: parsedSnapshot.data.competitorChannelId,
             date: parsedSnapshot.data.date,
@@ -570,6 +456,9 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
             videosDelta,
             nowIso: generatedAt,
           });
+          if (!upsertSnapshotResult.ok) {
+            return upsertSnapshotResult;
+          }
 
           if (persisted) {
             counters.updated += 1;
@@ -578,9 +467,24 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
           }
         }
       }
+      return ok(undefined);
     });
-
-    runTx();
+    if (!runTxResult.ok) {
+      return err(
+        createCompetitorError(
+          'COMPETITOR_SYNC_FAILED',
+          'Nie udalo sie zsynchronizowac danych konkurencji.',
+          {
+            channelId: input.channelId,
+            dateFrom: input.dateFrom,
+            dateTo: input.dateTo,
+            competitorCount,
+            causeErrorCode: runTxResult.error.code,
+          },
+          runTxResult.error,
+        ),
+      );
+    }
 
     return ok({
       channelId: input.channelId,
@@ -597,7 +501,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
     return err(
       createCompetitorError(
         'COMPETITOR_SYNC_FAILED',
-        'Nie udało się zsynchronizować danych konkurencji.',
+        'Nie udaĹ‚o siÄ™ zsynchronizowaÄ‡ danych konkurencji.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -629,7 +533,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     return err(
       createCompetitorError(
         'COMPETITOR_INSIGHTS_SOURCE_EMPTY',
-        'Brak danych kanału w wybranym zakresie do porównania z konkurencją.',
+        'Brak danych kanaĹ‚u w wybranym zakresie do porĂłwnania z konkurencjÄ….',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -645,7 +549,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     return err(
       createCompetitorError(
         'COMPETITOR_OWNER_RANGE_INVALID',
-        'Nie udało się policzyć benchmarku kanału dla konkurencji.',
+        'Nie udaĹ‚o siÄ™ policzyÄ‡ benchmarku kanaĹ‚u dla konkurencji.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -657,50 +561,29 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
 
   const ownerTotalViews = ownerRowsResult.value.reduce((sum, row) => sum + row.views, 0);
   const ownerGrowthRate = calculateGrowthRate(ownerFirst.views, ownerLast.views);
-  const ownerUploadsPerWeek = calculateUploadsPerWeek(ownerFirst.videos, ownerLast.videos, ownerRowsResult.value.length);
-
-  let snapshotRows: CompetitorSnapshotRow[];
-  try {
-    snapshotRows = input.db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string },
-      CompetitorSnapshotRow
-    >(
-      `
-        SELECT
-          f.competitor_channel_id AS competitorChannelId,
-          d.name AS name,
-          d.handle AS handle,
-          f.date AS date,
-          f.subscribers AS subscribers,
-          f.views AS views,
-          f.videos AS videos
-        FROM fact_competitor_day AS f
-        INNER JOIN dim_competitor AS d
-          ON d.channel_id = f.channel_id
-         AND d.competitor_channel_id = f.competitor_channel_id
-        WHERE f.channel_id = @channelId
-          AND f.date BETWEEN @dateFrom AND @dateTo
-        ORDER BY f.competitor_channel_id ASC, f.date ASC
-      `,
-    ).all({
-      channelId: input.channelId,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-    });
-  } catch (cause) {
+  const ownerUploadsPerWeek = calculateUploadsPerWeek(ownerFirst.videos, ownerLast.videos, ownerRowsResult.value.length);  const competitorQueries = createCompetitorQueries(input.db);
+  const snapshotRowsResult = competitorQueries.listSnapshotsInRange({
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+  });
+  if (!snapshotRowsResult.ok) {
     return err(
       createCompetitorError(
         'COMPETITOR_INSIGHTS_READ_FAILED',
-        'Nie udało się odczytać danych konkurencji.',
+        'Nie udalo sie odczytac danych konkurencji.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
           dateTo: input.dateTo,
+          causeErrorCode: snapshotRowsResult.error.code,
         },
-        cause,
+        snapshotRowsResult.error,
       ),
     );
   }
+
+  const snapshotRows = snapshotRowsResult.value;
 
   const validRows: CompetitorSnapshotRow[] = [];
   for (let index = 0; index < snapshotRows.length; index += 1) {
@@ -709,7 +592,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
       return err(
         createCompetitorError(
           'COMPETITOR_INSIGHTS_ROW_INVALID',
-          'Dane konkurencji mają niepoprawny format.',
+          'Dane konkurencji majÄ… niepoprawny format.',
           {
             channelId: input.channelId,
             dateFrom: input.dateFrom,

@@ -108,7 +108,7 @@ function buildDateRangeSummary(dateFrom: string, dateTo: string): Result<DateRan
     return err(
       AppError.create(
         'REPORT_INVALID_DATE',
-        'Report date range is invalid.',
+        'Zakres dat raportu jest nieprawidlowy.',
         'error',
         { dateFrom, dateTo },
       ),
@@ -119,7 +119,7 @@ function buildDateRangeSummary(dateFrom: string, dateTo: string): Result<DateRan
     return err(
       AppError.create(
         'REPORT_INVALID_DATE_RANGE',
-        'Report start date cannot be later than end date.',
+        'Data poczatkowa raportu nie moze byc pozniejsza niz data koncowa.',
         'error',
         { dateFrom, dateTo },
       ),
@@ -182,7 +182,7 @@ function readActiveForecast(
       return err(
         AppError.create(
           'REPORT_FORECAST_MODEL_INVALID',
-          'Forecast model type is invalid.',
+          'Typ modelu prognozy jest nieprawidlowy.',
           'error',
           {
             channelId,
@@ -210,7 +210,7 @@ function readActiveForecast(
         return err(
           AppError.create(
             'REPORT_FORECAST_POINT_INVALID',
-            'Forecast point format is invalid.',
+            'Format punktu prognozy jest nieprawidlowy.',
             'error',
             {
               channelId,
@@ -235,7 +235,7 @@ function readActiveForecast(
     return err(
       AppError.create(
         'REPORT_FORECAST_READ_FAILED',
-        'Failed to read forecast for report.',
+        'Nie udalo sie odczytac prognozy dla raportu.',
         'error',
         { channelId, targetMetric },
         toError(cause),
@@ -276,7 +276,7 @@ function readTopVideos(
         return err(
           AppError.create(
             'REPORT_TOP_VIDEOS_INVALID',
-            'Top videos list format is invalid.',
+            'Format listy najlepszych filmow jest nieprawidlowy.',
             'error',
             { channelId, rowIndex: index, issues: parsed.error.issues },
           ),
@@ -290,7 +290,7 @@ function readTopVideos(
     return err(
       AppError.create(
         'REPORT_TOP_VIDEOS_READ_FAILED',
-        'Failed to read top videos.',
+        'Nie udalo sie odczytac najlepszych filmow.',
         'error',
         { channelId, limit },
         toError(cause),

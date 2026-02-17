@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import {
   AppError,
   AuthStatusDTOSchema,
@@ -97,7 +98,7 @@ function slugifyName(name: string): string {
 function createProfileId(name: string, now: Date): string {
   const slug = slugifyName(name);
   const timePart = now.toISOString().replaceAll(':', '').replaceAll('-', '').replaceAll('.', '');
-  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const randomPart = randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase();
   return `PROFILE-${slug || 'USER'}-${timePart}-${randomPart}`;
 }
 

@@ -60,7 +60,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
   if (Number.isNaN(from) || Number.isNaN(to)) {
     return {
       ok: false,
-      error: AppError.create('DB_INVALID_DATE', 'Invalid date range.', 'error', {
+      error: AppError.create('DB_INVALID_DATE', 'Nieprawidlowy zakres dat.', 'error', {
         dateFrom,
         dateTo,
       }),
@@ -72,7 +72,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
       ok: false,
       error: AppError.create(
         'DB_INVALID_DATE_RANGE',
-        'Start date cannot be later than end date.',
+        'Data poczatkowa nie moze byc pozniejsza niz data koncowa.',
         'error',
         {
           dateFrom,

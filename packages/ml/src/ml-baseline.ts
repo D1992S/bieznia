@@ -1,4 +1,4 @@
-import type { DatabaseConnection } from '@moze/core';
+import { createMlQueries, createMlRepository, type DatabaseConnection } from '@moze/core';
 import {
   AppError,
   err,
@@ -116,33 +116,32 @@ function shiftIsoDate(dateIso: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-function toNumberId(value: number | bigint): number {
-  if (typeof value === 'bigint') {
-    return Number(value);
-  }
-  return value;
-}
-
 function readSeries(
   db: DatabaseConnection['db'],
   channelId: string,
   targetMetric: MlTargetMetric,
 ): Result<SeriesPoint[], AppError> {
-  const metricExpression = targetMetric === 'subscribers' ? 'subscribers' : 'views';
-  const sql = `
-    SELECT
-      date,
-      ${metricExpression} AS value
-    FROM fact_channel_day
-    WHERE channel_id = @channelId
-    ORDER BY date ASC
-  `;
+  const mlQueries = createMlQueries(db);
+  const rowsResult = mlQueries.getMetricSeries({ channelId, targetMetric });
+  if (!rowsResult.ok) {
+    return err(
+      createMlError(
+        'ML_SERIES_READ_FAILED',
+        'Nie udalo sie odczytac szeregu czasowego do trenowania modelu.',
+        {
+          channelId,
+          targetMetric,
+          causeErrorCode: rowsResult.error.code,
+        },
+        rowsResult.error,
+      ),
+    );
+  }
 
   try {
-    const rows = db.prepare<{ channelId: string }, { date: string; value: number }>(sql).all({ channelId });
     const parsedRows: SeriesPoint[] = [];
-    for (let index = 0; index < rows.length; index += 1) {
-      const row = rows[index];
+    for (let index = 0; index < rowsResult.value.length; index += 1) {
+      const row = rowsResult.value[index];
       const parsed = SeriesPointRowSchema.safeParse(row);
       if (!parsed.success) {
         return err(
@@ -160,8 +159,8 @@ function readSeries(
   } catch (cause) {
     return err(
       createMlError(
-        'ML_SERIES_READ_FAILED',
-        'Nie udalo sie odczytac szeregu czasowego do trenowania modelu.',
+        'ML_SERIES_ROW_PARSE_FAILED',
+        'Nie udalo sie przetworzyc szeregu czasowego do trenowania modelu.',
         { channelId, targetMetric },
         cause,
       ),
@@ -409,207 +408,87 @@ function persistEvaluations(
     evaluations: readonly ModelEvaluation[];
   },
 ): Result<PersistedModelEvaluation[], AppError> {
-  const clearActiveStmt = input.db.prepare<{ channelId: string; targetMetric: MlTargetMetric }>(
-    `
-      UPDATE ml_models
-      SET
-        is_active = 0,
-        status = CASE WHEN status = 'active' THEN 'shadow' ELSE status END
-      WHERE channel_id = @channelId
-        AND target_metric = @targetMetric
-        AND is_active = 1
-    `,
-  );
+  const mlRepository = createMlRepository(input.db);
+  const persisted: PersistedModelEvaluation[] = [];
 
-  const insertModelStmt = input.db.prepare<{
-    channelId: string;
-    targetMetric: MlTargetMetric;
-    modelType: MlModelType;
-    version: string;
-    status: MlModelStatus;
-    isActive: number;
-    configJson: string;
-    metricsJson: string;
-    sourceSyncRunId: number | null;
-    trainedAt: string;
-  }>(
-    `
-      INSERT INTO ml_models (
-        channel_id,
-        target_metric,
-        model_type,
-        version,
-        status,
-        is_active,
-        config_json,
-        metrics_json,
-        source_sync_run_id,
-        trained_at
-      )
-      VALUES (
-        @channelId,
-        @targetMetric,
-        @modelType,
-        @version,
-        @status,
-        @isActive,
-        @configJson,
-        @metricsJson,
-        @sourceSyncRunId,
-        @trainedAt
-      )
-    `,
-  );
+  const transactionResult = mlRepository.runInTransaction(() => {
+    const clearResult = mlRepository.clearActiveModels({
+      channelId: input.channelId,
+      targetMetric: input.targetMetric,
+    });
+    if (!clearResult.ok) {
+      return clearResult;
+    }
 
-  const insertBacktestStmt = input.db.prepare<{
-    modelId: number;
-    channelId: string;
-    targetMetric: MlTargetMetric;
-    mae: number;
-    smape: number;
-    mase: number;
-    sampleSize: number;
-    metadataJson: string;
-    createdAt: string;
-  }>(
-    `
-      INSERT INTO ml_backtests (
-        model_id,
-        channel_id,
-        target_metric,
-        mae,
-        smape,
-        mase,
-        sample_size,
-        metadata_json,
-        created_at
-      )
-      VALUES (
-        @modelId,
-        @channelId,
-        @targetMetric,
-        @mae,
-        @smape,
-        @mase,
-        @sampleSize,
-        @metadataJson,
-        @createdAt
-      )
-    `,
-  );
-
-  const insertPredictionStmt = input.db.prepare<{
-    modelId: number;
-    channelId: string;
-    targetMetric: MlTargetMetric;
-    predictionDate: string;
-    horizonDays: number;
-    predictedValue: number;
-    actualValue: number | null;
-    p10: number;
-    p50: number;
-    p90: number;
-    generatedAt: string;
-  }>(
-    `
-      INSERT INTO ml_predictions (
-        model_id,
-        channel_id,
-        target_metric,
-        prediction_date,
-        horizon_days,
-        predicted_value,
-        actual_value,
-        p10,
-        p50,
-        p90,
-        generated_at
-      )
-      VALUES (
-        @modelId,
-        @channelId,
-        @targetMetric,
-        @predictionDate,
-        @horizonDays,
-        @predictedValue,
-        @actualValue,
-        @p10,
-        @p50,
-        @p90,
-        @generatedAt
-      )
-    `,
-  );
-
-  try {
-    const persisted: PersistedModelEvaluation[] = [];
-    const tx = input.db.transaction(() => {
-      clearActiveStmt.run({
+    for (const evaluation of input.evaluations) {
+      const modelResult = mlRepository.insertModel({
         channelId: input.channelId,
         targetMetric: input.targetMetric,
-      });
-
-      for (const evaluation of input.evaluations) {
-        const modelResult = insertModelStmt.run({
-          channelId: input.channelId,
-          targetMetric: input.targetMetric,
-          modelType: evaluation.modelType,
-          version: evaluation.version,
-          status: evaluation.status,
-          isActive: evaluation.status === 'active' ? 1 : 0,
-          configJson: JSON.stringify(evaluation.config),
-          metricsJson: JSON.stringify({
-            mae: evaluation.metrics.mae,
-            smape: evaluation.metrics.smape,
-            mase: evaluation.metrics.mase,
-            sampleSize: evaluation.metrics.sampleSize,
-          }),
-          sourceSyncRunId: input.sourceSyncRunId,
-          trainedAt: input.trainedAt,
-        });
-        const modelId = toNumberId(modelResult.lastInsertRowid);
-
-        insertBacktestStmt.run({
-          modelId,
-          channelId: input.channelId,
-          targetMetric: input.targetMetric,
+        modelType: evaluation.modelType,
+        version: evaluation.version,
+        status: evaluation.status,
+        isActive: evaluation.status === 'active' ? 1 : 0,
+        configJson: JSON.stringify(evaluation.config),
+        metricsJson: JSON.stringify({
           mae: evaluation.metrics.mae,
           smape: evaluation.metrics.smape,
           mase: evaluation.metrics.mase,
           sampleSize: evaluation.metrics.sampleSize,
-          metadataJson: JSON.stringify({
-            modelType: evaluation.modelType,
-            version: evaluation.version,
-          }),
-          createdAt: input.trainedAt,
-        });
-
-        for (const prediction of evaluation.predictions) {
-          insertPredictionStmt.run({
-            modelId,
-            channelId: input.channelId,
-            targetMetric: input.targetMetric,
-            predictionDate: prediction.date,
-            horizonDays: prediction.horizonDays,
-            predictedValue: prediction.predicted,
-            actualValue: null,
-            p10: prediction.p10,
-            p50: prediction.p50,
-            p90: prediction.p90,
-            generatedAt: input.trainedAt,
-          });
-        }
-
-        persisted.push({
-          ...evaluation,
-          modelId,
-        });
+        }),
+        sourceSyncRunId: input.sourceSyncRunId,
+        trainedAt: input.trainedAt,
+      });
+      if (!modelResult.ok) {
+        return modelResult;
       }
-    });
 
-    tx();
-    return ok(persisted);
-  } catch (cause) {
+      const insertBacktestResult = mlRepository.insertBacktest({
+        modelId: modelResult.value,
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        mae: evaluation.metrics.mae,
+        smape: evaluation.metrics.smape,
+        mase: evaluation.metrics.mase,
+        sampleSize: evaluation.metrics.sampleSize,
+        metadataJson: JSON.stringify({
+          modelType: evaluation.modelType,
+          version: evaluation.version,
+        }),
+        createdAt: input.trainedAt,
+      });
+      if (!insertBacktestResult.ok) {
+        return insertBacktestResult;
+      }
+
+      for (const prediction of evaluation.predictions) {
+        const insertPredictionResult = mlRepository.insertPrediction({
+          modelId: modelResult.value,
+          channelId: input.channelId,
+          targetMetric: input.targetMetric,
+          predictionDate: prediction.date,
+          horizonDays: prediction.horizonDays,
+          predictedValue: prediction.predicted,
+          actualValue: null,
+          p10: prediction.p10,
+          p50: prediction.p50,
+          p90: prediction.p90,
+          generatedAt: input.trainedAt,
+        });
+        if (!insertPredictionResult.ok) {
+          return insertPredictionResult;
+        }
+      }
+
+      persisted.push({
+        ...evaluation,
+        modelId: modelResult.value,
+      });
+    }
+
+    return ok(undefined);
+  });
+
+  if (!transactionResult.ok) {
     return err(
       createMlError(
         'ML_PERSIST_FAILED',
@@ -618,11 +497,14 @@ function persistEvaluations(
           channelId: input.channelId,
           targetMetric: input.targetMetric,
           models: input.evaluations.length,
+          causeErrorCode: transactionResult.error.code,
         },
-        cause,
+        transactionResult.error,
       ),
     );
   }
+
+  return ok(persisted);
 }
 
 export function runMlBaseline(input: RunMlBaselineInput): Result<MlRunBaselineResultDTO, AppError> {
@@ -724,55 +606,29 @@ export function runMlBaseline(input: RunMlBaselineInput): Result<MlRunBaselineRe
 
 export function getLatestMlForecast(input: GetMlForecastInput): Result<MlForecastResultDTO, AppError> {
   const targetMetric = input.targetMetric ?? 'views';
-
-  const latestActiveModelStmt = input.db.prepare<
-    { channelId: string; targetMetric: MlTargetMetric },
-    { modelId: number; modelType: MlModelType; trainedAt: string }
-  >(
-    `
-      SELECT
-        id AS modelId,
-        model_type AS modelType,
-        trained_at AS trainedAt
-      FROM ml_models
-      WHERE channel_id = @channelId
-        AND target_metric = @targetMetric
-        AND is_active = 1
-      ORDER BY trained_at DESC, id DESC
-      LIMIT 1
-    `,
-  );
-
-  const predictionRowsStmt = input.db.prepare<
-    { modelId: number },
-    {
-      predictionDate: string;
-      horizonDays: number;
-      predictedValue: number;
-      p10: number;
-      p50: number;
-      p90: number;
-    }
-  >(
-    `
-      SELECT
-        prediction_date AS predictionDate,
-        horizon_days AS horizonDays,
-        predicted_value AS predictedValue,
-        p10,
-        p50,
-        p90
-      FROM ml_predictions
-      WHERE model_id = @modelId
-      ORDER BY horizon_days ASC, prediction_date ASC, id ASC
-    `,
-  );
+  const mlQueries = createMlQueries(input.db);
 
   try {
-    const activeModel = latestActiveModelStmt.get({
+    const activeModelResult = mlQueries.getLatestActiveForecastModel({
       channelId: input.channelId,
       targetMetric,
     });
+    if (!activeModelResult.ok) {
+      return err(
+        createMlError(
+          'ML_FORECAST_READ_FAILED',
+          'Nie udalo sie odczytac prognozy ML.',
+          {
+            channelId: input.channelId,
+            targetMetric,
+            causeErrorCode: activeModelResult.error.code,
+          },
+          activeModelResult.error,
+        ),
+      );
+    }
+
+    const activeModel = activeModelResult.value;
 
     if (!activeModel) {
       return ok({
@@ -784,7 +640,24 @@ export function getLatestMlForecast(input: GetMlForecastInput): Result<MlForecas
       });
     }
 
-    const points = predictionRowsStmt.all({ modelId: activeModel.modelId }).map((row) => ({
+    const predictionRowsResult = mlQueries.getForecastPredictionsByModel({ modelId: activeModel.modelId });
+    if (!predictionRowsResult.ok) {
+      return err(
+        createMlError(
+          'ML_FORECAST_READ_FAILED',
+          'Nie udalo sie odczytac prognozy ML.',
+          {
+            channelId: input.channelId,
+            targetMetric,
+            modelId: activeModel.modelId,
+            causeErrorCode: predictionRowsResult.error.code,
+          },
+          predictionRowsResult.error,
+        ),
+      );
+    }
+
+    const points = predictionRowsResult.value.map((row) => ({
       date: row.predictionDate,
       horizonDays: row.horizonDays,
       predicted: row.predictedValue,
