@@ -32,6 +32,9 @@ import type {
   CompetitorSyncResultDTO,
   CompetitorInsightsQueryInputDTO,
   CompetitorInsightsResultDTO,
+  TopicIntelligenceRunInputDTO,
+  TopicIntelligenceQueryInputDTO,
+  TopicIntelligenceResultDTO,
   ProfileListResultDTO,
   ProfileCreateInputDTO,
   ProfileSetActiveInputDTO,
@@ -234,6 +237,22 @@ export async function fetchCompetitorInsights(
 ): Promise<CompetitorInsightsResultDTO> {
   const api = ensureElectronApi();
   const result = await api.analyticsGetCompetitorInsights(input);
+  return unwrapResult(result);
+}
+
+export async function runTopicIntelligence(
+  input: TopicIntelligenceRunInputDTO,
+): Promise<TopicIntelligenceResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.analyticsRunTopicIntelligence(input);
+  return unwrapResult(result);
+}
+
+export async function fetchTopicIntelligence(
+  input: TopicIntelligenceQueryInputDTO,
+): Promise<TopicIntelligenceResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.analyticsGetTopicIntelligence(input);
   return unwrapResult(result);
 }
 

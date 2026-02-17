@@ -41,10 +41,12 @@ import {
   useProfilesQuery,
   useResumeSyncMutation,
   useRunMlBaselineMutation,
+  useRunTopicIntelligenceMutation,
   useSearchContentMutation,
   useSetActiveProfileMutation,
   useSetDataModeMutation,
   useSyncCompetitorsMutation,
+  useTopicIntelligenceQuery,
   useStartSyncMutation,
   useTimeseriesQuery,
   useUpdateProfileSettingsMutation,
@@ -233,6 +235,28 @@ function getQualityConfidenceLabel(confidence: 'low' | 'medium' | 'high'): strin
   }
 }
 
+function getTopicTrendDirectionLabel(direction: 'rising' | 'stable' | 'declining'): string {
+  switch (direction) {
+    case 'rising':
+      return 'rosnący';
+    case 'declining':
+      return 'spadkowy';
+    case 'stable':
+      return 'stabilny';
+  }
+}
+
+function getTopicConfidenceLabel(confidence: 'low' | 'medium' | 'high'): string {
+  switch (confidence) {
+    case 'high':
+      return 'wysoka';
+    case 'medium':
+      return 'średnia';
+    case 'low':
+      return 'niska';
+  }
+}
+
 function mergeSeriesWithForecast(
   actualPoints: TimeseriesPoint[] | undefined,
   forecastPoints: MlForecastPointDTO[] | undefined,
@@ -338,6 +362,7 @@ export function App() {
   const searchContentMutation = useSearchContentMutation();
   const askAssistantMutation = useAskAssistantMutation();
   const syncCompetitorsMutation = useSyncCompetitorsMutation();
+  const runTopicIntelligenceMutation = useRunTopicIntelligenceMutation();
 
   useEffect(() => {
     const defaultDatePreset = settingsQuery.data?.defaultDatePreset;
@@ -402,6 +427,7 @@ export function App() {
   const mlTrendQuery = useMlTrendQuery(channelId, mlTargetMetric, dateRange, dataEnabled);
   const qualityScoresQuery = useQualityScoresQuery(channelId, dateRange, dataEnabled);
   const competitorInsightsQuery = useCompetitorInsightsQuery(channelId, dateRange, dataEnabled);
+  const topicIntelligenceQuery = useTopicIntelligenceQuery(channelId, dateRange, dataEnabled);
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
   const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
   const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
@@ -572,7 +598,12 @@ export function App() {
   });
   const qualityScores = qualityScoresQuery.data;
   const competitorInsights = competitorInsightsQuery.data;
+  const topicIntelligence = topicIntelligenceQuery.data;
   const isCompetitorSyncDisabled = syncCompetitorsMutation.isPending
+    || !dataEnabled
+    || channelId.trim().length === 0
+    || !isDateRangeValid(dateRange);
+  const isTopicIntelligenceRunDisabled = runTopicIntelligenceMutation.isPending
     || !dataEnabled
     || channelId.trim().length === 0
     || !isDateRangeValid(dateRange);
@@ -1343,6 +1374,149 @@ export function App() {
                     ))}
                   </div>
                 )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            border: `1px solid ${STUDIO_THEME.border}`,
+            borderRadius: 16,
+            background: STUDIO_THEME.panelElevated,
+            padding: 14,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div>
+              <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Analiza tematów (Faza 15)</h3>
+              <p style={{ marginTop: 6, marginBottom: 0, color: STUDIO_THEME.muted }}>
+                Klasteryzacja tematów i wykrywanie luk contentowych względem ciśnienia niszy.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (isTopicIntelligenceRunDisabled) {
+                  return;
+                }
+                runTopicIntelligenceMutation.mutate({
+                  channelId,
+                  dateFrom: dateRange.dateFrom,
+                  dateTo: dateRange.dateTo,
+                  clusterLimit: 12,
+                  gapLimit: 10,
+                });
+              }}
+              disabled={isTopicIntelligenceRunDisabled}
+            >
+              {runTopicIntelligenceMutation.isPending ? 'Przeliczanie tematów...' : 'Przelicz tematykę'}
+            </button>
+          </div>
+
+          {runTopicIntelligenceMutation.isError && (
+            <p style={{ color: STUDIO_THEME.danger, marginBottom: 0 }}>
+              {readMutationErrorMessage(runTopicIntelligenceMutation.error, 'Nie udało się przeliczyć analizy tematów.')}
+            </p>
+          )}
+
+          {topicIntelligenceQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie analizy tematów...</p>}
+          {topicIntelligenceQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać analizy tematów.</p>}
+
+          {topicIntelligence && (
+            <>
+              <p style={{ marginTop: 8, marginBottom: 10, color: STUDIO_THEME.title }}>
+                Zakres: {topicIntelligence.dateFrom} - {topicIntelligence.dateTo} | klastrów: {formatNumber(topicIntelligence.totalClusters)} | luk: {formatNumber(topicIntelligence.gaps.length)}
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 10 }}>
+                <section
+                  style={{
+                    border: `1px solid ${STUDIO_THEME.border}`,
+                    borderRadius: 10,
+                    background: STUDIO_THEME.panel,
+                    padding: 10,
+                  }}
+                >
+                  <h4 style={{ margin: '0 0 8px 0' }}>Największe luki tematyczne</h4>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {topicIntelligence.gaps.map((gap, index) => (
+                      <article
+                        key={`topic-gap-${gap.clusterId}`}
+                        style={{
+                          border: `1px solid ${STUDIO_THEME.border}`,
+                          borderRadius: 8,
+                          background: STUDIO_THEME.panelElevated,
+                          padding: 8,
+                        }}
+                      >
+                        <p style={{ margin: 0 }}>
+                          <strong>#{index + 1} {gap.label}</strong> | wynik luki: <strong>{gap.gapScore.toFixed(2)}</strong>
+                        </p>
+                        <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                          trend: {getTopicTrendDirectionLabel(gap.trendDirection)} | ciśnienie niszy: {gap.nichePressure.toFixed(2)} | pokrycie kanału:{' '}
+                          {formatPercent(gap.ownerCoverage)}
+                        </p>
+                        <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                          ryzyko kanibalizacji: {formatPercent(gap.cannibalizationRisk)} | pewność: {getTopicConfidenceLabel(gap.confidence)}
+                        </p>
+                        <p style={{ margin: '4px 0 0', color: STUDIO_THEME.title, fontSize: 13 }}>
+                          {gap.rationale}
+                        </p>
+                      </article>
+                    ))}
+                    {topicIntelligence.gaps.length === 0 && (
+                      <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
+                        Brak luk tematycznych dla wybranego zakresu.
+                      </p>
+                    )}
+                  </div>
+                </section>
+
+                <section
+                  style={{
+                    border: `1px solid ${STUDIO_THEME.border}`,
+                    borderRadius: 10,
+                    background: STUDIO_THEME.panel,
+                    padding: 10,
+                  }}
+                >
+                  <h4 style={{ margin: '0 0 8px 0' }}>Klastry tematów i trend</h4>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {topicIntelligence.clusters.map((cluster) => (
+                      <article
+                        key={`topic-cluster-${cluster.clusterId}`}
+                        style={{
+                          border: `1px solid ${STUDIO_THEME.border}`,
+                          borderRadius: 8,
+                          background: STUDIO_THEME.panelElevated,
+                          padding: 8,
+                        }}
+                      >
+                        <p style={{ margin: 0 }}>
+                          <strong>{cluster.label}</strong> | filmy: {formatNumber(cluster.videos)} | trend: {getTopicTrendDirectionLabel(cluster.trendDirection)}
+                        </p>
+                        <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                          wyświetlenia kanału: {formatNumber(cluster.ownerViewsTotal)} | wyświetlenia konkurencji:{' '}
+                          {formatNumber(cluster.competitorViewsTotal)}
+                        </p>
+                        <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                          udział kanału: {formatPercent(cluster.ownerShare)} | udział niszy: {formatPercent(cluster.nicheShare)} | delta trendu:{' '}
+                          {cluster.trendDelta.toFixed(2)}
+                        </p>
+                        <p style={{ margin: '4px 0 0', color: STUDIO_THEME.title, fontSize: 13 }}>
+                          słowa kluczowe: {cluster.keywords.join(', ')}
+                        </p>
+                      </article>
+                    ))}
+                    {topicIntelligence.clusters.length === 0 && (
+                      <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
+                        Brak klastrów tematów dla wybranego zakresu.
+                      </p>
+                    )}
+                  </div>
+                </section>
               </div>
             </>
           )}

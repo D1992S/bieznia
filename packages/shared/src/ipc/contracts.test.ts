@@ -19,6 +19,9 @@ import {
   CompetitorSyncResultDTOSchema,
   CompetitorInsightsQueryInputDTOSchema,
   CompetitorInsightsResultDTOSchema,
+  TopicIntelligenceRunInputDTOSchema,
+  TopicIntelligenceQueryInputDTOSchema,
+  TopicIntelligenceResultDTOSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   AuthConnectInputDTOSchema,
@@ -551,6 +554,80 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Topic intelligence DTO', () => {
+    it('applies defaults and validates topic intelligence payloads', () => {
+      const runInput = TopicIntelligenceRunInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(runInput.clusterLimit).toBe(12);
+      expect(runInput.gapLimit).toBe(10);
+
+      const queryInput = TopicIntelligenceQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(queryInput.clusterLimit).toBe(12);
+      expect(queryInput.gapLimit).toBe(10);
+
+      const result = TopicIntelligenceResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        totalClusters: 2,
+        generatedAt: '2026-02-18T10:00:00.000Z',
+        clusters: [
+          {
+            clusterId: 'topic-ai',
+            label: 'ai',
+            keywords: ['ai', 'analiza', 'trend'],
+            videos: 4,
+            ownerViewsTotal: 12000,
+            competitorViewsTotal: 18000,
+            ownerShare: 0.3,
+            nicheShare: 0.45,
+            trendDirection: 'rising',
+            trendDelta: 0.2,
+          },
+        ],
+        gaps: [
+          {
+            clusterId: 'topic-ai',
+            label: 'ai',
+            keywords: ['ai', 'analiza', 'trend'],
+            ownerCoverage: 0.2,
+            nichePressure: 580,
+            gapScore: 4200,
+            cannibalizationRisk: 0.3,
+            trendDirection: 'rising',
+            confidence: 'medium',
+            rationale: 'Temat ma wyzsze cisnienie niszowe niz aktualne pokrycie kanalu.',
+          },
+        ],
+      });
+
+      expect(result.gaps[0]?.clusterId).toBe('topic-ai');
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        TopicIntelligenceRunInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+
+      expect(() =>
+        TopicIntelligenceQueryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+    });
+  });
+
   describe('Reports DTO', () => {
     it('applies defaults for report generate input', () => {
       const parsed = ReportGenerateInputDTOSchema.parse({
@@ -930,6 +1007,8 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.ANALYTICS_GET_QUALITY_SCORES).toBe('analytics:getQualityScores');
       expect(IPC_CHANNELS.ANALYTICS_SYNC_COMPETITORS).toBe('analytics:syncCompetitors');
       expect(IPC_CHANNELS.ANALYTICS_GET_COMPETITOR_INSIGHTS).toBe('analytics:getCompetitorInsights');
+      expect(IPC_CHANNELS.ANALYTICS_RUN_TOPIC_INTELLIGENCE).toBe('analytics:runTopicIntelligence');
+      expect(IPC_CHANNELS.ANALYTICS_GET_TOPIC_INTELLIGENCE).toBe('analytics:getTopicIntelligence');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');

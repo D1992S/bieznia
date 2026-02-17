@@ -13,6 +13,60 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v42)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/analytics/src/topic-intelligence.ts`
+  - `packages/analytics/src/topic-intelligence.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/007-topic-intelligence.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Fazę 15 (Topic Intelligence) end-to-end.
+  - `@moze/analytics`:
+    - dodano i dopracowano `runTopicIntelligence(...)` oraz `getTopicIntelligence(...)`,
+    - dodano persystencję do `dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`,
+    - dopracowano tokenizację/stemming i trend/gap scoring.
+  - Dodano test integracyjny `packages/analytics/src/topic-intelligence.integration.test.ts`:
+    - scenariusz deterministyczny (clusters/gaps + persystencja),
+    - scenariusz overlap/cannibalization.
+  - Desktop runtime + IPC + preload:
+    - nowe kanały i handlery:
+      - `analytics:runTopicIntelligence`,
+      - `analytics:getTopicIntelligence`,
+    - tracing + invalidacja cache po udanym `runTopicIntelligence`.
+  - UI:
+    - podłączono API i hooki React Query dla Topic Intelligence,
+    - dodano panel `Analiza tematów (Faza 15)` w zakładce `Statystyki`,
+    - lista luk tematycznych + lista klastrów i trendów.
+  - Dokumentacja:
+    - dodano ADR `docs/adr/007-topic-intelligence.md`,
+    - zaktualizowano statusy w `README.md` i `NEXT_STEP.md` (Faza 15 = DONE, kolejna Faza 16).
+- Dlaczego:
+  - Celem było domknięcie analizy tematów i wykrywania luk contentowych względem niszy oraz przygotowanie fundamentu pod Fazę 16 (Planning System).
+- Ryzyko/regresja:
+  - Umiarkowane: heurystyczna klasteryzacja tokenowa może wymagać strojenia na realnych danych.
+  - Niskie: kontrakty IPC i integracje są pokryte testami; walidacja E2E przeszła.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (106/106)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 16 (Planning System) zgodnie ze scope freeze w `NEXT_STEP.md`.
+
 ## 2026-02-17 (v41)
 
 - Data: 2026-02-17

@@ -9,6 +9,7 @@ import type {
   MlAnomalySeverity,
   MlTargetMetric,
   QualityScoreResultDTO,
+  TopicIntelligenceResultDTO,
   ReportExportFormat,
   TimeseriesQueryDTO,
 } from '@moze/shared';
@@ -28,6 +29,7 @@ import {
   fetchDataModeStatus,
   fetchMlAnomalies,
   fetchCompetitorInsights,
+  fetchTopicIntelligence,
   fetchKpis,
   fetchMlForecast,
   fetchQualityScores,
@@ -40,6 +42,7 @@ import {
   resumeSync,
   runCsvImport,
   runMlBaseline,
+  runTopicIntelligence,
   syncCompetitors,
   searchContent,
   setActiveProfile,
@@ -309,6 +312,7 @@ export function useCsvImportRunMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['search', 'content', input.channelId] });
     },
@@ -390,6 +394,7 @@ export function useStartSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -407,6 +412,7 @@ export function useResumeSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -556,6 +562,47 @@ export function useCompetitorInsightsQuery(channelId: string, range: DateRange, 
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
         limit: 6,
+      }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useRunTopicIntelligenceMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      channelId: string;
+      dateFrom: string;
+      dateTo: string;
+      clusterLimit?: number;
+      gapLimit?: number;
+    }) =>
+      runTopicIntelligence({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        clusterLimit: input.clusterLimit ?? 12,
+        gapLimit: input.gapLimit ?? 10,
+      }),
+    onSuccess: (_result, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['analytics', 'topic', input.channelId, input.dateFrom, input.dateTo],
+      });
+    },
+  });
+}
+
+export function useTopicIntelligenceQuery(channelId: string, range: DateRange, enabled: boolean) {
+  return useQuery<TopicIntelligenceResultDTO>({
+    queryKey: ['analytics', 'topic', channelId, range.dateFrom, range.dateTo],
+    queryFn: () =>
+      fetchTopicIntelligence({
+        channelId,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        clusterLimit: 12,
+        gapLimit: 10,
       }),
     enabled,
     staleTime: 30_000,

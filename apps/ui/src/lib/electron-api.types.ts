@@ -30,6 +30,9 @@ import type {
   CompetitorSyncResult,
   CompetitorInsightsQueryInputDTO,
   CompetitorInsightsResult,
+  TopicIntelligenceRunInputDTO,
+  TopicIntelligenceQueryInputDTO,
+  TopicIntelligenceResult,
   ProfileCreateInputDTO,
   ProfileListResult,
   ProfileSetActiveInputDTO,
@@ -83,6 +86,8 @@ export interface ElectronAPI {
   analyticsGetQualityScores: (input: QualityScoreQueryInputDTO) => Promise<QualityScoreResult>;
   analyticsSyncCompetitors: (input: CompetitorSyncInputDTO) => Promise<CompetitorSyncResult>;
   analyticsGetCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Promise<CompetitorInsightsResult>;
+  analyticsRunTopicIntelligence: (input: TopicIntelligenceRunInputDTO) => Promise<TopicIntelligenceResult>;
+  analyticsGetTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Promise<TopicIntelligenceResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
