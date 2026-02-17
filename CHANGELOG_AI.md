@@ -13,6 +13,59 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v44)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/diagnostics/src/diagnostics-service.ts`
+  - `packages/diagnostics/src/diagnostics-service.integration.test.ts`
+  - `packages/diagnostics/src/index.ts`
+  - `apps/desktop/package.json`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/009-diagnostics-recovery.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `pnpm-lock.yaml`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 18 (Diagnostics + Recovery) end-to-end.
+  - Dodano kontrakty IPC/DTO:
+    - `diagnostics:getHealth`,
+    - `diagnostics:runRecovery`.
+  - Wdrożono pakiet `@moze/diagnostics`:
+    - health checks: DB integrity, cache snapshot, pipeline freshness, IPC bridge,
+    - recovery actions: `integrity_check`, `invalidate_analytics_cache`, `rerun_data_pipeline`, `reindex_fts`, `vacuum_database`.
+  - Podłączono desktop runtime + IPC + preload dla `diagnostics:*` wraz z tracingiem.
+  - Dodano panel UI `Diagnostyka i recovery (Faza 18)` z odświeżaniem health check i uruchamianiem recovery.
+  - Dodano/rozszerzono testy integracyjne (diagnostics/shared/desktop).
+  - Dodano ADR `docs/adr/009-diagnostics-recovery.md`.
+  - Zaktualizowano statusy dokumentacji (README/NEXT_STEP/PLAN).
+- Dlaczego:
+  - Celem było dostarczenie jawnej warstwy diagnostyki technicznej i kontrolowanego recovery, aby utrzymać stabilność analityki po domknięciu faz 10-16.
+- Ryzyko/regresja:
+  - Niskie: nowe endpointy są addytywne i nie łamią istniejących kontraktów.
+  - Umiarkowane: akcja `vacuum_database` może trwać dłużej przy większych bazach danych.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (116/116)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 19 (Polish + Local UX) z utrzymaniem Fazy 17 jako `SKIP (solo)`.
+
 ## 2026-02-17 (v43)
 
 - Data: 2026-02-17

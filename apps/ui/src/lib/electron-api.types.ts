@@ -36,6 +36,10 @@ import type {
   PlanningGenerateInputDTO,
   PlanningGetPlanInputDTO,
   PlanningPlanResult,
+  DiagnosticsGetHealthInputDTO,
+  DiagnosticsHealthResult,
+  DiagnosticsRunRecoveryInputDTO,
+  DiagnosticsRunRecoveryResult,
   ProfileCreateInputDTO,
   ProfileListResult,
   ProfileSetActiveInputDTO,
@@ -93,6 +97,8 @@ export interface ElectronAPI {
   analyticsGetTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Promise<TopicIntelligenceResult>;
   planningGeneratePlan: (input: PlanningGenerateInputDTO) => Promise<PlanningPlanResult>;
   planningGetPlan: (input: PlanningGetPlanInputDTO) => Promise<PlanningPlanResult>;
+  diagnosticsGetHealth: (input: DiagnosticsGetHealthInputDTO) => Promise<DiagnosticsHealthResult>;
+  diagnosticsRunRecovery: (input: DiagnosticsRunRecoveryInputDTO) => Promise<DiagnosticsRunRecoveryResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;

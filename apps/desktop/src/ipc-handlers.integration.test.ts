@@ -32,6 +32,8 @@ import {
   handleAnalyticsGetTopicIntelligence,
   handlePlanningGeneratePlan,
   handlePlanningGetPlan,
+  handleDiagnosticsGetHealth,
+  handleDiagnosticsRunRecovery,
   handleMlDetectAnomalies,
   handleMlRunBaseline,
   handleProfileCreate,
@@ -809,6 +811,67 @@ function createTestContext(): TestContext {
           },
         ],
       }),
+    diagnosticsGetHealth: (input) =>
+      ok({
+        generatedAt: '2026-02-18T12:00:00.000Z',
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        windowHours: input.windowHours,
+        overallStatus: 'ok',
+        checks: [
+          {
+            checkId: 'db.integrity',
+            module: 'db',
+            status: 'ok',
+            message: 'Integralność bazy danych jest poprawna.',
+            durationMs: 2,
+            details: { quickCheck: 'ok', foreignKeyViolations: 0 },
+          },
+          {
+            checkId: 'cache.snapshot',
+            module: 'cache',
+            status: 'ok',
+            message: 'Cache analityki działa poprawnie.',
+            durationMs: 1,
+            details: { hitRate: 0.45, hits: 9, misses: 11, invalidations: 1 },
+          },
+          {
+            checkId: 'pipeline.freshness',
+            module: 'pipeline',
+            status: 'ok',
+            message: 'Dane kanału są świeże dla wybranego zakresu.',
+            durationMs: 1,
+            details: { latestDate: input.dateTo, gapDays: 0, rowsInRange: 30 },
+          },
+          {
+            checkId: 'ipc.bridge',
+            module: 'ipc',
+            status: 'ok',
+            message: 'Most IPC odpowiada i przekazuje wynik diagnostyki.',
+            durationMs: 0,
+            details: {},
+          },
+        ],
+      }),
+    diagnosticsRunRecovery: (input) => {
+      const dedupedActions = [...new Set(input.actions)];
+      return ok({
+        generatedAt: '2026-02-18T12:05:00.000Z',
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        requestedActions: dedupedActions,
+        overallStatus: 'ok',
+        steps: dedupedActions.map((action) => ({
+          action,
+          status: 'ok',
+          message: `Wykonano akcję ${action}.`,
+          durationMs: 1,
+          details: {},
+        })),
+      });
+    },
     generateReport: (input) =>
       ok({
         generatedAt: '2026-02-12T22:30:00.000Z',
@@ -1299,6 +1362,29 @@ describe('Desktop IPC handlers integration', () => {
       expect(planningGetResult.value.items[0]?.topicClusterId).toBeTruthy();
     }
 
+    const diagnosticsHealthResult = await handleDiagnosticsGetHealth(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      windowHours: 24,
+    });
+    expect(diagnosticsHealthResult.ok).toBe(true);
+    if (diagnosticsHealthResult.ok) {
+      expect(diagnosticsHealthResult.value.checks.length).toBeGreaterThan(0);
+    }
+
+    const diagnosticsRecoveryResult = await handleDiagnosticsRunRecovery(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      actions: ['integrity_check', 'invalidate_analytics_cache'],
+    });
+    expect(diagnosticsRecoveryResult.ok).toBe(true);
+    if (diagnosticsRecoveryResult.ok) {
+      expect(diagnosticsRecoveryResult.value.steps.length).toBe(2);
+      expect(diagnosticsRecoveryResult.value.overallStatus).toBe('ok');
+    }
+
     const reportGenerateResult = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -1618,6 +1704,27 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidPlanningGet.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidDiagnosticsHealth = await handleDiagnosticsGetHealth(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: '2026-02-01',
+      dateTo: '2026-01-01',
+    });
+    expect(invalidDiagnosticsHealth.ok).toBe(false);
+    if (!invalidDiagnosticsHealth.ok) {
+      expect(invalidDiagnosticsHealth.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidDiagnosticsRecovery = await handleDiagnosticsRunRecovery(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      actions: [],
+    });
+    expect(invalidDiagnosticsRecovery.ok).toBe(false);
+    if (!invalidDiagnosticsRecovery.ok) {
+      expect(invalidDiagnosticsRecovery.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidReportGenerate = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: '2026-01-01',
@@ -1673,6 +1780,8 @@ describe('Desktop IPC handlers integration', () => {
       getTopicIntelligence: (input) => ctx.backend.getTopicIntelligence(input),
       generatePlanningPlan: (input) => ctx.backend.generatePlanningPlan(input),
       getPlanningPlan: (input) => ctx.backend.getPlanningPlan(input),
+      diagnosticsGetHealth: (input) => ctx.backend.diagnosticsGetHealth(input),
+      diagnosticsRunRecovery: (input) => ctx.backend.diagnosticsRunRecovery(input),
       generateReport: (input) => ctx.backend.generateReport(input),
       exportReport: (input) => ctx.backend.exportReport(input),
       askAssistant: (input) => ctx.backend.askAssistant(input),

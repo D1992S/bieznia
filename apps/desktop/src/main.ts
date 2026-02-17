@@ -16,6 +16,7 @@ import {
   type SettingsQueries,
 } from '@moze/core';
 import { runDataPipeline } from '@moze/data-pipeline';
+import { getDiagnosticsHealth, runDiagnosticsRecovery } from '@moze/diagnostics';
 import { createAssistantLiteService, type AssistantLiteService } from '@moze/llm';
 import { getLatestMlForecast, getMlAnomalies, getMlTrend, runAnomalyTrendAnalysis, runMlBaseline } from '@moze/ml';
 import {
@@ -79,6 +80,10 @@ import {
   type PlanningGenerateInputDTO,
   type PlanningGetPlanInputDTO,
   type PlanningPlanResultDTO,
+  type DiagnosticsGetHealthInputDTO,
+  type DiagnosticsHealthResultDTO,
+  type DiagnosticsRunRecoveryInputDTO,
+  type DiagnosticsRunRecoveryResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResultDTO,
   type ProfileSetActiveInputDTO,
@@ -1621,6 +1626,162 @@ function getPlanningPlanCommand(input: PlanningGetPlanInputDTO): Result<Planning
   });
 }
 
+function diagnosticsGetHealthCommand(input: DiagnosticsGetHealthInputDTO): Result<DiagnosticsHealthResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'diagnostics.getHealth',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      windowHours: input.windowHours,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_channel_day',
+        primaryKeys: ['channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'analytics_query_cache,analytics_cache_events,analytics_trace_runs',
+        primaryKeys: ['metric_id', 'params_hash', 'id'],
+        dateFrom: null,
+        dateTo: null,
+        filters: {
+          windowHours: input.windowHours,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.checks.length,
+    execute: () =>
+      getDiagnosticsHealth({
+        db,
+        health: input,
+        dependencies: backendState.analyticsCache
+          ? {
+            readCacheSnapshot: ({ windowHours }) =>
+              {
+                const analyticsCache = backendState.analyticsCache;
+                if (!analyticsCache) {
+                  return err(createDbNotReadyError());
+                }
+                return analyticsCache.getPerformanceSnapshot({ windowHours });
+              },
+          }
+          : undefined,
+      }),
+  });
+}
+
+function diagnosticsRunRecoveryCommand(
+  input: DiagnosticsRunRecoveryInputDTO,
+): Result<DiagnosticsRunRecoveryResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'diagnostics.runRecovery',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      actions: input.actions,
+    },
+    lineage: [
+      {
+        sourceTable: 'analytics_query_cache,analytics_cache_events',
+        primaryKeys: ['metric_id', 'params_hash'],
+        dateFrom: null,
+        dateTo: null,
+        filters: {
+          actions: input.actions,
+        },
+      },
+      {
+        sourceTable: 'fact_channel_day,ml_features,data_lineage',
+        primaryKeys: ['channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'sqlite_master',
+        primaryKeys: ['name'],
+        dateFrom: null,
+        dateTo: null,
+        filters: {
+          action: 'reindex_fts',
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.steps.length,
+    execute: () => {
+      const recoveryResult = runDiagnosticsRecovery({
+        db,
+        recovery: input,
+        dependencies: {
+          invalidateAnalyticsCache: backendState.analyticsCache
+            ? () => {
+              const analyticsCache = backendState.analyticsCache;
+              if (!analyticsCache) {
+                return err(createDbNotReadyError());
+              }
+              return analyticsCache.invalidateAll({ reason: 'diagnostics-recovery' });
+            }
+            : undefined,
+          rerunDataPipeline: ({ channelId, dateFrom, dateTo }) => {
+            const rerunResult = runDataPipeline({
+              db,
+              channelId,
+              changedDateFrom: dateFrom,
+              changedDateTo: dateTo,
+            });
+            if (!rerunResult.ok) {
+              return rerunResult;
+            }
+            return ok({
+              generatedFeatures: rerunResult.value.generatedFeatures,
+              latestFeatureDate: rerunResult.value.latestFeatureDate,
+            });
+          },
+        },
+      });
+
+      if (recoveryResult.ok) {
+        const hasPipelineStep = recoveryResult.value.steps.some(
+          (step) => step.action === 'rerun_data_pipeline' && step.status === 'ok',
+        );
+        const hasInvalidateStep = recoveryResult.value.steps.some(
+          (step) => step.action === 'invalidate_analytics_cache' && step.status === 'ok',
+        );
+        if (hasPipelineStep && !hasInvalidateStep) {
+          invalidateAnalyticsCache('diagnostics-recovery-pipeline', {
+            channelId: input.channelId,
+            dateFrom: input.dateFrom,
+            dateTo: input.dateTo,
+          });
+        }
+      }
+
+      return recoveryResult;
+    },
+  });
+}
+
 function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGenerateResultDTO, AppError> {
   const db = backendState.connection?.db;
   if (!db) {
@@ -1687,6 +1848,8 @@ const ipcBackend: DesktopIpcBackend = {
   getTopicIntelligence: (input) => getTopicIntelligenceCommand(input),
   generatePlanningPlan: (input) => generatePlanningPlanCommand(input),
   getPlanningPlan: (input) => getPlanningPlanCommand(input),
+  diagnosticsGetHealth: (input) => diagnosticsGetHealthCommand(input),
+  diagnosticsRunRecovery: (input) => diagnosticsRunRecoveryCommand(input),
   generateReport: (input) => generateReportCommand(input),
   exportReport: (input) => exportReportCommand(input),
   askAssistant: (input) => askAssistantCommand(input),

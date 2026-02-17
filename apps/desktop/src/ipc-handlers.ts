@@ -56,6 +56,12 @@ import {
   PlanningGetPlanInputDTOSchema,
   PlanningPlanResultDTOSchema,
   PlanningPlanResultSchema,
+  DiagnosticsGetHealthInputDTOSchema,
+  DiagnosticsHealthResultDTOSchema,
+  DiagnosticsHealthResultSchema,
+  DiagnosticsRunRecoveryInputDTOSchema,
+  DiagnosticsRunRecoveryResultDTOSchema,
+  DiagnosticsRunRecoveryResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultDTOSchema,
   ProfileListResultSchema,
@@ -144,6 +150,12 @@ import {
   type PlanningGetPlanInputDTO,
   type PlanningPlanResult,
   type PlanningPlanResultDTO,
+  type DiagnosticsGetHealthInputDTO,
+  type DiagnosticsHealthResult,
+  type DiagnosticsHealthResultDTO,
+  type DiagnosticsRunRecoveryInputDTO,
+  type DiagnosticsRunRecoveryResult,
+  type DiagnosticsRunRecoveryResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileListResultDTO,
@@ -210,6 +222,8 @@ export interface DesktopIpcBackend {
   getTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Result<TopicIntelligenceResultDTO, AppError> | Promise<Result<TopicIntelligenceResultDTO, AppError>>;
   generatePlanningPlan: (input: PlanningGenerateInputDTO) => Result<PlanningPlanResultDTO, AppError> | Promise<Result<PlanningPlanResultDTO, AppError>>;
   getPlanningPlan: (input: PlanningGetPlanInputDTO) => Result<PlanningPlanResultDTO, AppError> | Promise<Result<PlanningPlanResultDTO, AppError>>;
+  diagnosticsGetHealth: (input: DiagnosticsGetHealthInputDTO) => Result<DiagnosticsHealthResultDTO, AppError> | Promise<Result<DiagnosticsHealthResultDTO, AppError>>;
+  diagnosticsRunRecovery: (input: DiagnosticsRunRecoveryInputDTO) => Result<DiagnosticsRunRecoveryResultDTO, AppError> | Promise<Result<DiagnosticsRunRecoveryResultDTO, AppError>>;
   generateReport: (input: ReportGenerateInputDTO) => Result<ReportGenerateResultDTO, AppError> | Promise<Result<ReportGenerateResultDTO, AppError>>;
   exportReport: (input: ReportExportInputDTO) => Result<ReportExportResultDTO, AppError> | Promise<Result<ReportExportResultDTO, AppError>>;
   askAssistant: (input: AssistantAskInputDTO) => Result<AssistantAskResultDTO, AppError> | Promise<Result<AssistantAskResultDTO, AppError>>;
@@ -683,6 +697,32 @@ export async function handlePlanningGetPlan(
   );
 }
 
+export async function handleDiagnosticsGetHealth(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<DiagnosticsHealthResult> {
+  return runHandlerAsync(
+    payload,
+    DiagnosticsGetHealthInputDTOSchema,
+    DiagnosticsHealthResultDTOSchema,
+    DiagnosticsHealthResultSchema,
+    (input) => backend.diagnosticsGetHealth(input),
+  );
+}
+
+export async function handleDiagnosticsRunRecovery(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<DiagnosticsRunRecoveryResult> {
+  return runHandlerAsync(
+    payload,
+    DiagnosticsRunRecoveryInputDTOSchema,
+    DiagnosticsRunRecoveryResultDTOSchema,
+    DiagnosticsRunRecoveryResultSchema,
+    (input) => backend.diagnosticsRunRecovery(input),
+  );
+}
+
 export async function handleReportsGenerate(
   backend: DesktopIpcBackend,
   payload: unknown,
@@ -808,6 +848,8 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.ANALYTICS_GET_TOPIC_INTELLIGENCE, (_event, payload) => handleAnalyticsGetTopicIntelligence(backend, payload));
   ipcMain.handle(IPC_CHANNELS.PLANNING_GENERATE_PLAN, (_event, payload) => handlePlanningGeneratePlan(backend, payload));
   ipcMain.handle(IPC_CHANNELS.PLANNING_GET_PLAN, (_event, payload) => handlePlanningGetPlan(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_GET_HEALTH, (_event, payload) => handleDiagnosticsGetHealth(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.DIAGNOSTICS_RUN_RECOVERY, (_event, payload) => handleDiagnosticsRunRecovery(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_GENERATE, (_event, payload) => handleReportsGenerate(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_EXPORT, (_event, payload) => handleReportsExport(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ASSISTANT_ASK, (_event, payload) => handleAssistantAsk(backend, payload));
