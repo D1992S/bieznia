@@ -523,6 +523,71 @@ export type CompetitorInsightsResultDTO = z.infer<typeof CompetitorInsightsResul
 export const CompetitorInsightsResultSchema = IpcResultSchema(CompetitorInsightsResultDTOSchema);
 export type CompetitorInsightsResult = z.infer<typeof CompetitorInsightsResultSchema>;
 
+export const TopicTrendDirectionSchema = z.enum(['rising', 'stable', 'declining']);
+export type TopicTrendDirection = z.infer<typeof TopicTrendDirectionSchema>;
+
+export const TopicConfidenceSchema = z.enum(['low', 'medium', 'high']);
+export type TopicConfidence = z.infer<typeof TopicConfidenceSchema>;
+
+export const TopicIntelligenceRunInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  clusterLimit: z.number().int().min(3).max(30).default(12),
+  gapLimit: z.number().int().min(1).max(30).default(10),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type TopicIntelligenceRunInputDTO = z.infer<typeof TopicIntelligenceRunInputDTOSchema>;
+
+export const TopicIntelligenceQueryInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  clusterLimit: z.number().int().min(3).max(30).default(12),
+  gapLimit: z.number().int().min(1).max(30).default(10),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type TopicIntelligenceQueryInputDTO = z.infer<typeof TopicIntelligenceQueryInputDTOSchema>;
+
+export const TopicClusterItemDTOSchema = z.object({
+  clusterId: z.string().min(1),
+  label: z.string().min(1),
+  keywords: z.array(z.string().min(1)).min(1),
+  videos: z.number().int().nonnegative(),
+  ownerViewsTotal: z.number().nonnegative(),
+  competitorViewsTotal: z.number().nonnegative(),
+  ownerShare: z.number().min(0).max(1),
+  nicheShare: z.number().min(0).max(1),
+  trendDirection: TopicTrendDirectionSchema,
+  trendDelta: z.number(),
+});
+export type TopicClusterItemDTO = z.infer<typeof TopicClusterItemDTOSchema>;
+
+export const TopicGapItemDTOSchema = z.object({
+  clusterId: z.string().min(1),
+  label: z.string().min(1),
+  keywords: z.array(z.string().min(1)).min(1),
+  ownerCoverage: z.number().min(0).max(1),
+  nichePressure: z.number().nonnegative(),
+  gapScore: z.number().nonnegative(),
+  cannibalizationRisk: z.number().min(0).max(1),
+  trendDirection: TopicTrendDirectionSchema,
+  confidence: TopicConfidenceSchema,
+  rationale: z.string().min(1),
+});
+export type TopicGapItemDTO = z.infer<typeof TopicGapItemDTOSchema>;
+
+export const TopicIntelligenceResultDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  totalClusters: z.number().int().nonnegative(),
+  generatedAt: z.iso.datetime(),
+  clusters: z.array(TopicClusterItemDTOSchema),
+  gaps: z.array(TopicGapItemDTOSchema),
+});
+export type TopicIntelligenceResultDTO = z.infer<typeof TopicIntelligenceResultDTOSchema>;
+export const TopicIntelligenceResultSchema = IpcResultSchema(TopicIntelligenceResultDTOSchema);
+export type TopicIntelligenceResult = z.infer<typeof TopicIntelligenceResultSchema>;
+
 export const ReportDateRangeDTOSchema = z.object({
   dateFrom: z.iso.date(),
   dateTo: z.iso.date(),
@@ -957,6 +1022,8 @@ export const IPC_CHANNELS = {
   ANALYTICS_GET_QUALITY_SCORES: 'analytics:getQualityScores',
   ANALYTICS_SYNC_COMPETITORS: 'analytics:syncCompetitors',
   ANALYTICS_GET_COMPETITOR_INSIGHTS: 'analytics:getCompetitorInsights',
+  ANALYTICS_RUN_TOPIC_INTELLIGENCE: 'analytics:runTopicIntelligence',
+  ANALYTICS_GET_TOPIC_INTELLIGENCE: 'analytics:getTopicIntelligence',
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',

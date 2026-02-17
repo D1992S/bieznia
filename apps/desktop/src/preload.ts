@@ -34,6 +34,9 @@
   CompetitorSyncResultSchema,
   CompetitorInsightsQueryInputDTOSchema,
   CompetitorInsightsResultSchema,
+  TopicIntelligenceRunInputDTOSchema,
+  TopicIntelligenceQueryInputDTOSchema,
+  TopicIntelligenceResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultSchema,
   ProfileSetActiveInputDTOSchema,
@@ -90,6 +93,9 @@
   type CompetitorSyncResult,
   type CompetitorInsightsQueryInputDTO,
   type CompetitorInsightsResult,
+  type TopicIntelligenceRunInputDTO,
+  type TopicIntelligenceQueryInputDTO,
+  type TopicIntelligenceResult,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileSetActiveInputDTO,
@@ -145,6 +151,8 @@ export interface ElectronAPI {
   analyticsGetQualityScores: (input: QualityScoreQueryInputDTO) => Promise<QualityScoreResult>;
   analyticsSyncCompetitors: (input: CompetitorSyncInputDTO) => Promise<CompetitorSyncResult>;
   analyticsGetCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Promise<CompetitorInsightsResult>;
+  analyticsRunTopicIntelligence: (input: TopicIntelligenceRunInputDTO) => Promise<TopicIntelligenceResult>;
+  analyticsGetTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Promise<TopicIntelligenceResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
@@ -405,6 +413,20 @@ const api: ElectronAPI = {
       input,
       CompetitorInsightsQueryInputDTOSchema,
       CompetitorInsightsResultSchema,
+    ),
+  analyticsRunTopicIntelligence: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ANALYTICS_RUN_TOPIC_INTELLIGENCE,
+      input,
+      TopicIntelligenceRunInputDTOSchema,
+      TopicIntelligenceResultSchema,
+    ),
+  analyticsGetTopicIntelligence: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ANALYTICS_GET_TOPIC_INTELLIGENCE,
+      input,
+      TopicIntelligenceQueryInputDTOSchema,
+      TopicIntelligenceResultSchema,
     ),
   reportsGenerate: (input) =>
     invokeValidated(

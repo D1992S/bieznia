@@ -9,6 +9,7 @@ import type {
   MlAnomalySeverity,
   MlTargetMetric,
   QualityScoreResultDTO,
+  TopicIntelligenceResultDTO,
   ReportExportFormat,
   TimeseriesQueryDTO,
 } from '@moze/shared';
@@ -28,6 +29,7 @@ import {
   fetchDataModeStatus,
   fetchMlAnomalies,
   fetchCompetitorInsights,
+  fetchTopicIntelligence,
   fetchKpis,
   fetchMlForecast,
   fetchQualityScores,
@@ -40,6 +42,7 @@ import {
   resumeSync,
   runCsvImport,
   runMlBaseline,
+  runTopicIntelligence,
   syncCompetitors,
   searchContent,
   setActiveProfile,
@@ -49,6 +52,8 @@ import {
 } from '../lib/electron-api.ts';
 
 export const DEFAULT_CHANNEL_ID = 'UC-SEED-PL-001';
+export const DEFAULT_TOPIC_CLUSTER_LIMIT = 12;
+export const DEFAULT_TOPIC_GAP_LIMIT = 10;
 export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
 
 export interface DateRange {
@@ -309,6 +314,7 @@ export function useCsvImportRunMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['search', 'content', input.channelId] });
     },
@@ -390,6 +396,7 @@ export function useStartSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -407,6 +414,7 @@ export function useResumeSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'topic'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -556,6 +564,64 @@ export function useCompetitorInsightsQuery(channelId: string, range: DateRange, 
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
         limit: 6,
+      }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useRunTopicIntelligenceMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      channelId: string;
+      dateFrom: string;
+      dateTo: string;
+      clusterLimit?: number;
+      gapLimit?: number;
+    }) => {
+      const clusterLimit = input.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;
+      const gapLimit = input.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT;
+      return (
+      runTopicIntelligence({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        clusterLimit,
+        gapLimit,
+      })
+      );
+    },
+    onSuccess: (_result, input) => {
+      const clusterLimit = input.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;
+      const gapLimit = input.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT;
+      void queryClient.invalidateQueries({
+        queryKey: ['analytics', 'topic', input.channelId, input.dateFrom, input.dateTo, clusterLimit, gapLimit],
+      });
+    },
+  });
+}
+
+export function useTopicIntelligenceQuery(
+  channelId: string,
+  range: DateRange,
+  enabled: boolean,
+  options?: {
+    clusterLimit?: number;
+    gapLimit?: number;
+  },
+) {
+  const clusterLimit = options?.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;
+  const gapLimit = options?.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT;
+  return useQuery<TopicIntelligenceResultDTO>({
+    queryKey: ['analytics', 'topic', channelId, range.dateFrom, range.dateTo, clusterLimit, gapLimit],
+    queryFn: () =>
+      fetchTopicIntelligence({
+        channelId,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        clusterLimit,
+        gapLimit,
       }),
     enabled,
     staleTime: 30_000,

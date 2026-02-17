@@ -4,7 +4,7 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 
 ## Postęp realizacji
 
-> Aktualny status: **Faza 14 ukończona, następna Faza 15 (Topic Intelligence).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+> Aktualny status: **Faza 15 ukończona, następna Faza 16 (Planning System).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
 | Faza | Nazwa | Status | Co powinno działać (prosty opis) |
 |------|-------|--------|-----------------------------------|
@@ -24,8 +24,8 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | 12 | Performance i stabilność (cache + inkrementalność) | DONE | Działa cache metryk, invalidacja po sync/import i inkrementalne przeliczenia pipeline. |
 | 13 | Quality Scoring | DONE | Każdy materiał dostaje czytelny wynik jakości z uzasadnieniem i confidence. |
 | 14 | Competitor Intelligence | DONE | Widać porównanie do konkurencji i sygnały o ich mocnych ruchach. |
-| 15 | Topic Intelligence | **NASTĘPNA** | Aplikacja podpowiada tematy z potencjałem i pokazuje luki tematyczne. |
-| 16 | Planning System | — | Można planować publikacje i oceniać pomysły przed nagraniem. |
+| 15 | Topic Intelligence | DONE | Aplikacja podpowiada tematy z potencjałem i pokazuje luki tematyczne. |
+| 16 | Planning System | **NASTĘPNA** | Można planować publikacje i oceniać pomysły przed nagraniem. |
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) | Poza zakresem w trybie solo (bez plugin runtime). |
 | 18 | Diagnostics + Recovery | — | Aplikacja wykrywa problemy techniczne i pomaga je naprawić. |
 | 19 | Polish + Local UX | — | Dopracowany UX lokalny bez packagingu dystrybucyjnego i bez telemetrii opt-in. |
@@ -57,9 +57,9 @@ Skrót do samego desktop runtime: `corepack pnpm dev:desktop`
 ## Zasada pracy z PR
 
 Wymagamy jawnego logowania zmian, żeby kolejny model AI mógł kontynuować prace bez zgadywania:
-- sekcja „Co zmieniono",
-- sekcja „Wpływ i ryzyko",
-- sekcja „Jak zweryfikowano",
+- sekcja „Co zmieniono”,
+- sekcja „Wpływ i ryzyko”,
+- sekcja „Jak zweryfikowano”,
 - wpis do `CHANGELOG_AI.md`.
 
 Szczegóły: `docs/PLAN_REALIZACJI.md` (sekcja 3.3) i `AGENTS.md`.

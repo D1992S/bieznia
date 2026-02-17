@@ -18,7 +18,13 @@ import {
 import { runDataPipeline } from '@moze/data-pipeline';
 import { createAssistantLiteService, type AssistantLiteService } from '@moze/llm';
 import { getLatestMlForecast, getMlAnomalies, getMlTrend, runAnomalyTrendAnalysis, runMlBaseline } from '@moze/ml';
-import { getCompetitorInsights, getQualityScores, syncCompetitorSnapshots } from '@moze/analytics';
+import {
+  getCompetitorInsights,
+  getQualityScores,
+  getTopicIntelligence,
+  runTopicIntelligence,
+  syncCompetitorSnapshots,
+} from '@moze/analytics';
 import { exportDashboardReport, generateDashboardReport } from '@moze/reports';
 import {
   createCachedDataProvider,
@@ -65,6 +71,9 @@ import {
   type CompetitorSyncResultDTO,
   type CompetitorInsightsQueryInputDTO,
   type CompetitorInsightsResultDTO,
+  type TopicIntelligenceRunInputDTO,
+  type TopicIntelligenceQueryInputDTO,
+  type TopicIntelligenceResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResultDTO,
   type ProfileSetActiveInputDTO,
@@ -1359,6 +1368,137 @@ function getCompetitorInsightsCommand(input: CompetitorInsightsQueryInputDTO): R
   });
 }
 
+function runTopicIntelligenceCommand(input: TopicIntelligenceRunInputDTO): Result<TopicIntelligenceResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'analytics.runTopicIntelligence',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      clusterLimit: input.clusterLimit,
+      gapLimit: input.gapLimit,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_video_day,dim_video',
+        primaryKeys: ['channel_id', 'video_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'fact_competitor_day',
+        primaryKeys: ['channel_id', 'competitor_channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'dim_topic_cluster,fact_topic_pressure_day,agg_topic_gaps',
+        primaryKeys: ['channel_id', 'cluster_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.clusters.length + value.gaps.length,
+    execute: () => {
+      const runResult = runTopicIntelligence({
+        db,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        clusterLimit: input.clusterLimit,
+        gapLimit: input.gapLimit,
+      });
+
+      if (runResult.ok) {
+        invalidateAnalyticsCache('topic-intelligence-run', {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          clusterLimit: input.clusterLimit,
+          gapLimit: input.gapLimit,
+          clusters: runResult.value.totalClusters,
+          gaps: runResult.value.gaps.length,
+        });
+      }
+
+      return runResult;
+    },
+  });
+}
+
+function getTopicIntelligenceCommand(input: TopicIntelligenceQueryInputDTO): Result<TopicIntelligenceResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'analytics.getTopicIntelligence',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      clusterLimit: input.clusterLimit,
+      gapLimit: input.gapLimit,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_video_day,dim_video',
+        primaryKeys: ['channel_id', 'video_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'fact_competitor_day',
+        primaryKeys: ['channel_id', 'competitor_channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'dim_topic_cluster,fact_topic_pressure_day,agg_topic_gaps',
+        primaryKeys: ['channel_id', 'cluster_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.clusters.length + value.gaps.length,
+    execute: () =>
+      getTopicIntelligence({
+        db,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        clusterLimit: input.clusterLimit,
+        gapLimit: input.gapLimit,
+      }),
+  });
+}
+
 function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGenerateResultDTO, AppError> {
   const db = backendState.connection?.db;
   if (!db) {
@@ -1421,6 +1561,8 @@ const ipcBackend: DesktopIpcBackend = {
   getQualityScores: (input) => getQualityScoresCommand(input),
   syncCompetitors: (input) => syncCompetitorsCommand(input),
   getCompetitorInsights: (input) => getCompetitorInsightsCommand(input),
+  runTopicIntelligence: (input) => runTopicIntelligenceCommand(input),
+  getTopicIntelligence: (input) => getTopicIntelligenceCommand(input),
   generateReport: (input) => generateReportCommand(input),
   exportReport: (input) => exportReportCommand(input),
   askAssistant: (input) => askAssistantCommand(input),

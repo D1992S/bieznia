@@ -28,6 +28,8 @@ import {
   handleAnalyticsGetQualityScores,
   handleAnalyticsSyncCompetitors,
   handleAnalyticsGetCompetitorInsights,
+  handleAnalyticsRunTopicIntelligence,
+  handleAnalyticsGetTopicIntelligence,
   handleMlDetectAnomalies,
   handleMlRunBaseline,
   handleProfileCreate,
@@ -596,6 +598,102 @@ function createTestContext(): TestContext {
           },
         ],
       }),
+    runTopicIntelligence: (input) =>
+      ok({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        totalClusters: 2,
+        generatedAt: '2026-02-18T09:00:00.000Z',
+        clusters: [
+          {
+            clusterId: 'topic-overlaptopic',
+            label: 'Overlaptopic',
+            keywords: ['overlaptopic', 'analiza'],
+            videos: 4,
+            ownerViewsTotal: 18000,
+            competitorViewsTotal: 26000,
+            ownerShare: 0.32,
+            nicheShare: 0.41,
+            trendDirection: 'rising',
+            trendDelta: 0.21,
+          },
+          {
+            clusterId: 'topic-shorts',
+            label: 'Shorts',
+            keywords: ['shorts', 'youtube'],
+            videos: 3,
+            ownerViewsTotal: 15000,
+            competitorViewsTotal: 14000,
+            ownerShare: 0.27,
+            nicheShare: 0.28,
+            trendDirection: 'stable',
+            trendDelta: 0.04,
+          },
+        ],
+        gaps: [
+          {
+            clusterId: 'topic-overlaptopic',
+            label: 'Overlaptopic',
+            keywords: ['overlaptopic', 'analiza'],
+            ownerCoverage: 0.18,
+            nichePressure: 620.4,
+            gapScore: 7200.5,
+            cannibalizationRisk: 0.75,
+            trendDirection: 'rising',
+            confidence: 'high',
+            rationale: 'Nisza ma rosnące ciśnienie i niskie pokrycie kanału.',
+          },
+        ],
+      }),
+    getTopicIntelligence: (input) =>
+      ok({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        totalClusters: 2,
+        generatedAt: '2026-02-18T09:01:00.000Z',
+        clusters: [
+          {
+            clusterId: 'topic-overlaptopic',
+            label: 'Overlaptopic',
+            keywords: ['overlaptopic', 'analiza'],
+            videos: 4,
+            ownerViewsTotal: 18000,
+            competitorViewsTotal: 26000,
+            ownerShare: 0.32,
+            nicheShare: 0.41,
+            trendDirection: 'rising',
+            trendDelta: 0.21,
+          },
+          {
+            clusterId: 'topic-shorts',
+            label: 'Shorts',
+            keywords: ['shorts', 'youtube'],
+            videos: 3,
+            ownerViewsTotal: 15000,
+            competitorViewsTotal: 14000,
+            ownerShare: 0.27,
+            nicheShare: 0.28,
+            trendDirection: 'stable',
+            trendDelta: 0.04,
+          },
+        ],
+        gaps: [
+          {
+            clusterId: 'topic-overlaptopic',
+            label: 'Overlaptopic',
+            keywords: ['overlaptopic', 'analiza'],
+            ownerCoverage: 0.18,
+            nichePressure: 620.4,
+            gapScore: 7200.5,
+            cannibalizationRisk: 0.75,
+            trendDirection: 'rising',
+            confidence: 'high',
+            rationale: 'Nisza ma rosnące ciśnienie i niskie pokrycie kanału.',
+          },
+        ],
+      }),
     generateReport: (input) =>
       ok({
         generatedAt: '2026-02-12T22:30:00.000Z',
@@ -1035,6 +1133,32 @@ describe('Desktop IPC handlers integration', () => {
       expect(competitorInsightsResult.value.hits.length).toBeGreaterThan(0);
     }
 
+    const topicRunResult = await handleAnalyticsRunTopicIntelligence(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      clusterLimit: 12,
+      gapLimit: 10,
+    });
+    expect(topicRunResult.ok).toBe(true);
+    if (topicRunResult.ok) {
+      expect(topicRunResult.value.totalClusters).toBeGreaterThan(0);
+      expect(topicRunResult.value.gaps.length).toBeGreaterThan(0);
+    }
+
+    const topicGetResult = await handleAnalyticsGetTopicIntelligence(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      clusterLimit: 12,
+      gapLimit: 10,
+    });
+    expect(topicGetResult.ok).toBe(true);
+    if (topicGetResult.ok) {
+      expect(topicGetResult.value.totalClusters).toBeGreaterThan(0);
+      expect(topicGetResult.value.clusters.length).toBeGreaterThan(0);
+    }
+
     const reportGenerateResult = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -1312,6 +1436,27 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidCompetitorInsights.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidTopicRun = await handleAnalyticsRunTopicIntelligence(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: '2026-02-02',
+      dateTo: '2026-01-01',
+      clusterLimit: 2,
+    });
+    expect(invalidTopicRun.ok).toBe(false);
+    if (!invalidTopicRun.ok) {
+      expect(invalidTopicRun.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidTopicGet = await handleAnalyticsGetTopicIntelligence(ctx.backend, {
+      channelId: '',
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+    });
+    expect(invalidTopicGet.ok).toBe(false);
+    if (!invalidTopicGet.ok) {
+      expect(invalidTopicGet.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidReportGenerate = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: '2026-01-01',
@@ -1363,6 +1508,8 @@ describe('Desktop IPC handlers integration', () => {
       getQualityScores: (input) => ctx.backend.getQualityScores(input),
       syncCompetitors: (input) => ctx.backend.syncCompetitors(input),
       getCompetitorInsights: (input) => ctx.backend.getCompetitorInsights(input),
+      runTopicIntelligence: (input) => ctx.backend.runTopicIntelligence(input),
+      getTopicIntelligence: (input) => ctx.backend.getTopicIntelligence(input),
       generateReport: (input) => ctx.backend.generateReport(input),
       exportReport: (input) => ctx.backend.exportReport(input),
       askAssistant: (input) => ctx.backend.askAssistant(input),

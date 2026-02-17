@@ -8,3 +8,9 @@ export {
   type SyncCompetitorSnapshotsInput,
   type GetCompetitorInsightsInput,
 } from './competitor-intelligence.ts';
+export {
+  runTopicIntelligence,
+  getTopicIntelligence,
+  type RunTopicIntelligenceInput,
+  type GetTopicIntelligenceInput,
+} from './topic-intelligence.ts';

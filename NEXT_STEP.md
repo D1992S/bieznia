@@ -22,7 +22,9 @@
 | 12 | Performance i stabilnosc (cache + inkrementalnosc) | DONE |
 | 13 | Quality Scoring | DONE |
 | 14 | Competitor Intelligence | DONE |
-| 15-19 | Reszta | Oczekuje |
+| 15 | Topic Intelligence | DONE |
+| 16 | Planning System | Oczekuje |
+| 17-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -296,43 +298,86 @@
 - [x] UI pokazuje porownanie min. 3 kanalow.
 - [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
-## Co robic teraz - Faza 15: Topic Intelligence
+## Co zostalo zrobione (Faza 15)
 
-**Cel:** uruchomic analize tematow i wykrywanie luk contentowych na bazie danych kanalu oraz konkurencji.
-
-**Scope freeze 15 (robimy / nie robimy):**
-- Robimy:
-  - schema topic intelligence (`dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`),
-  - pipeline tekstowy (tokenizacja PL/EN + TF-IDF),
-  - clustering tematow i trend per cluster,
-  - gap detection: tematy popularne w niszy, ktorych kanal nie pokrywa,
-  - podstawowy panel UI z lista topic gaps i uzasadnieniem.
-- Nie robimy:
-  - zaawansowanego NLP (LLM embeddings, topic labeling przez model zewnetrzny),
-  - automatycznej publikacji rekomendacji do kalendarza (to Faza 16),
-  - plugin runtime/alert center (poza zakresem solo).
-
-**Zakres (MVP):**
-1. Schemat i storage:
-   - `dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`,
-   - indeksy pod odczyt per `channel_id`, `cluster_id`, `date`.
-2. Silnik analityczny:
-   - tokenizacja + stopwords + stemming (PL/EN),
-   - TF-IDF i grupowanie tematow,
-   - trend topicow: rising / stable / declining.
-3. Gap detection:
-   - porownanie tematow kanal vs konkurencja,
-   - ranking luk tematycznych z impact score.
-4. Integracja UI/IPC:
-   - endpointy IPC dla topic trend i topic gaps,
-   - panel "Topic Intelligence (Faza 15)" w `Statystyki`.
-5. Testy:
-   - seeded scenariusze z planted overlap/cannibalization i oczekiwanym rankingiem gapow.
+- Kontrakty `shared` rozszerzono o Topic Intelligence:
+  - `analytics:runTopicIntelligence`,
+  - `analytics:getTopicIntelligence`,
+  - DTO/result schemas:
+    - `TopicIntelligenceRunInputDTO`,
+    - `TopicIntelligenceQueryInputDTO`,
+    - `TopicIntelligenceResultDTO`,
+    - `TopicClusterItemDTO`,
+    - `TopicGapItemDTO`.
+- `core` dostal migracje `011-topic-intelligence-schema`:
+  - `dim_topic_cluster`,
+  - `fact_topic_pressure_day`,
+  - `agg_topic_gaps`,
+  - indeksy pod odczyty per `channel_id`, `cluster_id`, `date`.
+- Wdrozone `@moze/analytics`:
+  - `runTopicIntelligence(...)`:
+    - tokenizacja + stopwords + prosty stemming PL/EN,
+    - klasteryzacja tematow po tokenach i trend (`rising/stable/declining`),
+    - ranking luk tematycznych z `gapScore`, `nichePressure`, `cannibalizationRisk`,
+    - persystencja do `dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`.
+  - `getTopicIntelligence(...)`.
+- Desktop runtime i IPC:
+  - nowe komendy backendu z tracingiem:
+    - `analytics.runTopicIntelligence`,
+    - `analytics.getTopicIntelligence`,
+  - handlery IPC + preload bridge dla `analytics:runTopicIntelligence` i `analytics:getTopicIntelligence`.
+- UI:
+  - podlaczono API + hooki React Query dla Topic Intelligence,
+  - nowy panel "Topic Intelligence (Faza 15)" w zakladce `Statystyki`:
+    - przeliczanie tematyki,
+    - lista najwiekszych luk z uzasadnieniem,
+    - lista klastrow tematow i trendu.
+- Testy:
+  - `packages/analytics/src/topic-intelligence.integration.test.ts`,
+  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`,
+  - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzone `packages/core/src/data-core.integration.test.ts` (tabele migracji 011).
+- ADR:
+  - dodano `docs/adr/007-topic-intelligence.md`.
 
 **Definition of Done (Faza 15):**
-- [ ] Clustering grupuje filmy w sensowne tematy (fixtures + test integracyjny).
-- [ ] Gap detection zwraca ranking luk z uzasadnieniem.
-- [ ] UI pokazuje topic gaps i trend tematow dla wybranego zakresu.
+- [x] Clustering grupuje filmy w sensowne tematy (fixtures + test integracyjny).
+- [x] Gap detection zwraca ranking luk z uzasadnieniem.
+- [x] UI pokazuje topic gaps i trend tematow dla wybranego zakresu.
+- [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
+
+## Co robic teraz - Faza 16: Planning System
+
+**Cel:** uruchomic system planowania publikacji oparty o sygnaly z quality, competitor i topic intelligence.
+
+**Scope freeze 16 (robimy / nie robimy):**
+- Robimy:
+  - kontrakty IPC/DTO dla draft planu publikacji i rekomendacji tematow,
+  - podstawowy planner oparty o reguly (nie model generatywny),
+  - UI planera z lista rekomendacji i powodami (evidence),
+  - testy integracyjne plannera i IPC.
+- Nie robimy:
+  - auto-publikacji do zewnetrznych kalendarzy,
+  - asynchronicznej orkiestracji wieloetapowych workflow AI,
+  - plugin runtime i alert center.
+
+**Zakres (MVP):**
+1. Kontrakty:
+   - `planning:generatePlan`,
+   - `planning:getPlan`,
+   - DTO planu (sloty publikacji, temat, confidence, rationale, evidence).
+2. Silnik:
+   - laczenie sygnalow z quality scoring + competitor hits + topic gaps,
+   - deterministyczny ranking rekomendacji.
+3. Integracja:
+   - desktop IPC + preload + UI panel planowania.
+4. Testy:
+   - seeded scenariusze dla conflict resolution i priorytetyzacji rekomendacji.
+
+**Definition of Done (Faza 16):**
+- [ ] Planner zwraca rekomendacje publikacji dla zakresu dat.
+- [ ] Kazda rekomendacja ma rationale + evidence.
+- [ ] UI pozwala odswiezyc i przejrzec plan bez bledow IPC.
 - [ ] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
 ## Krytyczne zasady (nie pomijaj)
