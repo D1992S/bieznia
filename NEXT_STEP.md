@@ -19,8 +19,9 @@
 | 10 | Anomaly Detection + Trend Analysis | DONE |
 | 10.5 | Hardening (spojnosc liczb + regresje + trace + semantic layer) | DONE |
 | 11 | LLM Assistant (Lite) | DONE |
-| 12 | Performance i stabilnosc (cache + inkrementalnosc) | **NASTEPNA** |
-| 13-19 | Reszta | Oczekuje |
+| 12 | Performance i stabilnosc (cache + inkrementalnosc) | DONE |
+| 13 | Quality Scoring | **NASTEPNA** |
+| 14-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -170,29 +171,69 @@
 - [x] UI asystenta dziala przez IPC bez naruszenia granic architektury.
 - [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
 
-## Co robic teraz - Faza 12: Performance i stabilnosc (cache + inkrementalnosc)
+## Co zostalo zrobione (Faza 12)
 
-**Cel:** przyspieszyc analityke po stabilizacji metryk i asystenta, bez utraty spojnosci danych.
-
-**Zakres:**
-1. Cache wynikow analitycznych:
-   - cache po `(metric_id, params_hash)`,
-   - TTL i pomiar hit/miss.
-2. Inwalidacja cache:
-   - uniewaznianie po `sync` i `import`.
-3. Inkrementalne przeliczenia:
-   - tylko dla sciezek, gdzie wynik jest identyczny merytorycznie.
-4. Monitoring wydajnosci:
-   - p50/p95 czasu zapytan,
-   - cache hit-rate.
-5. Guardrails:
-   - brak regresji architektury i brak oslabienia constraints DB.
+- Cache analityki:
+  - dodano migracje `008-analytics-query-cache-schema`:
+    - `analytics_query_cache`,
+    - `analytics_cache_events`,
+  - wdrozono serwis `createAnalyticsQueryCache(...)`:
+    - cache po `(metric_id, params_hash)`,
+    - wersjonowanie cache przez `app_meta` (`analytics.cache.revision`),
+    - TTL, hit/miss/stale/set/invalidate eventy.
+- Integracja cache:
+  - `createMetricsQueries` i `createChannelQueries` korzystaja z cache + walidacji payloadow,
+  - `generateDashboardReport` i `exportDashboardReport` korzystaja z cache raportu.
+- Inwalidacja po zmianach danych:
+  - desktop runtime invaliduje cache po:
+    - `sync` (`startSync`/`resumeSync` po statusie `completed`),
+    - `import` CSV (po zapisie danych importu).
+- Inkrementalny pipeline:
+  - `runDataPipeline` dostal zakres zmian `changedDateFrom/changedDateTo`,
+  - feature engineering zapisuje tylko okno inkrementalne z buforem rolling 29 dni,
+  - `sync-orchestrator` przekazuje date zmian do pipeline (takze po resume, gdy date odczytuje z persisted batch).
+- Monitoring wydajnosci:
+  - `getPerformanceSnapshot` raportuje cache hit-rate, invalidacje oraz latency p50/p95 (global + per operation),
+  - desktop loguje snapshot po inwalidacji cache.
+- Testy:
+  - dodano `packages/core/src/analytics-query-cache.integration.test.ts`,
+  - rozszerzono `packages/core/src/data-core.integration.test.ts` (nowe tabele migracji 008),
+  - rozszerzono `packages/data-pipeline/src/pipeline-runner.integration.test.ts` o scenariusz incremental.
+- Regresja:
+  - `corepack pnpm lint` PASS
+  - `corepack pnpm typecheck` PASS
+  - `corepack pnpm test` PASS (93/93)
+  - `corepack pnpm build` PASS
 
 **Definition of Done (Faza 12):**
-- [ ] Cache dziala dla kluczowych zapytan i raportuje hit/miss.
-- [ ] Inwalidacja po sync/import jest poprawna.
-- [ ] Inkrementalne sciezki skracaja czas bez zmiany wyniku.
-- [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
+- [x] Cache dziala dla kluczowych zapytan i raportuje hit/miss.
+- [x] Inwalidacja po sync/import jest poprawna.
+- [x] Inkrementalne sciezki skracaja czas bez zmiany wyniku.
+- [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
+
+## Co robic teraz - Faza 13: Quality Scoring
+
+**Cel:** uruchomic wielowymiarowy scoring jakosci contentu, oparty o metryki z danych historycznych i confidence.
+
+**Zakres (MVP):**
+1. Schemat i storage:
+   - tabela `agg_quality_scores` (video_id, score, components_json, confidence, calculated_at),
+   - indeksy pod odczyt po `channel_id/date`.
+2. Silnik scoringu:
+   - komponenty: velocity, efficiency, engagement, retention, consistency,
+   - normalizacja percentile rank wewnatrz kanalu,
+   - finalny score + breakdown.
+3. Confidence:
+   - `high` / `medium` / `low` zalezne od ilosci historii danych.
+4. Integracja UI/IPC:
+   - odczyt rankingow i breakdown na dashboardzie.
+5. Testy:
+   - seeded scenariusze ze znanym rankingiem i planted high-engagement.
+
+**Definition of Done (Faza 13):**
+- [ ] Ranking quality score z breakdown komponentow dziala dla aktywnego kanalu.
+- [ ] Confidence labels sa zgodne z dlugoscia historii.
+- [ ] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
 ## Krytyczne zasady (nie pomijaj)
 

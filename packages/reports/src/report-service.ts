@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  type AnalyticsQueryCache,
   createChannelQueries,
   createMetricsQueries,
   createSemanticMetricService,
@@ -70,6 +71,7 @@ export interface GenerateDashboardReportInput {
   dateFrom: string;
   dateTo: string;
   targetMetric?: MlTargetMetric;
+  cache?: AnalyticsQueryCache;
   now?: () => Date;
 }
 
@@ -81,8 +83,11 @@ export interface ExportDashboardReportInput {
   targetMetric?: MlTargetMetric;
   exportDir?: string | null;
   formats?: Array<'json' | 'csv' | 'html'>;
+  cache?: AnalyticsQueryCache;
   now?: () => Date;
 }
+
+const DEFAULT_REPORT_CACHE_TTL_MS = 60_000;
 
 function toError(cause: unknown): Error {
   if (cause instanceof Error) {
@@ -575,6 +580,126 @@ function sanitizeTimestamp(value: string): string {
 export function generateDashboardReport(input: GenerateDashboardReportInput): Result<ReportGenerateResultDTO, AppError> {
   const now = input.now ?? (() => new Date());
   const semanticMetrics = createSemanticMetricService(input.db);
+  const computeReport = (): Result<ReportGenerateResultDTO, AppError> => {
+    const parsedInput = ReportGenerateInputDTOSchema.safeParse({
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      targetMetric: input.targetMetric,
+    });
+    if (!parsedInput.success) {
+      return err(
+        AppError.create(
+          'REPORT_INVALID_INPUT',
+          'Report parameters are invalid.',
+          'error',
+          { issues: parsedInput.error.issues },
+        ),
+      );
+    }
+
+    const validatedInput = parsedInput.data;
+    const rangeResult = buildDateRangeSummary(validatedInput.dateFrom, validatedInput.dateTo);
+    if (!rangeResult.ok) {
+      return rangeResult;
+    }
+
+    const channelQueries = createChannelQueries(input.db, { cache: input.cache });
+    const metricsQueries = createMetricsQueries(input.db, { cache: input.cache });
+
+    const channelResult = channelQueries.getChannelInfo({ channelId: validatedInput.channelId });
+    if (!channelResult.ok) {
+      return channelResult;
+    }
+
+    const kpisResult = metricsQueries.getKpis({
+      channelId: validatedInput.channelId,
+      dateFrom: validatedInput.dateFrom,
+      dateTo: validatedInput.dateTo,
+    });
+    if (!kpisResult.ok) {
+      return kpisResult;
+    }
+
+    const timeseriesResult = metricsQueries.getTimeseries({
+      channelId: validatedInput.channelId,
+      metric: validatedInput.targetMetric,
+      dateFrom: validatedInput.dateFrom,
+      dateTo: validatedInput.dateTo,
+      granularity: 'day',
+    });
+    if (!timeseriesResult.ok) {
+      return timeseriesResult;
+    }
+
+    const forecastResult = readActiveForecast(
+      input.db,
+      validatedInput.channelId,
+      validatedInput.targetMetric,
+    );
+    if (!forecastResult.ok) {
+      return forecastResult;
+    }
+
+    const topVideosResult = readTopVideos(input.db, validatedInput.channelId, 10);
+    if (!topVideosResult.ok) {
+      return topVideosResult;
+    }
+
+    const semanticMetricIds: readonly SemanticMetricId[] = [
+      'ml.anomalies.count',
+      'ml.anomalies.critical_count',
+      'video.views.max',
+    ];
+    const semanticValuesResult = semanticMetrics.readMetricValues({
+      metricIds: semanticMetricIds,
+      channelId: validatedInput.channelId,
+      dateFrom: validatedInput.dateFrom,
+      dateTo: validatedInput.dateTo,
+    });
+    if (!semanticValuesResult.ok) {
+      return semanticValuesResult;
+    }
+
+    const semanticSummary: ReportSemanticSummary = {
+      anomalyCount: semanticValuesResult.value['ml.anomalies.count'],
+      criticalAnomalyCount: semanticValuesResult.value['ml.anomalies.critical_count'],
+      maxVideoViews: semanticValuesResult.value['video.views.max'],
+    };
+
+    const reportPayload: ReportGenerateResultDTO = {
+      generatedAt: now().toISOString(),
+      channel: {
+        channelId: channelResult.value.channelId,
+        name: channelResult.value.name,
+      },
+      range: rangeResult.value,
+      kpis: kpisResult.value,
+      timeseries: timeseriesResult.value,
+      forecast: forecastResult.value,
+      topVideos: topVideosResult.value,
+      insights: buildInsights({
+        kpis: kpisResult.value,
+        timeseries: timeseriesResult.value,
+        forecast: forecastResult.value,
+        semanticSummary,
+      }),
+    };
+
+    const parsedOutput = ReportGenerateResultDTOSchema.safeParse(reportPayload);
+    if (!parsedOutput.success) {
+      return err(
+        AppError.create(
+          'REPORT_INVALID_OUTPUT',
+          'Generated report format is invalid.',
+          'error',
+          { issues: parsedOutput.error.issues },
+        ),
+      );
+    }
+
+    return ok(parsedOutput.data);
+  };
 
   return runWithAnalyticsTrace({
     db: input.db,
@@ -620,126 +745,34 @@ export function generateDashboardReport(input: GenerateDashboardReportInput): Re
     ],
     estimateRowCount: (value) =>
       value.timeseries.points.length + value.forecast.points.length + value.topVideos.length + value.insights.length,
-    execute: () => {
-      const parsedInput = ReportGenerateInputDTOSchema.safeParse({
-        channelId: input.channelId,
-        dateFrom: input.dateFrom,
-        dateTo: input.dateTo,
-        targetMetric: input.targetMetric,
-      });
-      if (!parsedInput.success) {
-        return err(
-          AppError.create(
-            'REPORT_INVALID_INPUT',
-            'Report parameters are invalid.',
-            'error',
-            { issues: parsedInput.error.issues },
-          ),
-        );
-      }
-
-      const validatedInput = parsedInput.data;
-      const rangeResult = buildDateRangeSummary(validatedInput.dateFrom, validatedInput.dateTo);
-      if (!rangeResult.ok) {
-        return rangeResult;
-      }
-
-      const channelQueries = createChannelQueries(input.db);
-      const metricsQueries = createMetricsQueries(input.db);
-
-      const channelResult = channelQueries.getChannelInfo({ channelId: validatedInput.channelId });
-      if (!channelResult.ok) {
-        return channelResult;
-      }
-
-      const kpisResult = metricsQueries.getKpis({
-        channelId: validatedInput.channelId,
-        dateFrom: validatedInput.dateFrom,
-        dateTo: validatedInput.dateTo,
-      });
-      if (!kpisResult.ok) {
-        return kpisResult;
-      }
-
-      const timeseriesResult = metricsQueries.getTimeseries({
-        channelId: validatedInput.channelId,
-        metric: validatedInput.targetMetric,
-        dateFrom: validatedInput.dateFrom,
-        dateTo: validatedInput.dateTo,
-        granularity: 'day',
-      });
-      if (!timeseriesResult.ok) {
-        return timeseriesResult;
-      }
-
-      const forecastResult = readActiveForecast(
-        input.db,
-        validatedInput.channelId,
-        validatedInput.targetMetric,
-      );
-      if (!forecastResult.ok) {
-        return forecastResult;
-      }
-
-      const topVideosResult = readTopVideos(input.db, validatedInput.channelId, 10);
-      if (!topVideosResult.ok) {
-        return topVideosResult;
-      }
-
-      const semanticMetricIds: readonly SemanticMetricId[] = [
-        'ml.anomalies.count',
-        'ml.anomalies.critical_count',
-        'video.views.max',
-      ];
-      const semanticValuesResult = semanticMetrics.readMetricValues({
-        metricIds: semanticMetricIds,
-        channelId: validatedInput.channelId,
-        dateFrom: validatedInput.dateFrom,
-        dateTo: validatedInput.dateTo,
-      });
-      if (!semanticValuesResult.ok) {
-        return semanticValuesResult;
-      }
-
-      const semanticSummary: ReportSemanticSummary = {
-        anomalyCount: semanticValuesResult.value['ml.anomalies.count'],
-        criticalAnomalyCount: semanticValuesResult.value['ml.anomalies.critical_count'],
-        maxVideoViews: semanticValuesResult.value['video.views.max'],
-      };
-
-      const reportPayload: ReportGenerateResultDTO = {
-        generatedAt: now().toISOString(),
-        channel: {
-          channelId: channelResult.value.channelId,
-          name: channelResult.value.name,
-        },
-        range: rangeResult.value,
-        kpis: kpisResult.value,
-        timeseries: timeseriesResult.value,
-        forecast: forecastResult.value,
-        topVideos: topVideosResult.value,
-        insights: buildInsights({
-          kpis: kpisResult.value,
-          timeseries: timeseriesResult.value,
-          forecast: forecastResult.value,
-          semanticSummary,
-        }),
-      };
-
-      const parsedOutput = ReportGenerateResultDTOSchema.safeParse(reportPayload);
-      if (!parsedOutput.success) {
-        return err(
-          AppError.create(
-            'REPORT_INVALID_OUTPUT',
-            'Generated report format is invalid.',
-            'error',
-            { issues: parsedOutput.error.issues },
-          ),
-        );
-      }
-
-      return ok(parsedOutput.data);
-    },
+    execute: () =>
+      input.cache
+        ? input.cache.getOrCompute({
+            metricId: 'reports.generateDashboardReport.v1',
+            params: {
+              channelId: input.channelId,
+              dateFrom: input.dateFrom,
+              dateTo: input.dateTo,
+              targetMetric: input.targetMetric ?? 'views',
+            },
+            ttlMs: DEFAULT_REPORT_CACHE_TTL_MS,
+            execute: () => computeReport(),
+            validate: (payload) => {
+              const parsed = ReportGenerateResultDTOSchema.safeParse(payload);
+              if (!parsed.success) {
+                return err(
+                  AppError.create(
+                    'REPORT_CACHE_PAYLOAD_INVALID',
+                    'Niepoprawny payload cache raportu.',
+                    'error',
+                    { issues: parsed.error.issues },
+                  ),
+                );
+              }
+              return ok(parsed.data);
+            },
+          })
+        : computeReport(),
   });
 }
 
@@ -793,6 +826,7 @@ export function exportDashboardReport(input: ExportDashboardReportInput): Result
         dateFrom: parsedInput.data.dateFrom,
         dateTo: parsedInput.data.dateTo,
         targetMetric: parsedInput.data.targetMetric,
+        cache: input.cache,
         now,
       });
       if (!reportResult.ok) {

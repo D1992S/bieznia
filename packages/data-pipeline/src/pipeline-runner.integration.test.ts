@@ -253,6 +253,108 @@ describe('Data pipeline integration', () => {
     closeSeededDatabase(seeded.connection);
   });
 
+  it('recomputes only incremental feature window when changedDate range is provided', () => {
+    const seeded = createSeededDatabase();
+    if (!seeded) {
+      return;
+    }
+
+    const channelId = seeded.fixture.channel.channelId;
+    const firstDay = seeded.fixture.channelDaily[0];
+    const lastDay = seeded.fixture.channelDaily[seeded.fixture.channelDaily.length - 1];
+    expect(firstDay).toBeDefined();
+    expect(lastDay).toBeDefined();
+    if (!firstDay || !lastDay) {
+      closeSeededDatabase(seeded.connection);
+      return;
+    }
+
+    const firstRun = runDataPipeline({
+      db: seeded.connection.db,
+      channelId,
+      now: () => new Date(FIXED_NOW_ISO),
+    });
+    expect(firstRun.ok).toBe(true);
+    if (!firstRun.ok) {
+      closeSeededDatabase(seeded.connection);
+      return;
+    }
+
+    const originalFeatureTimestamps = seeded.connection.db
+      .prepare<{ channelId: string; firstDate: string; lastDate: string }, { firstGeneratedAt: string; lastGeneratedAt: string }>(
+        `
+          SELECT
+            MAX(CASE WHEN date = @firstDate THEN generated_at END) AS firstGeneratedAt,
+            MAX(CASE WHEN date = @lastDate THEN generated_at END) AS lastGeneratedAt
+          FROM ml_features
+          WHERE channel_id = @channelId
+            AND feature_set_version = 'v1'
+        `,
+      )
+      .get({
+        channelId,
+        firstDate: firstDay.date,
+        lastDate: lastDay.date,
+      });
+    expect(originalFeatureTimestamps?.firstGeneratedAt).toBe(FIXED_NOW_ISO);
+    expect(originalFeatureTimestamps?.lastGeneratedAt).toBe(FIXED_NOW_ISO);
+
+    seeded.connection.db
+      .prepare<{ channelId: string; date: string }>(
+        `
+          UPDATE fact_channel_day
+          SET views = views + 777
+          WHERE channel_id = @channelId
+            AND date = @date
+        `,
+      )
+      .run({
+        channelId,
+        date: lastDay.date,
+      });
+
+    const incrementalNowIso = '2026-02-13T12:00:00.000Z';
+    const secondRun = runDataPipeline({
+      db: seeded.connection.db,
+      channelId,
+      changedDateFrom: lastDay.date,
+      changedDateTo: lastDay.date,
+      now: () => new Date(incrementalNowIso),
+    });
+    expect(secondRun.ok).toBe(true);
+    if (!secondRun.ok) {
+      closeSeededDatabase(seeded.connection);
+      return;
+    }
+
+    expect(secondRun.value.generatedFeatures).toBeLessThan(seeded.fixture.channelDaily.length);
+    expect(secondRun.value.generatedFeatures).toBeLessThanOrEqual(30);
+
+    const refreshedFeatureTimestamps = seeded.connection.db
+      .prepare<{ channelId: string; firstDate: string; lastDate: string }, { firstGeneratedAt: string; lastGeneratedAt: string; total: number }>(
+        `
+          SELECT
+            MAX(CASE WHEN date = @firstDate THEN generated_at END) AS firstGeneratedAt,
+            MAX(CASE WHEN date = @lastDate THEN generated_at END) AS lastGeneratedAt,
+            COUNT(*) AS total
+          FROM ml_features
+          WHERE channel_id = @channelId
+            AND feature_set_version = 'v1'
+        `,
+      )
+      .get({
+        channelId,
+        firstDate: firstDay.date,
+        lastDate: lastDay.date,
+      });
+
+    expect(refreshedFeatureTimestamps?.firstGeneratedAt).toBe(FIXED_NOW_ISO);
+    expect(refreshedFeatureTimestamps?.lastGeneratedAt).toBe(incrementalNowIso);
+    expect(refreshedFeatureTimestamps?.total ?? 0).toBe(seeded.fixture.channelDaily.length);
+
+    closeSeededDatabase(seeded.connection);
+  });
+
   it('rejects invalid metric ranges during validation', () => {
     const seeded = createSeededDatabase();
     if (!seeded) {

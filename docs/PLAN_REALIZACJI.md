@@ -875,6 +875,7 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Hardening 10.5: golden DB + snapshot tests + trace_id + lineage + Semantic Layer (step 1).
 - [x] Hardening 10.5: docs/adr/000-template.md + minimum 2 ADR + scope freeze checklist.
 - [x] LLM Assistant Lite: whitelist read-only tools + LocalStub + persystencja rozmow/evidence + UI chat + testy integracyjne. DONE Faza 11
+- [x] Performance i stabilnosc: cache wynikow analitycznych + invalidacja po sync/import + inkrementalny pipeline + monitoring p50/p95/hit-rate. DONE Faza 12
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---

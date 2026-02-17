@@ -7,6 +7,7 @@ import { importSearchSchemaMigration } from './004-import-search-schema.ts';
 import { mlAnomalyTrendSchemaMigration } from './005-ml-anomaly-trend-schema.ts';
 import { analyticsTraceSchemaMigration } from './006-analytics-trace-schema.ts';
 import { assistantLiteSchemaMigration } from './007-assistant-lite-schema.ts';
+import { analyticsQueryCacheSchemaMigration } from './008-analytics-query-cache-schema.ts';
 import type { MigrationDefinition } from './types.ts';
 
 export type { MigrationDefinition } from './types.ts';
@@ -24,6 +25,7 @@ export const MIGRATIONS: ReadonlyArray<MigrationDefinition> = [
   mlAnomalyTrendSchemaMigration,
   analyticsTraceSchemaMigration,
   assistantLiteSchemaMigration,
+  analyticsQueryCacheSchemaMigration,
 ];
 
 function toError(cause: unknown): Error {

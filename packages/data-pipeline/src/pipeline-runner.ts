@@ -72,12 +72,19 @@ interface FeatureRow {
   generatedAt: string;
 }
 
+interface FeatureWriteWindow {
+  dateFrom: string;
+  dateTo: string;
+}
+
 export interface RunDataPipelineInput {
   db: DatabaseConnection['db'];
   channelId: string;
   sourceSyncRunId?: number | null;
   featureSetVersion?: string;
   maxFreshnessDays?: number;
+  changedDateFrom?: string | null;
+  changedDateTo?: string | null;
   now?: () => Date;
 }
 
@@ -102,6 +109,10 @@ function toError(cause: unknown): Error {
 function toUtcDayNumber(dateIso: string): number {
   const parsed = Date.parse(`${dateIso}T00:00:00.000Z`);
   return Math.floor(parsed / DAY_MS);
+}
+
+function fromUtcDayNumber(dayNumber: number): string {
+  return new Date(dayNumber * DAY_MS).toISOString().slice(0, 10);
 }
 
 function createPipelineError(
@@ -430,10 +441,97 @@ function generateFeatures(
   return features;
 }
 
+function resolveFeatureWriteWindow(
+  snapshot: ValidatedWarehouseSnapshot,
+  input: RunDataPipelineInput,
+): Result<FeatureWriteWindow, AppError> {
+  const firstDay = snapshot.channelDays[0];
+  const lastDay = snapshot.channelDays[snapshot.channelDays.length - 1];
+  if (!firstDay || !lastDay) {
+    return err(
+      createPipelineError(
+        'PIPELINE_NO_CHANNEL_DAYS',
+        'Brak danych dziennych kanalu do wyznaczenia zakresu feature engineering.',
+        { channelId: snapshot.channel.channelId },
+      ),
+    );
+  }
+
+  if (!input.changedDateFrom && !input.changedDateTo) {
+    return ok({
+      dateFrom: firstDay.date,
+      dateTo: lastDay.date,
+    });
+  }
+
+  if (!input.changedDateFrom || !input.changedDateTo) {
+    return err(
+      createPipelineError(
+        'PIPELINE_INCREMENTAL_RANGE_INVALID',
+        'Zakres inkrementalny pipeline wymaga changedDateFrom i changedDateTo.',
+        {
+          channelId: snapshot.channel.channelId,
+          changedDateFrom: input.changedDateFrom ?? null,
+          changedDateTo: input.changedDateTo ?? null,
+        },
+      ),
+    );
+  }
+
+  const changedFromDay = toUtcDayNumber(input.changedDateFrom);
+  const changedToDay = toUtcDayNumber(input.changedDateTo);
+  if (Number.isNaN(changedFromDay) || Number.isNaN(changedToDay)) {
+    return err(
+      createPipelineError(
+        'PIPELINE_INCREMENTAL_RANGE_INVALID',
+        'Zakres inkrementalny pipeline ma niepoprawny format dat.',
+        {
+          channelId: snapshot.channel.channelId,
+          changedDateFrom: input.changedDateFrom,
+          changedDateTo: input.changedDateTo,
+        },
+      ),
+    );
+  }
+
+  if (changedFromDay > changedToDay) {
+    return err(
+      createPipelineError(
+        'PIPELINE_INCREMENTAL_RANGE_INVALID',
+        'Data poczatkowa zakresu inkrementalnego nie moze byc pozniejsza niz koncowa.',
+        {
+          channelId: snapshot.channel.channelId,
+          changedDateFrom: input.changedDateFrom,
+          changedDateTo: input.changedDateTo,
+        },
+      ),
+    );
+  }
+
+  const firstDayNumber = toUtcDayNumber(firstDay.date);
+  const lastDayNumber = toUtcDayNumber(lastDay.date);
+  const rollingBufferDays = 29;
+  const writeFromDay = Math.max(firstDayNumber, changedFromDay - rollingBufferDays);
+  const writeToDay = lastDayNumber;
+
+  if (writeFromDay > writeToDay) {
+    return ok({
+      dateFrom: lastDay.date,
+      dateTo: lastDay.date,
+    });
+  }
+
+  return ok({
+    dateFrom: fromUtcDayNumber(writeFromDay),
+    dateTo: fromUtcDayNumber(writeToDay),
+  });
+}
+
 function persistPipelineResults(
   db: DatabaseConnection['db'],
   snapshot: ValidatedWarehouseSnapshot,
   features: readonly FeatureRow[],
+  featureWriteWindow: FeatureWriteWindow,
   sourceSyncRunId: number | null,
   generatedAt: string,
 ): Result<void, AppError> {
@@ -535,11 +633,15 @@ function persistPipelineResults(
     const deleteFeaturesStmt = db.prepare<{
       channelId: string;
       featureSetVersion: string;
+      dateFrom: string;
+      dateTo: string;
     }>(
       `
         DELETE FROM ml_features
         WHERE channel_id = @channelId
           AND feature_set_version = @featureSetVersion
+          AND date >= @dateFrom
+          AND date <= @dateTo
       `,
     );
 
@@ -658,6 +760,8 @@ function persistPipelineResults(
         deleteFeaturesStmt.run({
           channelId: firstFeature.channelId,
           featureSetVersion: firstFeature.featureSetVersion,
+          dateFrom: featureWriteWindow.dateFrom,
+          dateTo: featureWriteWindow.dateTo,
         });
       }
 
@@ -727,6 +831,8 @@ function persistPipelineResults(
         metadataJson: JSON.stringify({
           generatedFeatures: features.length,
           featureSetVersion: firstFeature?.featureSetVersion ?? DEFAULT_FEATURE_SET_VERSION,
+          incrementalDateFrom: featureWriteWindow.dateFrom,
+          incrementalDateTo: featureWriteWindow.dateTo,
         }),
         sourceSyncRunId,
         producedAt: generatedAt,
@@ -769,17 +875,26 @@ export function runDataPipeline(input: RunDataPipelineInput): Result<DataPipelin
   }
 
   const generatedAt = runDate.toISOString();
-  const features = generateFeatures(
+  const allFeatures = generateFeatures(
     validatedSnapshotResult.value,
     featureSetVersion,
     sourceSyncRunId,
     generatedAt,
+  );
+  const featureWriteWindowResult = resolveFeatureWriteWindow(validatedSnapshotResult.value, input);
+  if (!featureWriteWindowResult.ok) {
+    return featureWriteWindowResult;
+  }
+  const features = allFeatures.filter(
+    (feature) => feature.date >= featureWriteWindowResult.value.dateFrom
+      && feature.date <= featureWriteWindowResult.value.dateTo,
   );
 
   const persistResult = persistPipelineResults(
     input.db,
     validatedSnapshotResult.value,
     features,
+    featureWriteWindowResult.value,
     sourceSyncRunId,
     generatedAt,
   );
