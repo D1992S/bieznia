@@ -548,9 +548,9 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
   - wykonac runbook od sekcji 2 do 8 i podjac decyzje GO/NO-GO przed startem implementacji Fazy 9.
 
 
-## Co zostalo zrobione (Sesja audytu 2026-02-17)
+## Co zostało zrobione (Sesja audytu 2026-02-17)
 
-- Wykonano pelen przeglad kodu monorepo (apps + packages) oraz CI.
+- Wykonano pełen przegląd kodu monorepo (apps + packages) oraz CI.
 - Potwierdzono zielony baseline regresji:
   - `pnpm lint` PASS,
   - `pnpm typecheck` PASS,
@@ -558,11 +558,11 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
   - `pnpm build` PASS.
 - Przygotowano raport audytowy i backlog poprawek dla kolejnego LLM:
   - `docs/reviews/2026-02-17-audyt-kodu-i-plan-poprawek-llm.md`.
-- Zidentyfikowano glowne ryzyka techniczne:
-  - zbyt duze pliki centralne (`App.tsx`, `main.ts`, `use-dashboard-data.ts`, `ipc-handlers.ts`, `contracts.ts`),
-  - duplikacja mapowan IPC miedzy shared/preload/desktop/ui,
-  - niski poziom testow UI wzgledem zlozonosci ekranu glownego,
-  - brak twardego gate dla granic architektury i budgetow performance w CI.
+- Zidentyfikowano główne ryzyka techniczne:
+  - zbyt duże pliki centralne (`App.tsx`, `main.ts`, `use-dashboard-data.ts`, `ipc-handlers.ts`, `contracts.ts`),
+  - duplikacja mapowań IPC między shared/preload/desktop/ui,
+  - niski poziom testów UI względem złożoności ekranu głównego,
+  - brak twardego gate dla granic architektury i budżetów performance w CI.
 
 ## Nastepna faza (Faza 20)
 

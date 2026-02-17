@@ -1,4 +1,4 @@
-﻿# Plan realizacji projektu (AI-first)
+# Plan realizacji projektu (AI-first)
 
 > Cel: zbudować **analityczną maszynę** — desktop app dla content creatorów (YouTube), która zbiera dane, prognozuje trendy, wykrywa anomalie, ocenia jakość contentu i daje konkretne rekomendacje oparte na evidence. Jedno, trwałe źródło prawdy dla rozwoju krok po kroku.
 

@@ -1601,7 +1601,7 @@ Dziennik zmian wykonywanych przez modele AI.
 - Dlaczego:
   - Uzytkownik poprosil o doglebna recenzje calego kodu i liste poprawek gotowa do realizacji przez kolejny model.
 - Ryzyko/regresja:
-  - Zmiany sa dokumentacyjne (brak zmian runtime), ryzyko regresji funkcjonalnej niskie.
+  - Zmiany są dokumentacyjne (brak zmian runtime), ryzyko regresji funkcjonalnej niskie.
   - Ryzyko projektowe: backlog refaktoryzacji jest obszerny i wymaga realizacji etapami, aby uniknac naruszenia kontraktow IPC.
 - Jak zweryfikowano:
   - `pnpm lint` - PASS.
@@ -1610,3 +1610,27 @@ Dziennik zmian wykonywanych przez modele AI.
   - `pnpm build` - PASS.
 - Nastepny krok:
   - Rozpoczac Faze 20 od modularyzacji `apps/ui/src/App.tsx` (P0.1) w malych commitach bez zmian funkcjonalnych.
+
+## 2026-02-17 (v27)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `CHANGELOG_AI.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+- Co zmieniono:
+  - Poprawiono nitpick jezykowy w `CHANGELOG_AI.md`: `sa` -> `są` w zdaniu o ryzyku/regresji.
+  - W `NEXT_STEP.md` (sekcja „Co zostało zrobione (Sesja audytu 2026-02-17)`) przywrocono wskazane polskie znaki diakrytyczne.
+  - Usunieto BOM z `docs/PLAN_REALIZACJI.md` (UTF-8 bez BOM), aby pierwsza linia zaczynala sie od `# Plan realizacji projektu (AI-first)`.
+- Dlaczego:
+  - Uzytkownik zglosil uwagi inline do poprzedniego commita i poprosil o precyzyjne poprawki redakcyjne/encoding.
+- Ryzyko/regresja:
+  - Zmiany dokumentacyjne i encoding-only; brak zmian runtime i kontraktow.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS.
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Kontynuowac Faze 20 zgodnie z backlogiem z audytu (modularyzacja UI/IPC + testy).
