@@ -1,6 +1,8 @@
 import type Database from 'better-sqlite3';
 import {
   AppError,
+  KpiResultDTOSchema,
+  TimeseriesResultDTOSchema,
   type KpiQueryDTO,
   type KpiResultDTO,
   type Result,
@@ -12,11 +14,23 @@ import {
   type SemanticMetricId,
 } from '../semantic/index.ts';
 import { runWithAnalyticsTrace } from '../observability/analytics-tracing.ts';
+import type { AnalyticsQueryCache } from '../observability/analytics-query-cache.ts';
 
 export interface MetricsQueries {
   getKpis: (query: KpiQueryDTO) => Result<KpiResultDTO, AppError>;
   getTimeseries: (query: TimeseriesQueryDTO) => Result<TimeseriesResultDTO, AppError>;
 }
+
+export interface CreateMetricsQueriesOptions {
+  cache?: AnalyticsQueryCache;
+  cacheTtlMs?: {
+    getKpis?: number;
+    getTimeseries?: number;
+  };
+}
+
+const DEFAULT_KPI_CACHE_TTL_MS = 30_000;
+const DEFAULT_TIMESERIES_CACHE_TTL_MS = 30_000;
 
 function parseIsoDate(date: string): Date {
   const parsed = new Date(`${date}T00:00:00.000Z`);
@@ -71,8 +85,49 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
   return { ok: true, value: undefined };
 }
 
-export function createMetricsQueries(db: Database.Database): MetricsQueries {
+function validateCachedKpiPayload(payload: unknown): Result<KpiResultDTO, AppError> {
+  const parsed = KpiResultDTOSchema.safeParse(payload);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: AppError.create(
+        'DB_KPI_CACHE_PAYLOAD_INVALID',
+        'Niepoprawny payload cache KPI.',
+        'error',
+        { issues: parsed.error.issues },
+      ),
+    };
+  }
+  return { ok: true, value: parsed.data };
+}
+
+function validateCachedTimeseriesPayload(payload: unknown): Result<TimeseriesResultDTO, AppError> {
+  const parsed = TimeseriesResultDTOSchema.safeParse(payload);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: AppError.create(
+        'DB_TIMESERIES_CACHE_PAYLOAD_INVALID',
+        'Niepoprawny payload cache szeregu czasowego.',
+        'error',
+        { issues: parsed.error.issues },
+      ),
+    };
+  }
+  return { ok: true, value: parsed.data };
+}
+
+export function createMetricsQueries(
+  db: Database.Database,
+  options: CreateMetricsQueriesOptions = {},
+): MetricsQueries {
   const semanticMetrics = createSemanticMetricService(db);
+  const cache = options.cache;
+  const kpiCacheTtlMs = Math.max(1, Math.floor(options.cacheTtlMs?.getKpis ?? DEFAULT_KPI_CACHE_TTL_MS));
+  const timeseriesCacheTtlMs = Math.max(
+    1,
+    Math.floor(options.cacheTtlMs?.getTimeseries ?? DEFAULT_TIMESERIES_CACHE_TTL_MS),
+  );
 
   return {
     getKpis: (query) => {
@@ -99,6 +154,46 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
         'channel.subscribers.latest',
         'channel.videos.latest',
       ];
+
+      const computeKpis = (): Result<KpiResultDTO, AppError> => {
+        const currentValuesResult = semanticMetrics.readMetricValues({
+          metricIds: currentMetricIds,
+          channelId: query.channelId,
+          dateFrom: query.dateFrom,
+          dateTo: query.dateTo,
+        });
+        if (!currentValuesResult.ok) {
+          return currentValuesResult;
+        }
+
+        const previousValuesResult = semanticMetrics.readMetricValues({
+          metricIds: previousMetricIds,
+          channelId: query.channelId,
+          dateFrom: previousDateFrom,
+          dateTo: previousDateTo,
+        });
+        if (!previousValuesResult.ok) {
+          return previousValuesResult;
+        }
+
+        const currentValues = currentValuesResult.value;
+        const previousValues = previousValuesResult.value;
+
+        return {
+          ok: true,
+          value: {
+            subscribers: currentValues['channel.subscribers.latest'],
+            subscribersDelta:
+              currentValues['channel.subscribers.latest'] - previousValues['channel.subscribers.latest'],
+            views: currentValues['channel.views.total'],
+            viewsDelta: currentValues['channel.views.total'] - previousValues['channel.views.total'],
+            videos: currentValues['channel.videos.latest'],
+            videosDelta: currentValues['channel.videos.latest'] - previousValues['channel.videos.latest'],
+            avgViewsPerVideo: currentValues['channel.avg_views_per_video'],
+            engagementRate: currentValues['channel.engagement_rate'],
+          },
+        };
+      };
 
       return runWithAnalyticsTrace({
         db,
@@ -139,45 +234,20 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
           },
         ],
         estimateRowCount: () => 1,
-        execute: () => {
-          const currentValuesResult = semanticMetrics.readMetricValues({
-            metricIds: currentMetricIds,
-            channelId: query.channelId,
-            dateFrom: query.dateFrom,
-            dateTo: query.dateTo,
-          });
-          if (!currentValuesResult.ok) {
-            return currentValuesResult;
-          }
-
-          const previousValuesResult = semanticMetrics.readMetricValues({
-            metricIds: previousMetricIds,
-            channelId: query.channelId,
-            dateFrom: previousDateFrom,
-            dateTo: previousDateTo,
-          });
-          if (!previousValuesResult.ok) {
-            return previousValuesResult;
-          }
-
-          const currentValues = currentValuesResult.value;
-          const previousValues = previousValuesResult.value;
-
-          return {
-            ok: true,
-            value: {
-              subscribers: currentValues['channel.subscribers.latest'],
-              subscribersDelta:
-                currentValues['channel.subscribers.latest'] - previousValues['channel.subscribers.latest'],
-              views: currentValues['channel.views.total'],
-              viewsDelta: currentValues['channel.views.total'] - previousValues['channel.views.total'],
-              videos: currentValues['channel.videos.latest'],
-              videosDelta: currentValues['channel.videos.latest'] - previousValues['channel.videos.latest'],
-              avgViewsPerVideo: currentValues['channel.avg_views_per_video'],
-              engagementRate: currentValues['channel.engagement_rate'],
-            },
-          };
-        },
+        execute: () =>
+          cache
+            ? cache.getOrCompute({
+                metricId: 'metrics.getKpis.v1',
+                params: {
+                  channelId: query.channelId,
+                  dateFrom: query.dateFrom,
+                  dateTo: query.dateTo,
+                },
+                ttlMs: kpiCacheTtlMs,
+                execute: () => computeKpis(),
+                validate: (payload) => validateCachedKpiPayload(payload),
+              })
+            : computeKpis(),
       });
     },
 
@@ -186,6 +256,9 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
       if (!rangeValidation.ok) {
         return rangeValidation;
       }
+
+      const computeTimeseries = (): Result<TimeseriesResultDTO, AppError> =>
+        semanticMetrics.readTimeseries(query);
 
       return runWithAnalyticsTrace({
         db,
@@ -211,7 +284,22 @@ export function createMetricsQueries(db: Database.Database): MetricsQueries {
           },
         ],
         estimateRowCount: (value) => value.points.length,
-        execute: () => semanticMetrics.readTimeseries(query),
+        execute: () =>
+          cache
+            ? cache.getOrCompute({
+                metricId: 'metrics.getTimeseries.v1',
+                params: {
+                  channelId: query.channelId,
+                  metric: query.metric,
+                  granularity: query.granularity,
+                  dateFrom: query.dateFrom,
+                  dateTo: query.dateTo,
+                },
+                ttlMs: timeseriesCacheTtlMs,
+                execute: () => computeTimeseries(),
+                validate: (payload) => validateCachedTimeseriesPayload(payload),
+              })
+            : computeTimeseries(),
       });
     },
   };

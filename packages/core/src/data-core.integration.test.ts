@@ -61,6 +61,8 @@ describe('Data Core integration', () => {
       'ml_backtests',
       'analytics_trace_runs',
       'analytics_trace_lineage',
+      'analytics_query_cache',
+      'analytics_cache_events',
       'assistant_threads',
       'assistant_messages',
       'assistant_message_evidence',

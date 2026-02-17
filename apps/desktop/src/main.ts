@@ -1,4 +1,5 @@
-﻿import {
+import {
+  createAnalyticsQueryCache,
   createChannelQueries,
   createCoreRepository,
   createDatabaseConnection,
@@ -7,6 +8,7 @@
   runWithAnalyticsTrace,
   createSettingsQueries,
   runMigrations,
+  type AnalyticsQueryCache,
   type ChannelQueries,
   type ImportSearchQueries,
   type DatabaseConnection,
@@ -105,6 +107,7 @@ const DEFAULT_RECORDING_PATH = path.join(REPO_ROOT_PATH, 'fixtures', 'recordings
 
 interface BackendState {
   connection: DatabaseConnection | null;
+  analyticsCache: AnalyticsQueryCache | null;
   metricsQueries: MetricsQueries | null;
   channelQueries: ChannelQueries | null;
   settingsQueries: SettingsQueries | null;
@@ -118,6 +121,7 @@ interface BackendState {
 
 const backendState: BackendState = {
   connection: null,
+  analyticsCache: null,
   metricsQueries: null,
   channelQueries: null,
   settingsQueries: null,
@@ -192,6 +196,53 @@ function createAssistantNotReadyError(): AppError {
     'error',
     {},
   );
+}
+
+function logAnalyticsPerformanceSnapshot(trigger: string, context: Record<string, unknown>): void {
+  if (!backendState.analyticsCache) {
+    return;
+  }
+
+  const snapshotResult = backendState.analyticsCache.getPerformanceSnapshot({ windowHours: 24 });
+  if (!snapshotResult.ok) {
+    logger.warning('Nie udalo sie odczytac metryk wydajnosci cache analityki.', {
+      trigger,
+      context,
+      error: snapshotResult.error.toDTO(),
+    });
+    return;
+  }
+
+  logger.info('Snapshot wydajnosci analityki.', {
+    trigger,
+    context,
+    cache: snapshotResult.value.cache,
+    latencies: snapshotResult.value.latencies,
+  });
+}
+
+function invalidateAnalyticsCache(reason: string, context: Record<string, unknown>): void {
+  if (!backendState.analyticsCache) {
+    return;
+  }
+
+  const invalidateResult = backendState.analyticsCache.invalidateAll({ reason });
+  if (!invalidateResult.ok) {
+    logger.warning('Nie udalo sie zainwalidowac cache analityki.', {
+      reason,
+      context,
+      error: invalidateResult.error.toDTO(),
+    });
+    return;
+  }
+
+  logger.info('Zainwalidowano cache analityki.', {
+    reason,
+    context,
+    revision: invalidateResult.value.revision,
+    invalidatedEntries: invalidateResult.value.invalidatedEntries,
+  });
+  logAnalyticsPerformanceSnapshot(reason, context);
 }
 
 function createProfileReloadFailedError(details: Record<string, unknown>): AppError {
@@ -433,8 +484,9 @@ function initializeBackend(): Result<void, AppError> {
     return profileSyncResult;
   }
 
-  const metricsQueries = createMetricsQueries(connection.db);
-  const channelQueries = createChannelQueries(connection.db);
+  const analyticsCache = createAnalyticsQueryCache(connection.db);
+  const metricsQueries = createMetricsQueries(connection.db, { cache: analyticsCache });
+  const channelQueries = createChannelQueries(connection.db, { cache: analyticsCache });
   const settingsQueries = createSettingsQueries(connection.db);
   const importSearchQueries = createImportSearchQueries(connection.db);
   const assistantService = createAssistantLiteService({
@@ -471,6 +523,7 @@ function initializeBackend(): Result<void, AppError> {
   });
 
   backendState.connection = connection;
+  backendState.analyticsCache = analyticsCache;
   backendState.metricsQueries = metricsQueries;
   backendState.channelQueries = channelQueries;
   backendState.settingsQueries = settingsQueries;
@@ -499,6 +552,7 @@ function closeBackend(): void {
   }
 
   backendState.connection = null;
+  backendState.analyticsCache = null;
   backendState.metricsQueries = null;
   backendState.channelQueries = null;
   backendState.settingsQueries = null;
@@ -826,11 +880,19 @@ function runCsvImportCommand(input: CsvImportRunInputDTO): Result<CsvImportRunRe
     return importResult;
   }
 
+  invalidateAnalyticsCache('csv-import', {
+    channelId: input.channelId,
+    importId: importResult.value.importId,
+    sourceName: input.sourceName,
+  });
+
   const pipelineResult = runDataPipeline({
     db,
     channelId: input.channelId,
     sourceSyncRunId: null,
     maxFreshnessDays: 36500,
+    changedDateFrom: importResult.value.importedDateFrom,
+    changedDateTo: importResult.value.importedDateTo,
   });
   if (!pipelineResult.ok) {
     return err(
@@ -903,17 +965,35 @@ async function startSync(input: SyncStartInputDTO): Promise<Result<SyncCommandRe
     return err(activeProfileResult.error);
   }
 
-  return backendState.syncOrchestrator.startSync({
+  const syncResult = await backendState.syncOrchestrator.startSync({
     ...input,
     profileId: input.profileId ?? activeProfileResult.value.id,
   });
+
+  if (syncResult.ok && syncResult.value.status === 'completed') {
+    invalidateAnalyticsCache('sync-complete', {
+      syncRunId: syncResult.value.syncRunId,
+      channelId: input.channelId,
+      source: 'startSync',
+    });
+  }
+
+  return syncResult;
 }
 
 async function resumeSync(input: SyncResumeInputDTO): Promise<Result<SyncCommandResultDTO, AppError>> {
   if (!backendState.syncOrchestrator) {
     return err(createSyncNotReadyError());
   }
-  return backendState.syncOrchestrator.resumeSync(input);
+  const syncResult = await backendState.syncOrchestrator.resumeSync(input);
+  if (syncResult.ok && syncResult.value.status === 'completed') {
+    invalidateAnalyticsCache('sync-complete', {
+      syncRunId: syncResult.value.syncRunId,
+      channelId: input.channelId,
+      source: 'resumeSync',
+    });
+  }
+  return syncResult;
 }
 
 function runMlBaselineCommand(input: MlRunBaselineInputDTO): Result<MlRunBaselineResultDTO, AppError> {
@@ -1127,6 +1207,7 @@ function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGene
     dateFrom: input.dateFrom,
     dateTo: input.dateTo,
     targetMetric: input.targetMetric,
+    cache: backendState.analyticsCache ?? undefined,
   });
 }
 
@@ -1146,6 +1227,7 @@ function exportReportCommand(input: ReportExportInputDTO): Result<ReportExportRe
     targetMetric: input.targetMetric,
     exportDir: input.exportDir ?? defaultExportDir,
     formats: input.formats,
+    cache: backendState.analyticsCache ?? undefined,
   });
 }
 

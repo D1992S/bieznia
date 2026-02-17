@@ -85,3 +85,12 @@ export {
   type AnalyticsTraceLineageInput,
   type RunWithAnalyticsTraceInput,
 } from './observability/analytics-tracing.ts';
+export {
+  createAnalyticsQueryCache,
+  type AnalyticsQueryCache,
+  type CachedQueryInput,
+  type InvalidateAnalyticsCacheResult,
+  type AnalyticsPerformanceSnapshot,
+  type AnalyticsCacheMetricStats,
+  type AnalyticsOperationLatencyStats,
+} from './observability/analytics-query-cache.ts';

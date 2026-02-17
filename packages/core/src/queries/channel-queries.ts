@@ -9,6 +9,7 @@ import {
   type Result,
 } from '@moze/shared';
 import { runWithAnalyticsTrace } from '../observability/analytics-tracing.ts';
+import type { AnalyticsQueryCache } from '../observability/analytics-query-cache.ts';
 
 interface ChannelInfoRow {
   channelId: string;
@@ -26,6 +27,15 @@ export interface ChannelQueries {
   getChannelInfo: (query: ChannelIdDTO) => Result<ChannelInfoDTO, AppError>;
 }
 
+export interface CreateChannelQueriesOptions {
+  cache?: AnalyticsQueryCache;
+  cacheTtlMs?: {
+    getChannelInfo?: number;
+  };
+}
+
+const DEFAULT_CHANNEL_INFO_CACHE_TTL_MS = 60_000;
+
 function toError(cause: unknown): Error {
   if (cause instanceof Error) {
     return cause;
@@ -33,7 +43,30 @@ function toError(cause: unknown): Error {
   return new Error(String(cause));
 }
 
-export function createChannelQueries(db: Database.Database): ChannelQueries {
+function validateCachedChannelPayload(payload: unknown): Result<ChannelInfoDTO, AppError> {
+  const parsed = ChannelInfoDTOSchema.safeParse(payload);
+  if (!parsed.success) {
+    return err(
+      AppError.create(
+        'DB_CHANNEL_CACHE_PAYLOAD_INVALID',
+        'Niepoprawny payload cache informacji o kanale.',
+        'error',
+        { issues: parsed.error.issues },
+      ),
+    );
+  }
+  return ok(parsed.data);
+}
+
+export function createChannelQueries(
+  db: Database.Database,
+  options: CreateChannelQueriesOptions = {},
+): ChannelQueries {
+  const cache = options.cache;
+  const channelInfoCacheTtlMs = Math.max(
+    1,
+    Math.floor(options.cacheTtlMs?.getChannelInfo ?? DEFAULT_CHANNEL_INFO_CACHE_TTL_MS),
+  );
   const getChannelInfoStmt = db.prepare<{ channelId: string }, ChannelInfoRow>(
     `
       SELECT
@@ -54,8 +87,51 @@ export function createChannelQueries(db: Database.Database): ChannelQueries {
   );
 
   return {
-    getChannelInfo: (query) =>
-      runWithAnalyticsTrace({
+    getChannelInfo: (query) => {
+      const computeChannelInfo = (): Result<ChannelInfoDTO, AppError> => {
+        try {
+          const row = getChannelInfoStmt.get({ channelId: query.channelId });
+          if (!row) {
+            return err(
+              AppError.create(
+                'DB_CHANNEL_NOT_FOUND',
+                'Channel not found.',
+                'error',
+                { channelId: query.channelId },
+              ),
+            );
+          }
+
+          const parsed = ChannelInfoDTOSchema.safeParse(row);
+          if (!parsed.success) {
+            return err(
+              AppError.create(
+                'DB_CHANNEL_INFO_INVALID',
+                'Channel data in DB is invalid.',
+                'error',
+                {
+                  channelId: query.channelId,
+                  issues: parsed.error.issues,
+                },
+              ),
+            );
+          }
+
+          return ok(parsed.data);
+        } catch (cause) {
+          return err(
+            AppError.create(
+              'DB_QUERY_CHANNEL_INFO_FAILED',
+              'Failed to query channel data.',
+              'error',
+              { channelId: query.channelId },
+              toError(cause),
+            ),
+          );
+        }
+      };
+
+      return runWithAnalyticsTrace({
         db,
         operationName: 'channel.getChannelInfo',
         params: {
@@ -71,48 +147,19 @@ export function createChannelQueries(db: Database.Database): ChannelQueries {
           },
         ],
         estimateRowCount: () => 1,
-        execute: () => {
-          try {
-            const row = getChannelInfoStmt.get({ channelId: query.channelId });
-            if (!row) {
-              return err(
-                AppError.create(
-                  'DB_CHANNEL_NOT_FOUND',
-                  'Channel not found.',
-                  'error',
-                  { channelId: query.channelId },
-                ),
-              );
-            }
-
-            const parsed = ChannelInfoDTOSchema.safeParse(row);
-            if (!parsed.success) {
-              return err(
-                AppError.create(
-                  'DB_CHANNEL_INFO_INVALID',
-                  'Channel data in DB is invalid.',
-                  'error',
-                  {
-                    channelId: query.channelId,
-                    issues: parsed.error.issues,
-                  },
-                ),
-              );
-            }
-
-            return ok(parsed.data);
-          } catch (cause) {
-            return err(
-              AppError.create(
-                'DB_QUERY_CHANNEL_INFO_FAILED',
-                'Failed to query channel data.',
-                'error',
-                { channelId: query.channelId },
-                toError(cause),
-              ),
-            );
-          }
-        },
-      }),
+        execute: () =>
+          cache
+            ? cache.getOrCompute({
+                metricId: 'channel.getChannelInfo.v1',
+                params: {
+                  channelId: query.channelId,
+                },
+                ttlMs: channelInfoCacheTtlMs,
+                execute: () => computeChannelInfo(),
+                validate: (payload) => validateCachedChannelPayload(payload),
+              })
+            : computeChannelInfo(),
+      });
+    },
   };
 }

@@ -51,6 +51,8 @@ export interface CreateSyncOrchestratorInput {
     db: DatabaseConnection['db'];
     channelId: string;
     sourceSyncRunId: number;
+    changedDateFrom?: string | null;
+    changedDateTo?: string | null;
     now: () => Date;
   }) => Result<DataPipelineRunResult, AppError>;
   hooks?: {
@@ -215,8 +217,18 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
         db: pipelineInput.db,
         channelId: pipelineInput.channelId,
         sourceSyncRunId: pipelineInput.sourceSyncRunId,
+        changedDateFrom: pipelineInput.changedDateFrom,
+        changedDateTo: pipelineInput.changedDateTo,
         now: pipelineInput.now,
       }));
+  const readPersistedSyncDateStmt = input.db.prepare<{ syncRunId: number }, { syncDate: string | null }>(
+    `
+      SELECT
+        substr(MAX(fetched_at), 1, 10) AS syncDate
+      FROM raw_api_responses
+      WHERE sync_run_id = @syncRunId
+    `,
+  );
 
   let activeSyncRunId: number | null = null;
 
@@ -287,6 +299,22 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
       stage,
       status,
     });
+
+  const resolvePersistedSyncDate = (syncRunId: number): Result<string | null, AppError> => {
+    try {
+      const row = readPersistedSyncDateStmt.get({ syncRunId });
+      return ok(row?.syncDate ?? null);
+    } catch (cause) {
+      return err(
+        createSyncError(
+          'SYNC_PERSISTED_DATE_READ_FAILED',
+          'Nie udalo sie odczytac daty zmian dla inkrementalnego pipeline.',
+          { syncRunId },
+          cause,
+        ),
+      );
+    }
+  };
 
   const runProviderWithRetry = async <T>(
     params: {
@@ -391,7 +419,12 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
     profileId: string | null,
     requestedChannelId: string,
     collected: CollectedProviderData,
-  ): Result<{ channelId: string; recordsProcessed: number }, AppError> => {
+  ): Result<{
+    channelId: string;
+    recordsProcessed: number;
+    changedDateFrom: string;
+    changedDateTo: string;
+  }, AppError> => {
     if (collected.channel.channelId !== requestedChannelId) {
       return err(
         createSyncError(
@@ -569,6 +602,8 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
       return {
         channelId: collected.channel.channelId,
         recordsProcessed: 2 + uniqueVideoStats.length * 2,
+        changedDateFrom: syncDate,
+        changedDateTo: syncDate,
       };
     });
 
@@ -606,6 +641,8 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
     let recordsProcessed = 0;
     let pipelineFeatures: number | null = null;
     let persistedBatchAlreadyProcessed = false;
+    let changedDateFrom: string | null = null;
+    let changedDateTo: string | null = null;
 
     if (params.startFromStage !== 'run-pipeline') {
       const persistedBatchResult = repository.hasPersistedSyncBatch({
@@ -700,6 +737,8 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
 
       targetChannelId = persistResult.value.channelId;
       recordsProcessed = persistResult.value.recordsProcessed;
+      changedDateFrom = persistResult.value.changedDateFrom;
+      changedDateTo = persistResult.value.changedDateTo;
     }
 
     if (params.startFromStage !== 'run-pipeline' && persistedBatchAlreadyProcessed) {
@@ -709,6 +748,22 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
         percent: 65,
         message: 'Wykryto zapisany batch persist dla tego sync run. Pomijanie ponownego zapisu.',
       });
+    }
+
+    if (changedDateFrom === null || changedDateTo === null) {
+      const persistedDateResult = resolvePersistedSyncDate(params.syncRunId);
+      if (!persistedDateResult.ok) {
+        return finishAsFailed(
+          params.syncRunId,
+          params.startedAtIso,
+          'run-pipeline',
+          persistedDateResult.error,
+          recordsProcessed,
+          pipelineFeatures,
+        );
+      }
+      changedDateFrom = persistedDateResult.value;
+      changedDateTo = persistedDateResult.value;
     }
 
     currentStage = 'run-pipeline';
@@ -735,6 +790,8 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
       db: input.db,
       channelId: targetChannelId,
       sourceSyncRunId: params.syncRunId,
+      changedDateFrom,
+      changedDateTo,
       now,
     });
     if (!pipelineResult.ok) {
