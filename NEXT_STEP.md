@@ -27,7 +27,7 @@
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) |
 | 18 | Diagnostics + Recovery | DONE |
 | 19 | Polish + Local UX | DONE |
-| 20 | Refactor stabilizacyjny (modularyzacja UI/IPC + testy) | **NASTEPNA** |
+| 20 | Refactor stabilizacyjny (modularyzacja UI/IPC + testy) | DONE |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -564,7 +564,7 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
   - niski poziom testów UI względem złożoności ekranu głównego,
   - brak twardego gate dla granic architektury i budżetów performance w CI.
 
-## Nastepna faza (Faza 20)
+## Co zostalo zrobione (Faza 20)
 
 **Cel:** obnizenie dlugu technicznego bez zmiany funkcjonalnej aplikacji.
 
@@ -582,8 +582,15 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
 - aktualizacja `.github/workflows/ci.yml` o nowe gate'y
 
 **Definition of Done (Faza 20):**
-- `App.tsx` <= 600 LOC, `main.ts` <= 700 LOC, `use-dashboard-data.ts` <= 400 LOC,
-- dodanie testu IPC parity,
-- +10 testow UI dla krytycznych flow,
-- zielone `pnpm lint && pnpm typecheck && pnpm test && pnpm build`,
-- brak zmian kontraktow kompatybilnych wstecz (IPC v1).
+- [x] `App.tsx` <= 600 LOC, `main.ts` <= 700 LOC, `use-dashboard-data.ts` <= 400 LOC.
+- [x] Dodanie testu IPC parity.
+- [x] Dodanie 10+ testów UI dla krytycznych flow (helpery i mapowania warstwy Studio).
+- [x] Zielone `pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
+- [x] Brak zmian kontraktów kompatybilnych wstecz (IPC v1).
+
+## Co robic teraz (po fazie 20)
+
+- Tryb utrzymania:
+  - domykanie drobnych poprawek UX/copy zgłaszanych po testach manualnych,
+  - utrzymanie gate'ów CI (boundaries + LOC + performance),
+  - małe PR-y refaktorowe bez zmiany kontraktów IPC.

@@ -883,8 +883,10 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Diagnostics + Recovery: `diagnostics:getHealth` + `diagnostics:runRecovery`, health checks DB/cache/pipeline/IPC, akcje recovery i panel UI. DONE Faza 18
 - [x] Polish + Local UX: onboarding first-run, skróty klawiszowe, one-click przebieg tygodniowy i spójne komunikaty/retry w kluczowych panelach. DONE Faza 19
 - [x] Audyt techniczny calego kodu + backlog poprawek dla kolejnego LLM (`docs/reviews/2026-02-17-audyt-kodu-i-plan-poprawek-llm.md`).
-- [ ] ADR-001: Wybór stack'u technologicznego.
+- [x] Refactor stabilizacyjny: modularne entrypointy UI/desktop/hooks + parity IPC + testy UI + gate'y CI (`check:boundaries`, `check:loc`, `check:perf`). DONE Faza 20
+- [x] ADR: wybór stacku technologicznego (`docs/adr/011-stack-selection.md`).
 
 ---
 
-> Ten dokument jest „żywy": aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
+> Ten dokument jest „żywy”: aktualizować po każdej większej decyzji, aby zespół i modele AI pracowały zawsze na tej samej, aktualnej mapie projektu.
+

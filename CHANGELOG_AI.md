@@ -13,6 +13,58 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v46)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/ui/src/App.tsx`
+  - `apps/ui/src/features/studio/studio-app.tsx`
+  - `apps/ui/src/features/studio/studio-app-helpers.test.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/hooks/dashboard/use-dashboard-data-core.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/runtime/desktop-main.ts`
+  - `apps/desktop/src/ipc-parity.integration.test.ts`
+  - `.github/workflows/ci.yml`
+  - `package.json`
+  - `scripts/check-dependency-boundaries.mjs`
+  - `scripts/check-loc-budget.mjs`
+  - `scripts/check-ui-performance-budget.mjs`
+  - `docs/adr/011-stack-selection.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 20 (refactor stabilizacyjny) bez zmiany funkcjonalnej.
+  - Przeniesiono ciężkie entrypointy do modułów:
+    - `App.tsx` -> `features/studio/studio-app.tsx` (cienki wrapper),
+    - `main.ts` -> `runtime/desktop-main.ts` (cienki wrapper),
+    - `use-dashboard-data.ts` -> `hooks/dashboard/use-dashboard-data-core.ts` (cienki wrapper).
+  - Dodano test parity IPC: `apps/desktop/src/ipc-parity.integration.test.ts`.
+  - Dodano 13 testów UI helperów Studio.
+  - Dodano nowe gate'y CI:
+    - granice zależności (`check:boundaries`),
+    - budżet LOC dla plików brzegowych (`check:loc`),
+    - budżet wydajności UI po buildzie (`check:perf`).
+  - Dodano ADR stacku technologicznego: `docs/adr/011-stack-selection.md`.
+  - Zaktualizowano dokumentację statusową (README/NEXT_STEP/PLAN).
+- Dlaczego:
+  - Celem było zredukowanie długu technicznego i utrwalenie jakości przez twarde gate'y, bez łamania kompatybilności IPC.
+- Ryzyko/regresja:
+  - Niskie: refaktor organizacyjny i testowy, brak zmian kontraktów IPC.
+  - Umiarkowane: duże pliki przeniesiono do nowych lokalizacji, co zwiększa wagę poprawnych ścieżek importu.
+- Jak zweryfikowano:
+  - `corepack pnpm check:boundaries` - PASS
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (130/130)
+  - `corepack pnpm build` - PASS
+  - `corepack pnpm check:perf` - PASS
+- Następny krok:
+  - Tryb utrzymania: małe PR-y z poprawkami UX/copy i dalszą dekompozycją dużych modułów bez zmiany kontraktów.
+
 ## 2026-02-17 (v45)
 
 - Data: 2026-02-17
