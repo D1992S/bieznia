@@ -62,6 +62,8 @@ export const DEFAULT_CHANNEL_ID = 'UC-SEED-PL-001';
 export const DEFAULT_TOPIC_CLUSTER_LIMIT = 12;
 export const DEFAULT_TOPIC_GAP_LIMIT = 10;
 export const DEFAULT_DIAGNOSTICS_WINDOW_HOURS = 24;
+// Canonical default recovery set: when caller does not pass explicit actions,
+// the diagnostics runner executes all supported actions for the selected range.
 export const DEFAULT_DIAGNOSTICS_RECOVERY_ACTIONS: DiagnosticsRecoveryAction[] = [
   'integrity_check',
   'invalidate_analytics_cache',

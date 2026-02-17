@@ -1754,9 +1754,9 @@ export function App() {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <div>
-              <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Diagnostyka i recovery (Faza 18)</h3>
+              <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Diagnostyka i naprawa (Faza 18)</h3>
               <p style={{ marginTop: 6, marginBottom: 0, color: STUDIO_THEME.muted }}>
-                Health check modułów DB/cache/pipeline/IPC oraz bezpieczne akcje naprawcze.
+                Kontrola stanu modułów DB/cache/pipeline/IPC oraz bezpieczne akcje naprawcze.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1767,7 +1767,7 @@ export function App() {
                 }}
                 disabled={!dataEnabled || diagnosticsHealthQuery.isFetching}
               >
-                {diagnosticsHealthQuery.isFetching ? 'Odświeżanie...' : 'Odśwież health check'}
+                {diagnosticsHealthQuery.isFetching ? 'Odświeżanie...' : 'Odśwież kontrolę stanu'}
               </button>
               <button
                 type="button"
@@ -1784,7 +1784,7 @@ export function App() {
                 }}
                 disabled={isDiagnosticsRecoveryDisabled}
               >
-                {runDiagnosticsRecoveryMutation.isPending ? 'Uruchamianie recovery...' : 'Uruchom recovery'}
+                {runDiagnosticsRecoveryMutation.isPending ? 'Uruchamianie naprawy...' : 'Uruchom naprawę'}
               </button>
             </div>
           </div>
@@ -1794,19 +1794,19 @@ export function App() {
 
           {runDiagnosticsRecoveryMutation.isPending && (
             <p style={{ color: STUDIO_THEME.muted, marginBottom: 0 }}>
-              Trwa wykonywanie akcji recovery...
+              Trwa wykonywanie akcji naprawczych...
             </p>
           )}
           {runDiagnosticsRecoveryMutation.isError && (
             <p style={{ color: STUDIO_THEME.danger, marginBottom: 0 }}>
-              {readMutationErrorMessage(runDiagnosticsRecoveryMutation.error, 'Nie udało się uruchomić recovery.')}
+              {readMutationErrorMessage(runDiagnosticsRecoveryMutation.error, 'Nie udało się uruchomić naprawy.')}
             </p>
           )}
 
           {diagnosticsHealth && (
             <>
               <p style={{ marginTop: 8, marginBottom: 10, color: STUDIO_THEME.title }}>
-                Status ogólny:{' '}
+                Stan ogólny:{' '}
                 <strong style={{ color: getDiagnosticsStatusColor(diagnosticsHealth.overallStatus) }}>
                   {getDiagnosticsHealthStatusLabel(diagnosticsHealth.overallStatus)}
                 </strong>{' '}
@@ -1825,7 +1825,7 @@ export function App() {
                     }}
                   >
                     <p style={{ margin: 0 }}>
-                      <strong>{check.checkId}</strong> ({check.module}) | status:{' '}
+                      <strong>{check.checkId}</strong> ({check.module}) | stan:{' '}
                       <span style={{ color: getDiagnosticsStatusColor(check.status) }}>
                         {getDiagnosticsHealthStatusLabel(check.status)}
                       </span>{' '}
@@ -1841,7 +1841,7 @@ export function App() {
           {diagnosticsRecoveryResult && (
             <div style={{ marginTop: 10 }}>
               <p style={{ margin: 0, color: STUDIO_THEME.title }}>
-                Ostatnie recovery:{' '}
+                Ostatnia naprawa:{' '}
                 <strong
                   style={{
                     color: diagnosticsRecoveryResult.overallStatus === 'ok'

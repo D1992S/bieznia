@@ -854,22 +854,24 @@ function createTestContext(): TestContext {
           },
         ],
       }),
-    diagnosticsRunRecovery: (input) =>
-      ok({
+    diagnosticsRunRecovery: (input) => {
+      const dedupedActions = [...new Set(input.actions)];
+      return ok({
         generatedAt: '2026-02-18T12:05:00.000Z',
         channelId: input.channelId,
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
-        requestedActions: input.actions,
+        requestedActions: dedupedActions,
         overallStatus: 'ok',
-        steps: input.actions.map((action) => ({
+        steps: dedupedActions.map((action) => ({
           action,
           status: 'ok',
           message: `Wykonano akcję ${action}.`,
           durationMs: 1,
           details: {},
         })),
-      }),
+      });
+    },
     generateReport: (input) =>
       ok({
         generatedAt: '2026-02-12T22:30:00.000Z',
