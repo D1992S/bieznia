@@ -150,7 +150,7 @@ export function createTopicRepository(db: Database.Database): TopicRepository {
         return err(
           AppError.create(
             'DB_TOPIC_GAPS_DELETE_FAILED',
-            'Nie udalo sie usunac zapisanych luk topic.',
+            'Failed to delete persisted topic gaps.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -171,7 +171,7 @@ export function createTopicRepository(db: Database.Database): TopicRepository {
         return err(
           AppError.create(
             'DB_TOPIC_PRESSURE_DELETE_FAILED',
-            'Nie udalo sie usunac zapisanej presji topic.',
+            'Failed to delete persisted topic pressure.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -195,7 +195,7 @@ export function createTopicRepository(db: Database.Database): TopicRepository {
         return err(
           AppError.create(
             'DB_TOPIC_CLUSTER_UPSERT_FAILED',
-            'Nie udalo sie zapisac klastra topic.',
+            'Failed to save topic cluster.',
             'error',
             { channelId: input.channelId, clusterId: input.clusterId },
             toError(cause),
@@ -225,7 +225,7 @@ export function createTopicRepository(db: Database.Database): TopicRepository {
         return err(
           AppError.create(
             'DB_TOPIC_GAP_INSERT_FAILED',
-            'Nie udalo sie zapisac luki topic.',
+            'Failed to save topic gap.',
             'error',
             { channelId: input.channelId, clusterId: input.clusterId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -251,7 +251,7 @@ export function createTopicRepository(db: Database.Database): TopicRepository {
         return err(
           AppError.create(
             'DB_TOPIC_PRESSURE_UPSERT_FAILED',
-            'Nie udalo sie zapisac presji topic.',
+            'Failed to save topic pressure.',
             'error',
             { channelId: input.channelId, clusterId: input.clusterId, date: input.date },
             toError(cause),
@@ -261,14 +261,25 @@ export function createTopicRepository(db: Database.Database): TopicRepository {
     },
 
     runInTransaction: <T>(operation: () => Result<T, AppError>) => {
+      const transactionErrorRef: { current: AppError | null } = { current: null };
       try {
-        const transaction = db.transaction(() => operation());
-        return transaction();
+        const transaction = db.transaction(() => {
+          const result = operation();
+          if (!result.ok) {
+            transactionErrorRef.current = result.error;
+            throw new Error(result.error.message);
+          }
+          return result.value;
+        });
+        return ok(transaction());
       } catch (cause) {
+        if (transactionErrorRef.current !== null) {
+          return err(transactionErrorRef.current);
+        }
         return err(
           AppError.create(
             'DB_TOPIC_TRANSACTION_FAILED',
-            'Nie udalo sie wykonac transakcji topic.',
+            'Failed to execute topic transaction.',
             'error',
             {},
             toError(cause),

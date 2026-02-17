@@ -457,6 +457,7 @@ export function App() {
   const [csvHasHeader, setCsvHasHeader] = useState(true);
   const [csvText, setCsvText] = useState('date,views,subscribers,videos,likes,comments,title,description\n2026-02-01,1200,10000,150,120,15,Nowy film,Opis filmu');
   const [csvMapping, setCsvMapping] = useState<Partial<CsvImportColumnMappingDTO>>({});
+  const [csvValidationError, setCsvValidationError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [anomalySeverityFilter, setAnomalySeverityFilter] = useState<'all' | MlAnomalySeverity>('all');
   const [lastAutoAnomalyRunKey, setLastAutoAnomalyRunKey] = useState<string | null>(null);
@@ -2637,6 +2638,7 @@ export function App() {
           <button
             type="button"
             onClick={() => {
+              setCsvValidationError(null);
               csvPreviewMutation.mutate({
                 channelId,
                 sourceName: csvSourceName.trim() || 'manual-csv',
@@ -2656,13 +2658,19 @@ export function App() {
               if (!canRunCsvImport) {
                 return;
               }
+              const parsedMapping = CsvImportColumnMappingDTOSchema.safeParse(csvMapping);
+              if (!parsedMapping.success) {
+                setCsvValidationError('Nieprawidłowe mapowanie CSV - spróbuj ponownie.');
+                return;
+              }
+              setCsvValidationError(null);
               csvImportMutation.mutate({
                 channelId,
                 sourceName: csvSourceName.trim() || 'manual-csv',
                 csvText,
                 delimiter: csvDelimiter,
                 hasHeader: csvHasHeader,
-                mapping: CsvImportColumnMappingDTOSchema.parse(csvMapping),
+                mapping: parsedMapping.data,
               });
             }}
             disabled={csvImportMutation.isPending || csvText.trim().length === 0 || !canRunCsvImport}
@@ -2673,6 +2681,7 @@ export function App() {
 
         {csvPreviewMutation.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się przygotować podglądu CSV.</p>}
         {csvImportMutation.isError && <p style={{ color: STUDIO_THEME.danger }}>Import CSV zakończył się błędem.</p>}
+        {csvValidationError && <p style={{ color: STUDIO_THEME.danger }}>{csvValidationError}</p>}
 
         {csvPreviewMutation.data && (
           <>
@@ -2689,6 +2698,7 @@ export function App() {
                     value={csvMapping[fieldConfig.field] ?? ''}
                     onChange={(event) => {
                       const nextValue = event.target.value;
+                      setCsvValidationError(null);
                       setCsvMapping((current) => ({
                         ...current,
                         [fieldConfig.field]: nextValue.length > 0 ? nextValue : undefined,

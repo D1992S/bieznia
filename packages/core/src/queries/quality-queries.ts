@@ -47,7 +47,6 @@ export function createQualityQueries(db: Database.Database): QualityQueries {
       FROM fact_channel_day
       WHERE channel_id = @channelId
         AND date BETWEEN @dateFrom AND @dateTo
-      ORDER BY date ASC
     `,
   );
 

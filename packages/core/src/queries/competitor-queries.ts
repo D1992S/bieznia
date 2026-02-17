@@ -128,7 +128,7 @@ export function createCompetitorQueries(db: Database.Database): CompetitorQuerie
         return err(
           AppError.create(
             'DB_COMPETITOR_OWNER_DAYS_READ_FAILED',
-            'Nie udalo sie odczytac metryk kanalu do analizy konkurencji.',
+            'Failed to read channel metrics for competitor analysis.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -150,7 +150,7 @@ export function createCompetitorQueries(db: Database.Database): CompetitorQuerie
         return err(
           AppError.create(
             'DB_COMPETITOR_SNAPSHOT_READ_FAILED',
-            'Nie udalo sie odczytac zapisanego snapshotu konkurencji.',
+            'Failed to read persisted competitor snapshot.',
             'error',
             {
               channelId: input.channelId,
@@ -176,7 +176,7 @@ export function createCompetitorQueries(db: Database.Database): CompetitorQuerie
         return err(
           AppError.create(
             'DB_COMPETITOR_SNAPSHOTS_READ_FAILED',
-            'Nie udalo sie odczytac danych konkurencji.',
+            'Failed to read competitor snapshot data.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),

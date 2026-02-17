@@ -80,7 +80,7 @@ const COMPETITOR_SNAPSHOT_ROW_SCHEMA = z.object({
 const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   {
     competitorChannelId: 'UC-COMP-ALFA',
-    name: 'KanaĹ‚ Alfa',
+    name: 'Kanał Alfa',
     handle: '@kanal_alfa',
     viewsFactor: 1.08,
     viewsTrend: 0.22,
@@ -91,7 +91,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-BETA',
-    name: 'KanaĹ‚ Beta',
+    name: 'Kanał Beta',
     handle: '@kanal_beta',
     viewsFactor: 0.94,
     viewsTrend: 0.15,
@@ -102,7 +102,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-GAMMA',
-    name: 'KanaĹ‚ Gamma',
+    name: 'Kanał Gamma',
     handle: '@kanal_gamma',
     viewsFactor: 1.17,
     viewsTrend: 0.29,
@@ -113,7 +113,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-DELTA',
-    name: 'KanaĹ‚ Delta',
+    name: 'Kanał Delta',
     handle: '@kanal_delta',
     viewsFactor: 0.88,
     viewsTrend: 0.09,
@@ -124,7 +124,7 @@ const DEFAULT_COMPETITOR_PROFILES: ReadonlyArray<CompetitorBaseProfile> = [
   },
   {
     competitorChannelId: 'UC-COMP-OMEGA',
-    name: 'KanaĹ‚ Omega',
+    name: 'Kanał Omega',
     handle: '@kanal_omega',
     viewsFactor: 1.26,
     viewsTrend: 0.31,
@@ -167,7 +167,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
     return err(
       createCompetitorError(
         'COMPETITOR_INVALID_DATE_RANGE',
-        'Data poczÄ…tkowa nie moĹĽe byÄ‡ pĂłĹşniejsza niĹĽ koĹ„cowa.',
+        'Data poczatkowa nie moze byc pozniejsza niz koncowa.',
         { dateFrom, dateTo },
       ),
     );
@@ -222,7 +222,7 @@ function buildCompetitorProfiles(count: number): CompetitorBaseProfile[] {
     const sequence = index + 1;
     profiles.push({
       competitorChannelId: `UC-COMP-${String(sequence).padStart(3, '0')}`,
-      name: `KanaĹ‚ ${sequence}`,
+      name: `Kanał ${sequence}`,
       handle: `@kanal_${sequence}`,
       viewsFactor: 0.9 + (sequence % 5) * 0.08,
       viewsTrend: 0.07 + (sequence % 7) * 0.03,
@@ -340,7 +340,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
     return err(
       createCompetitorError(
         'COMPETITOR_SYNC_SOURCE_EMPTY',
-        'Brak danych kanaĹ‚u w wybranym zakresie do synchronizacji konkurencji.',
+        'Brak danych kanalu w wybranym zakresie do synchronizacji konkurencji.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -501,7 +501,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
     return err(
       createCompetitorError(
         'COMPETITOR_SYNC_FAILED',
-        'Nie udaĹ‚o siÄ™ zsynchronizowaÄ‡ danych konkurencji.',
+        'Nie udalo sie zsynchronizowac danych konkurencji.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -533,7 +533,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     return err(
       createCompetitorError(
         'COMPETITOR_INSIGHTS_SOURCE_EMPTY',
-        'Brak danych kanaĹ‚u w wybranym zakresie do porĂłwnania z konkurencjÄ….',
+        'Brak danych kanalu w wybranym zakresie do porownania z konkurencja.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -549,7 +549,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     return err(
       createCompetitorError(
         'COMPETITOR_OWNER_RANGE_INVALID',
-        'Nie udaĹ‚o siÄ™ policzyÄ‡ benchmarku kanaĹ‚u dla konkurencji.',
+        'Nie udalo sie policzyc benchmarku kanalu dla konkurencji.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -592,7 +592,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
       return err(
         createCompetitorError(
           'COMPETITOR_INSIGHTS_ROW_INVALID',
-          'Dane konkurencji majÄ… niepoprawny format.',
+          'Dane konkurencji maja niepoprawny format.',
           {
             channelId: input.channelId,
             dateFrom: input.dateFrom,

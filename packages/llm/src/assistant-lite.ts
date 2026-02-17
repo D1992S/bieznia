@@ -211,7 +211,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_READ_CHANNEL_FAILED',
-            'Nie udaĹ‚o siÄ™ odczytaÄ‡ informacji o kanale.',
+            'Nie udalo sie odczytac informacji o kanale.',
             { channelId: context.channelId, causeErrorCode: channelResult.error.code },
             channelResult.error,
           ),
@@ -326,7 +326,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_READ_TOP_VIDEOS_FAILED',
-            'Nie udaĹ‚o siÄ™ odczytaÄ‡ top filmĂłw.',
+            'Nie udalo sie odczytac top filmow.',
             { channelId: context.channelId, causeErrorCode: topVideosResult.error.code },
             topVideosResult.error,
           ),
@@ -386,7 +386,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_READ_ANOMALIES_FAILED',
-            'Nie udaĹ‚o siÄ™ odczytaÄ‡ anomalii.',
+            'Nie udalo sie odczytac anomalii.',
             {
               channelId: context.channelId,
               targetMetric: context.targetMetric,
@@ -499,7 +499,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_PERSIST_FAILED',
-            'Nie udaĹ‚o siÄ™ zapisaÄ‡ rozmowy asystenta.',
+            'Nie udalo sie zapisac rozmowy asystenta.',
             {
               channelId: assistantInput.channelId,
               threadId: assistantInput.threadId ?? null,
@@ -608,7 +608,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_PERSIST_FAILED',
-            'Nie udaĹ‚o siÄ™ zapisaÄ‡ rozmowy asystenta.',
+            'Nie udalo sie zapisac rozmowy asystenta.',
             {
               channelId: assistantInput.channelId,
               threadId: assistantInput.threadId ?? null,
@@ -669,7 +669,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREADS_READ_FAILED',
-            'Nie udaĹ‚o siÄ™ odczytaÄ‡ listy wÄ…tkĂłw.',
+            'Nie udalo sie odczytac listy watkow.',
             {
               channelId: listInput.channelId ?? null,
               limit: listInput.limit,
@@ -728,7 +728,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREAD_MESSAGES_READ_FAILED',
-            'Nie udaĹ‚o siÄ™ odczytaÄ‡ wiadomoĹ›ci wÄ…tku.',
+            'Nie udalo sie odczytac wiadomosci watku.',
             { threadId: threadInput.threadId, causeErrorCode: threadResult.error.code },
             threadResult.error,
           ),
@@ -750,7 +750,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREAD_MESSAGES_READ_FAILED',
-            'Nie udaĹ‚o siÄ™ odczytaÄ‡ wiadomoĹ›ci wÄ…tku.',
+            'Nie udalo sie odczytac wiadomosci watku.',
             { threadId: threadInput.threadId, causeErrorCode: messageRowsResult.error.code },
             messageRowsResult.error,
           ),
@@ -763,7 +763,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREAD_MESSAGES_READ_FAILED',
-            'Nie udaĹ‚o siÄ™ odczytaÄ‡ wiadomoĹ›ci wÄ…tku.',
+            'Nie udalo sie odczytac wiadomosci watku.',
             { threadId: threadInput.threadId, causeErrorCode: evidenceRowsResult.error.code },
             evidenceRowsResult.error,
           ),

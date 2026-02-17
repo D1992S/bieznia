@@ -128,7 +128,7 @@ export function createCompetitorRepository(db: Database.Database): CompetitorRep
         return err(
           AppError.create(
             'DB_COMPETITOR_PROFILE_UPSERT_FAILED',
-            'Nie udalo sie zapisac profilu konkurenta.',
+            'Failed to save competitor profile.',
             'error',
             { channelId: input.channelId, competitorChannelId: input.competitorChannelId },
             toError(cause),
@@ -156,7 +156,7 @@ export function createCompetitorRepository(db: Database.Database): CompetitorRep
         return err(
           AppError.create(
             'DB_COMPETITOR_SNAPSHOT_UPSERT_FAILED',
-            'Nie udalo sie zapisac snapshotu konkurencji.',
+            'Failed to save competitor snapshot.',
             'error',
             {
               channelId: input.channelId,
@@ -170,14 +170,25 @@ export function createCompetitorRepository(db: Database.Database): CompetitorRep
     },
 
     runInTransaction: <T>(operation: () => Result<T, AppError>) => {
+      const transactionErrorRef: { current: AppError | null } = { current: null };
       try {
-        const transaction = db.transaction(() => operation());
-        return transaction();
+        const transaction = db.transaction(() => {
+          const result = operation();
+          if (!result.ok) {
+            transactionErrorRef.current = result.error;
+            throw new Error(result.error.message);
+          }
+          return result.value;
+        });
+        return ok(transaction());
       } catch (cause) {
+        if (transactionErrorRef.current !== null) {
+          return err(transactionErrorRef.current);
+        }
         return err(
           AppError.create(
             'DB_COMPETITOR_TRANSACTION_FAILED',
-            'Nie udalo sie wykonac transakcji konkurencji.',
+            'Failed to execute competitor transaction.',
             'error',
             {},
             toError(cause),

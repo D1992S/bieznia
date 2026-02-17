@@ -267,7 +267,7 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
         return err(
           AppError.create(
             'DB_PIPELINE_STAGING_CLEAR_FAILED',
-            'Nie udalo sie wyczyscic tabel staging pipeline.',
+            'Failed to clear pipeline staging tables.',
             'error',
             { channelId: input.channelId },
             toError(cause),
@@ -295,7 +295,7 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
         return err(
           AppError.create(
             'DB_PIPELINE_STG_CHANNEL_INSERT_FAILED',
-            'Nie udalo sie zapisac kanalu do staging pipeline.',
+            'Failed to save channel in pipeline staging.',
             'error',
             { channelId: input.channelId },
             toError(cause),
@@ -324,7 +324,7 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
         return err(
           AppError.create(
             'DB_PIPELINE_STG_VIDEO_INSERT_FAILED',
-            'Nie udalo sie zapisac filmu do staging pipeline.',
+            'Failed to save video in pipeline staging.',
             'error',
             { channelId: input.channelId, videoId: input.videoId },
             toError(cause),
@@ -346,7 +346,7 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
         return err(
           AppError.create(
             'DB_PIPELINE_FEATURES_DELETE_FAILED',
-            'Nie udalo sie usunac poprzednich cech pipeline.',
+            'Failed to delete previous pipeline features.',
             'error',
             {
               channelId: input.channelId,
@@ -380,7 +380,7 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
         return err(
           AppError.create(
             'DB_PIPELINE_FEATURE_INSERT_FAILED',
-            'Nie udalo sie zapisac cechy pipeline.',
+            'Failed to save pipeline feature.',
             'error',
             { channelId: input.channelId, date: input.date, featureSetVersion: input.featureSetVersion },
             toError(cause),
@@ -406,7 +406,7 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
         return err(
           AppError.create(
             'DB_PIPELINE_LINEAGE_INSERT_FAILED',
-            'Nie udalo sie zapisac wpisu lineage pipeline.',
+            'Failed to save pipeline lineage entry.',
             'error',
             {
               pipelineStage: input.pipelineStage,
@@ -420,14 +420,25 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
     },
 
     runInTransaction: <T>(operation: () => Result<T, AppError>) => {
+      const transactionErrorRef: { current: AppError | null } = { current: null };
       try {
-        const transaction = db.transaction(() => operation());
-        return transaction();
+        const transaction = db.transaction(() => {
+          const result = operation();
+          if (!result.ok) {
+            transactionErrorRef.current = result.error;
+            throw new Error(result.error.message);
+          }
+          return result.value;
+        });
+        return ok(transaction());
       } catch (cause) {
+        if (transactionErrorRef.current !== null) {
+          return err(transactionErrorRef.current);
+        }
         return err(
           AppError.create(
             'DB_PIPELINE_TRANSACTION_FAILED',
-            'Nie udalo sie wykonac transakcji pipeline.',
+            'Failed to execute pipeline transaction.',
             'error',
             {},
             toError(cause),

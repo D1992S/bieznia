@@ -3,6 +3,6 @@ export function formatNumber(value: number): string {
 }
 
 export function formatDateTick(dateIso: string): string {
-  const parsed = new Date(`${dateIso}T00:00:00`);
+  const parsed = new Date(`${dateIso}T00:00:00Z`);
   return parsed.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' });
 }

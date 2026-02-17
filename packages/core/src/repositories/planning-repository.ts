@@ -175,10 +175,21 @@ export function createPlanningRepository(db: Database.Database): PlanningReposit
     },
 
     runInTransaction: <T>(operation: () => Result<T, AppError>) => {
+      const transactionErrorRef: { current: AppError | null } = { current: null };
       try {
-        const transaction = db.transaction(() => operation());
-        return transaction();
+        const transaction = db.transaction(() => {
+          const result = operation();
+          if (!result.ok) {
+            transactionErrorRef.current = result.error;
+            throw new Error(result.error.message);
+          }
+          return result.value;
+        });
+        return ok(transaction());
       } catch (cause) {
+        if (transactionErrorRef.current !== null) {
+          return err(transactionErrorRef.current);
+        }
         return err(
           AppError.create(
             'DB_PLANNING_TRANSACTION_FAILED',

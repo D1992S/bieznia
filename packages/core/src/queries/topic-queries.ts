@@ -201,7 +201,7 @@ export function createTopicQueries(db: Database.Database): TopicQueries {
         return err(
           AppError.create(
             'DB_TOPIC_VIDEO_AGGREGATES_READ_FAILED',
-            'Nie udalo sie odczytac agregatow video dla Topic Intelligence.',
+            'Failed to read video aggregates for Topic Intelligence.',
             'error',
             {
               channelId: input.channelId,
@@ -228,7 +228,7 @@ export function createTopicQueries(db: Database.Database): TopicQueries {
         return err(
           AppError.create(
             'DB_TOPIC_VIDEO_DAYS_READ_FAILED',
-            'Nie udalo sie odczytac dziennych danych video dla Topic Intelligence.',
+            'Failed to read daily video data for Topic Intelligence.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -250,7 +250,7 @@ export function createTopicQueries(db: Database.Database): TopicQueries {
         return err(
           AppError.create(
             'DB_TOPIC_COMPETITOR_SUMMARY_READ_FAILED',
-            'Nie udalo sie odczytac podsumowania konkurencji dla Topic Intelligence.',
+            'Failed to read competitor summary for Topic Intelligence.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -273,7 +273,7 @@ export function createTopicQueries(db: Database.Database): TopicQueries {
         return err(
           AppError.create(
             'DB_TOPIC_PERSISTED_CLUSTERS_READ_FAILED',
-            'Nie udalo sie odczytac zapisanych klastrow topic.',
+            'Failed to read persisted topic clusters.',
             'error',
             {
               channelId: input.channelId,
@@ -301,7 +301,7 @@ export function createTopicQueries(db: Database.Database): TopicQueries {
         return err(
           AppError.create(
             'DB_TOPIC_PERSISTED_GAPS_READ_FAILED',
-            'Nie udalo sie odczytac zapisanych luk topic.',
+            'Failed to read persisted topic gaps.',
             'error',
             {
               channelId: input.channelId,
