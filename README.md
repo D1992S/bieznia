@@ -4,7 +4,7 @@ Analityczna aplikacja desktopowa (Electron) dla twórców YouTube: synchronizacj
 
 ## Postęp realizacji
 
-> Ukończono fazy 0-19 (z wyjątkiem Fazy 17 oznaczonej jako SKIP solo). Projekt jest gotowy do używania lokalnie i do testów regresyjnych. Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+> Ukończono fazy 0-20 (z wyjątkiem Fazy 17 oznaczonej jako SKIP solo). Projekt jest gotowy do używania lokalnie i do testów regresyjnych. Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
 | Faza | Nazwa | Status | Co działa |
 |------|-------|--------|-----------|
@@ -29,7 +29,7 @@ Analityczna aplikacja desktopowa (Electron) dla twórców YouTube: synchronizacj
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) | Poza zakresem dla trybu solo |
 | 18 | Diagnostics + Recovery | DONE | Kontrola stanu + akcje naprawcze |
 | 19 | Polish + Local UX | DONE | Onboarding, skróty, one-click flow, UX polish |
-| 20 | Refactor stabilizacyjny (modularyzacja UI/IPC + testy) | **NASTĘPNA** | Redukcja długu technicznego bez zmian funkcjonalnych |
+| 20 | Refactor stabilizacyjny (modularyzacja UI/IPC + testy) | DONE | Redukcja długu technicznego bez zmian funkcjonalnych |
 
 ## Uruchomienie lokalne
 
