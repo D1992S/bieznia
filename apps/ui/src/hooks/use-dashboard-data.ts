@@ -7,6 +7,7 @@ import type {
   DataMode,
   MlAnomalySeverity,
   MlTargetMetric,
+  QualityScoreResultDTO,
   ReportExportFormat,
   TimeseriesQueryDTO,
 } from '@moze/shared';
@@ -27,6 +28,7 @@ import {
   fetchMlAnomalies,
   fetchKpis,
   fetchMlForecast,
+  fetchQualityScores,
   fetchMlTrend,
   fetchProfileSettings,
   fetchProfiles,
@@ -111,6 +113,7 @@ function invalidateProfileScopedQueries(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: ['auth'] });
   void queryClient.invalidateQueries({ queryKey: ['db'] });
   void queryClient.invalidateQueries({ queryKey: ['ml'] });
+  void queryClient.invalidateQueries({ queryKey: ['analytics'] });
   void queryClient.invalidateQueries({ queryKey: ['reports'] });
   void queryClient.invalidateQueries({ queryKey: ['assistant'] });
 }
@@ -301,6 +304,7 @@ export function useCsvImportRunMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'forecast', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['search', 'content', input.channelId] });
     },
@@ -380,6 +384,7 @@ export function useStartSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['db'] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies'] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -395,6 +400,7 @@ export function useResumeSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['db'] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies'] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -491,6 +497,21 @@ export function useMlTrendQuery(
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
         seasonalityPeriodDays: 7,
+      }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useQualityScoresQuery(channelId: string, range: DateRange, enabled: boolean) {
+  return useQuery<QualityScoreResultDTO>({
+    queryKey: ['analytics', 'quality', channelId, range.dateFrom, range.dateTo],
+    queryFn: () =>
+      fetchQualityScores({
+        channelId,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        limit: 12,
       }),
     enabled,
     staleTime: 30_000,

@@ -34,6 +34,7 @@ import {
   useMlAnomaliesQuery,
   useMlForecastQuery,
   useMlTrendQuery,
+  useQualityScoresQuery,
   useProbeDataModeMutation,
   useProfileSettingsQuery,
   useProfilesQuery,
@@ -219,6 +220,17 @@ function getAnomalyMethodLabel(method: AnomalyMethod): string {
   }
 }
 
+function getQualityConfidenceLabel(confidence: 'low' | 'medium' | 'high'): string {
+  switch (confidence) {
+    case 'high':
+      return 'wysoka';
+    case 'medium':
+      return 'średnia';
+    case 'low':
+      return 'niska';
+  }
+}
+
 function mergeSeriesWithForecast(
   actualPoints: TimeseriesPoint[] | undefined,
   forecastPoints: MlForecastPointDTO[] | undefined,
@@ -385,6 +397,7 @@ export function App() {
     dataEnabled,
   );
   const mlTrendQuery = useMlTrendQuery(channelId, mlTargetMetric, dateRange, dataEnabled);
+  const qualityScoresQuery = useQualityScoresQuery(channelId, dateRange, dataEnabled);
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
   const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
   const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
@@ -553,6 +566,7 @@ export function App() {
     const mappedHeader = csvMapping[field];
     return typeof mappedHeader === 'string' && mappedHeader.trim().length > 0;
   });
+  const qualityScores = qualityScoresQuery.data;
   const assistantThreads = assistantThreadsQuery.data?.items ?? [];
   const assistantMessages = assistantThreadMessagesQuery.data?.messages ?? [];
 
@@ -1148,6 +1162,66 @@ export function App() {
               )}
             </section>
           </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            border: `1px solid ${STUDIO_THEME.border}`,
+            borderRadius: 16,
+            background: STUDIO_THEME.panelElevated,
+            padding: 14,
+          }}
+        >
+          <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Ocena jakości treści (Faza 13)</h3>
+          <p style={{ marginTop: 6, marginBottom: 10, color: STUDIO_THEME.muted }}>
+            Ranking jakości treści na podstawie dynamiki, efektywności, zaangażowania, retencji i stabilności.
+          </p>
+          {qualityScoresQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Obliczanie oceny jakości...</p>}
+          {qualityScoresQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać oceny jakości.</p>}
+          {qualityScores && (
+            <>
+              <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
+                Przeliczono {formatNumber(qualityScores.total)} filmów dla zakresu {qualityScores.dateFrom} - {qualityScores.dateTo}.
+              </p>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {qualityScores.items.map((item, index) => {
+                  const confidenceColor = item.confidence === 'high'
+                    ? STUDIO_THEME.success
+                    : item.confidence === 'medium'
+                      ? STUDIO_THEME.warning
+                      : STUDIO_THEME.muted;
+                  return (
+                    <article
+                      key={`quality-score-${item.videoId}`}
+                      style={{
+                        border: `1px solid ${STUDIO_THEME.border}`,
+                        borderRadius: 10,
+                        background: STUDIO_THEME.panel,
+                        padding: 10,
+                      }}
+                    >
+                      <p style={{ margin: 0 }}>
+                        <strong>#{index + 1} {item.title}</strong> | wynik: <strong>{item.score.toFixed(2)}</strong>
+                      </p>
+                      <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                        ID: {item.videoId} | dni danych: {formatNumber(item.daysWithData)} | pewność:{' '}
+                        <span style={{ color: confidenceColor }}>{getQualityConfidenceLabel(item.confidence)}</span>
+                      </p>
+                      <p style={{ margin: '4px 0 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                        dynamika: {formatPercent(item.components.velocity)} | efektywność: {formatPercent(item.components.efficiency)} | zaangażowanie:{' '}
+                        {formatPercent(item.components.engagement)} | retencja: {formatPercent(item.components.retention)} | stabilność:{' '}
+                        {formatPercent(item.components.consistency)}
+                      </p>
+                    </article>
+                  );
+                })}
+                {qualityScores.items.length === 0 && (
+                  <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak filmów do oceny jakości dla wybranego zakresu.</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </section>
       )}

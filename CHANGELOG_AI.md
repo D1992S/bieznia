@@ -13,6 +13,92 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-17 (v38)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/009-quality-scoring-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/analytics/src/quality-scoring.ts`
+  - `packages/analytics/src/quality-scoring.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/package.json`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/005-quality-scoring.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `pnpm-lock.yaml`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 13 (Quality Scoring) end-to-end.
+  - Dodano kontrakty IPC/DTO dla quality scoring oraz kanał `analytics:getQualityScores`.
+  - Dodano migrację `009-quality-scoring-schema` z tabelą `agg_quality_scores`.
+  - Wdrożono `@moze/analytics/getQualityScores(...)`:
+    - komponenty velocity/efficiency/engagement/retention/consistency,
+    - normalizacja percentile rank w kanale,
+    - confidence labels na podstawie dni historii,
+    - zapis breakdown do SQLite.
+  - Podłączono desktop backend + IPC + preload + UI API + hooki React Query.
+  - Dodano panel "Quality scoring (Faza 13)" w zakładce `Statystyki`.
+  - Dodano i rozszerzono testy integracyjne (analytics/shared/desktop/core).
+  - Dodano ADR `005-quality-scoring.md` oraz zaktualizowano statusy dokumentacji (README/NEXT_STEP/PLAN).
+- Dlaczego:
+  - Celem było dostarczenie wielowymiarowego rankingu jakości contentu z jawną wiarygodnością wyniku i pełną ścieżką IPC/UI.
+- Ryzyko/regresja:
+  - Score jest relatywny (percentile wewnątrz kanału), więc zmienia się wraz z rozkładem danych.
+  - Każde odświeżenie rankingu wykonuje przeliczenie i persystencję `agg_quality_scores` dla zakresu.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (98/98)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 14 (Competitor Intelligence): schemat konkurencji, ingestion snapshotów i hit detection z integracją UI/IPC.
+
+## 2026-02-17 (v39)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/analytics/src/quality-scoring.integration.test.ts`
+  - `apps/ui/src/App.tsx`
+  - `packages/core/src/migrations/009-quality-scoring-schema.ts`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Usunięto przyczynę błędu ESLint (`@typescript-eslint/no-unnecessary-condition`) w teście quality scoring:
+    - zastąpiono zbędny warunek logiczny mapowaniem do typowanej tablicy `confidences`.
+  - Dokończono polonizację sekcji jakości treści w UI:
+    - nagłówki, komunikaty loading/error/empty-state i nazwy komponentów metryk.
+  - Rozszerzono migrację `009-quality-scoring-schema` o CHECK constraints:
+    - `score` w zakresie `0..100`,
+    - składowe `velocity/efficiency/engagement/retention/consistency` w zakresie `0..1`,
+    - zakres dat `date_from <= date_to`.
+  - Poprawiono diakrytykę i spójność językową wpisu v38 w `CHANGELOG_AI.md`.
+- Dlaczego:
+  - Celem było usunięcie faila CI oraz domknięcie uwag review dotyczących lokalizacji i walidacji schematu na poziomie bazy.
+- Ryzyko/regresja:
+  - Niskie: zmiany obejmują test, teksty UI i dodatkowe ograniczenia schematu.
+  - Umiarkowane: nowe CHECK constraints mogą odrzucić niepoprawne dane przy przyszłych zmianach zapisu.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm test packages/analytics/src/quality-scoring.integration.test.ts apps/desktop/src/ipc-handlers.integration.test.ts packages/shared/src/ipc/contracts.test.ts` - PASS
+- Następny krok:
+  - Kontynuować Fazę 14 (Competitor Intelligence) na branchu po merge PR #17.
+
 ## 2026-02-17 (v37)
 
 - Data: 2026-02-17

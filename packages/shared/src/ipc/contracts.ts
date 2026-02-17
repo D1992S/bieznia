@@ -387,6 +387,62 @@ export type MlTrendResultDTO = z.infer<typeof MlTrendResultDTOSchema>;
 export const MlTrendResultSchema = IpcResultSchema(MlTrendResultDTOSchema);
 export type MlTrendResult = z.infer<typeof MlTrendResultSchema>;
 
+export const QualityScoreConfidenceSchema = z.enum(['low', 'medium', 'high']);
+export type QualityScoreConfidence = z.infer<typeof QualityScoreConfidenceSchema>;
+
+export const QualityScoreQueryInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  limit: z.number().int().min(1).max(200).default(20),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+
+export type QualityScoreQueryInputDTO = z.infer<typeof QualityScoreQueryInputDTOSchema>;
+
+export const QualityScoreComponentsDTOSchema = z.object({
+  velocity: z.number().min(0).max(1),
+  efficiency: z.number().min(0).max(1),
+  engagement: z.number().min(0).max(1),
+  retention: z.number().min(0).max(1),
+  consistency: z.number().min(0).max(1),
+});
+export type QualityScoreComponentsDTO = z.infer<typeof QualityScoreComponentsDTOSchema>;
+
+export const QualityScoreRawComponentsDTOSchema = z.object({
+  velocity: z.number().nonnegative(),
+  efficiency: z.number().nonnegative(),
+  engagement: z.number().nonnegative(),
+  retention: z.number().nonnegative(),
+  consistency: z.number().nonnegative(),
+});
+export type QualityScoreRawComponentsDTO = z.infer<typeof QualityScoreRawComponentsDTOSchema>;
+
+export const QualityScoreItemDTOSchema = z.object({
+  videoId: z.string().min(1),
+  channelId: z.string().min(1),
+  title: z.string().min(1),
+  publishedAt: z.iso.datetime(),
+  score: z.number().min(0).max(100),
+  confidence: QualityScoreConfidenceSchema,
+  daysWithData: z.number().int().nonnegative(),
+  components: QualityScoreComponentsDTOSchema,
+  rawComponents: QualityScoreRawComponentsDTOSchema,
+  calculatedAt: z.iso.datetime(),
+});
+export type QualityScoreItemDTO = z.infer<typeof QualityScoreItemDTOSchema>;
+
+export const QualityScoreResultDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  total: z.number().int().nonnegative(),
+  calculatedAt: z.iso.datetime(),
+  items: z.array(QualityScoreItemDTOSchema),
+});
+export type QualityScoreResultDTO = z.infer<typeof QualityScoreResultDTOSchema>;
+export const QualityScoreResultSchema = IpcResultSchema(QualityScoreResultDTOSchema);
+export type QualityScoreResult = z.infer<typeof QualityScoreResultSchema>;
+
 export const ReportDateRangeDTOSchema = z.object({
   dateFrom: z.iso.date(),
   dateTo: z.iso.date(),
@@ -818,6 +874,7 @@ export const IPC_CHANNELS = {
   ML_GET_TREND: 'ml:getTrend',
   REPORTS_GENERATE: 'reports:generate',
   REPORTS_EXPORT: 'reports:export',
+  ANALYTICS_GET_QUALITY_SCORES: 'analytics:getQualityScores',
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',

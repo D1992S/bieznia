@@ -24,6 +24,8 @@ import type {
   MlRunBaselineResult,
   MlTrendQueryInputDTO,
   MlTrendResult,
+  QualityScoreQueryInputDTO,
+  QualityScoreResult,
   ProfileCreateInputDTO,
   ProfileListResult,
   ProfileSetActiveInputDTO,
@@ -74,6 +76,7 @@ export interface ElectronAPI {
   mlDetectAnomalies: (input: MlDetectAnomaliesInputDTO) => Promise<MlDetectAnomaliesResult>;
   mlGetAnomalies: (input: MlAnomalyQueryInputDTO) => Promise<MlAnomalyListResult>;
   mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
+  analyticsGetQualityScores: (input: QualityScoreQueryInputDTO) => Promise<QualityScoreResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;

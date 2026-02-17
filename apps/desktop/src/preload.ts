@@ -28,6 +28,8 @@
   MlRunBaselineResultSchema,
   MlTrendQueryInputDTOSchema,
   MlTrendResultSchema,
+  QualityScoreQueryInputDTOSchema,
+  QualityScoreResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultSchema,
   ProfileSetActiveInputDTOSchema,
@@ -78,6 +80,8 @@
   type MlRunBaselineResult,
   type MlTrendQueryInputDTO,
   type MlTrendResult,
+  type QualityScoreQueryInputDTO,
+  type QualityScoreResult,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileSetActiveInputDTO,
@@ -130,6 +134,7 @@ export interface ElectronAPI {
   mlDetectAnomalies: (input: MlDetectAnomaliesInputDTO) => Promise<MlDetectAnomaliesResult>;
   mlGetAnomalies: (input: MlAnomalyQueryInputDTO) => Promise<MlAnomalyListResult>;
   mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
+  analyticsGetQualityScores: (input: QualityScoreQueryInputDTO) => Promise<QualityScoreResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
@@ -369,6 +374,13 @@ const api: ElectronAPI = {
       input,
       MlTrendQueryInputDTOSchema,
       MlTrendResultSchema,
+    ),
+  analyticsGetQualityScores: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ANALYTICS_GET_QUALITY_SCORES,
+      input,
+      QualityScoreQueryInputDTOSchema,
+      QualityScoreResultSchema,
     ),
   reportsGenerate: (input) =>
     invokeValidated(

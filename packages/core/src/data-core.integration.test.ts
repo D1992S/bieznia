@@ -63,6 +63,7 @@ describe('Data Core integration', () => {
       'analytics_trace_lineage',
       'analytics_query_cache',
       'analytics_cache_events',
+      'agg_quality_scores',
       'assistant_threads',
       'assistant_messages',
       'assistant_message_evidence',
