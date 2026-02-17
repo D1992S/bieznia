@@ -687,6 +687,112 @@ export type SearchContentResultDTO = z.infer<typeof SearchContentResultDTOSchema
 export const SearchContentResultSchema = IpcResultSchema(SearchContentResultDTOSchema);
 export type SearchContentResult = z.infer<typeof SearchContentResultSchema>;
 
+export const AssistantConfidenceSchema = z.enum(['low', 'medium', 'high']);
+export type AssistantConfidence = z.infer<typeof AssistantConfidenceSchema>;
+
+export const AssistantToolNameSchema = z.enum([
+  'read_channel_info',
+  'read_kpis',
+  'read_top_videos',
+  'read_anomalies',
+]);
+export type AssistantToolName = z.infer<typeof AssistantToolNameSchema>;
+
+export const AssistantEvidenceItemDTOSchema = z.object({
+  evidenceId: z.string().min(1),
+  tool: AssistantToolNameSchema,
+  label: z.string().min(1),
+  value: z.string().min(1),
+  sourceTable: z.string().min(1),
+  sourceRecordId: z.string().min(1),
+});
+export type AssistantEvidenceItemDTO = z.infer<typeof AssistantEvidenceItemDTOSchema>;
+
+export const AssistantAskInputDTOSchema = z.object({
+  threadId: z.string().min(1).nullable().optional(),
+  channelId: z.string().min(1),
+  question: z.string().min(3).max(2000),
+  dateFrom: z.iso.date().nullable().optional(),
+  dateTo: z.iso.date().nullable().optional(),
+  targetMetric: MlTargetMetricSchema.default('views'),
+}).refine(
+  (value) => {
+    if (!value.dateFrom || !value.dateTo) {
+      return true;
+    }
+    return value.dateFrom <= value.dateTo;
+  },
+  'Data poczatkowa nie moze byc pozniejsza niz koncowa.',
+);
+export type AssistantAskInputDTO = z.infer<typeof AssistantAskInputDTOSchema>;
+
+export const AssistantAskResultDTOSchema = z.object({
+  threadId: z.string().min(1),
+  messageId: z.number().int().positive(),
+  answer: z.string().min(1),
+  confidence: AssistantConfidenceSchema,
+  followUpQuestions: z.array(z.string().min(1)),
+  evidence: z.array(AssistantEvidenceItemDTOSchema),
+  usedStub: z.boolean(),
+  createdAt: z.iso.datetime(),
+});
+export type AssistantAskResultDTO = z.infer<typeof AssistantAskResultDTOSchema>;
+export const AssistantAskResultSchema = IpcResultSchema(AssistantAskResultDTOSchema);
+export type AssistantAskResult = z.infer<typeof AssistantAskResultSchema>;
+
+export const AssistantThreadListInputDTOSchema = z.object({
+  channelId: z.string().min(1).nullable().optional(),
+  limit: z.number().int().min(1).max(100).default(20),
+});
+export type AssistantThreadListInputDTO = z.infer<typeof AssistantThreadListInputDTOSchema>;
+
+export const AssistantThreadSummaryDTOSchema = z.object({
+  threadId: z.string().min(1),
+  channelId: z.string().min(1),
+  title: z.string().min(1),
+  lastQuestion: z.string().min(1).nullable(),
+  updatedAt: z.iso.datetime(),
+  createdAt: z.iso.datetime(),
+});
+export type AssistantThreadSummaryDTO = z.infer<typeof AssistantThreadSummaryDTOSchema>;
+
+export const AssistantThreadListResultDTOSchema = z.object({
+  items: z.array(AssistantThreadSummaryDTOSchema),
+});
+export type AssistantThreadListResultDTO = z.infer<typeof AssistantThreadListResultDTOSchema>;
+export const AssistantThreadListResultSchema = IpcResultSchema(AssistantThreadListResultDTOSchema);
+export type AssistantThreadListResult = z.infer<typeof AssistantThreadListResultSchema>;
+
+export const AssistantThreadMessagesInputDTOSchema = z.object({
+  threadId: z.string().min(1),
+});
+export type AssistantThreadMessagesInputDTO = z.infer<typeof AssistantThreadMessagesInputDTOSchema>;
+
+export const AssistantMessageRoleSchema = z.enum(['user', 'assistant']);
+export type AssistantMessageRole = z.infer<typeof AssistantMessageRoleSchema>;
+
+export const AssistantMessageDTOSchema = z.object({
+  messageId: z.number().int().positive(),
+  threadId: z.string().min(1),
+  role: AssistantMessageRoleSchema,
+  text: z.string().min(1),
+  confidence: AssistantConfidenceSchema.nullable(),
+  followUpQuestions: z.array(z.string().min(1)),
+  evidence: z.array(AssistantEvidenceItemDTOSchema),
+  createdAt: z.iso.datetime(),
+});
+export type AssistantMessageDTO = z.infer<typeof AssistantMessageDTOSchema>;
+
+export const AssistantThreadMessagesResultDTOSchema = z.object({
+  threadId: z.string().min(1),
+  channelId: z.string().min(1),
+  title: z.string().min(1),
+  messages: z.array(AssistantMessageDTOSchema),
+});
+export type AssistantThreadMessagesResultDTO = z.infer<typeof AssistantThreadMessagesResultDTOSchema>;
+export const AssistantThreadMessagesResultSchema = IpcResultSchema(AssistantThreadMessagesResultDTOSchema);
+export type AssistantThreadMessagesResult = z.infer<typeof AssistantThreadMessagesResultSchema>;
+
 export const IPC_CHANNELS = {
   APP_GET_STATUS: 'app:getStatus',
   APP_GET_DATA_MODE: 'app:getDataMode',
@@ -715,6 +821,9 @@ export const IPC_CHANNELS = {
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',
+  ASSISTANT_ASK: 'assistant:ask',
+  ASSISTANT_LIST_THREADS: 'assistant:listThreads',
+  ASSISTANT_GET_THREAD_MESSAGES: 'assistant:getThreadMessages',
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

@@ -55,6 +55,15 @@ import {
   SearchContentInputDTOSchema,
   SearchContentResultDTOSchema,
   SearchContentResultSchema,
+  AssistantAskInputDTOSchema,
+  AssistantAskResultDTOSchema,
+  AssistantAskResultSchema,
+  AssistantThreadListInputDTOSchema,
+  AssistantThreadListResultDTOSchema,
+  AssistantThreadListResultSchema,
+  AssistantThreadMessagesInputDTOSchema,
+  AssistantThreadMessagesResultDTOSchema,
+  AssistantThreadMessagesResultSchema,
   SyncCommandResultDTOSchema,
   SyncCommandResultSchema,
   SyncResumeInputDTOSchema,
@@ -122,6 +131,15 @@ import {
   type SearchContentInputDTO,
   type SearchContentResult,
   type SearchContentResultDTO,
+  type AssistantAskInputDTO,
+  type AssistantAskResult,
+  type AssistantAskResultDTO,
+  type AssistantThreadListInputDTO,
+  type AssistantThreadListResult,
+  type AssistantThreadListResultDTO,
+  type AssistantThreadMessagesInputDTO,
+  type AssistantThreadMessagesResult,
+  type AssistantThreadMessagesResultDTO,
   type TimeseriesQueryDTO,
   type TimeseriesResult,
   type TimeseriesResultDTO,
@@ -153,6 +171,9 @@ export interface DesktopIpcBackend {
   getMlTrend: (input: MlTrendQueryInputDTO) => Result<MlTrendResultDTO, AppError> | Promise<Result<MlTrendResultDTO, AppError>>;
   generateReport: (input: ReportGenerateInputDTO) => Result<ReportGenerateResultDTO, AppError> | Promise<Result<ReportGenerateResultDTO, AppError>>;
   exportReport: (input: ReportExportInputDTO) => Result<ReportExportResultDTO, AppError> | Promise<Result<ReportExportResultDTO, AppError>>;
+  askAssistant: (input: AssistantAskInputDTO) => Result<AssistantAskResultDTO, AppError> | Promise<Result<AssistantAskResultDTO, AppError>>;
+  listAssistantThreads: (input: AssistantThreadListInputDTO) => Result<AssistantThreadListResultDTO, AppError> | Promise<Result<AssistantThreadListResultDTO, AppError>>;
+  getAssistantThreadMessages: (input: AssistantThreadMessagesInputDTO) => Result<AssistantThreadMessagesResultDTO, AppError> | Promise<Result<AssistantThreadMessagesResultDTO, AppError>>;
   getKpis: (query: KpiQueryDTO) => Result<KpiResultDTO, AppError>;
   getTimeseries: (query: TimeseriesQueryDTO) => Result<TimeseriesResultDTO, AppError>;
   getChannelInfo: (query: { channelId: string }) => Result<ChannelInfoDTO, AppError>;
@@ -556,6 +577,45 @@ export async function handleReportsExport(
   );
 }
 
+export async function handleAssistantAsk(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<AssistantAskResult> {
+  return runHandlerAsync(
+    payload,
+    AssistantAskInputDTOSchema,
+    AssistantAskResultDTOSchema,
+    AssistantAskResultSchema,
+    (input) => backend.askAssistant(input),
+  );
+}
+
+export async function handleAssistantListThreads(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<AssistantThreadListResult> {
+  return runHandlerAsync(
+    payload,
+    AssistantThreadListInputDTOSchema,
+    AssistantThreadListResultDTOSchema,
+    AssistantThreadListResultSchema,
+    (input) => backend.listAssistantThreads(input),
+  );
+}
+
+export async function handleAssistantGetThreadMessages(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<AssistantThreadMessagesResult> {
+  return runHandlerAsync(
+    payload,
+    AssistantThreadMessagesInputDTOSchema,
+    AssistantThreadMessagesResultDTOSchema,
+    AssistantThreadMessagesResultSchema,
+    (input) => backend.getAssistantThreadMessages(input),
+  );
+}
+
 export function handleDbGetKpis(backend: DesktopIpcBackend, payload: unknown): KpiResult {
   return runHandler(
     payload,
@@ -611,6 +671,9 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.ML_GET_TREND, (_event, payload) => handleMlGetTrend(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_GENERATE, (_event, payload) => handleReportsGenerate(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_EXPORT, (_event, payload) => handleReportsExport(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ASSISTANT_ASK, (_event, payload) => handleAssistantAsk(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ASSISTANT_LIST_THREADS, (_event, payload) => handleAssistantListThreads(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ASSISTANT_GET_THREAD_MESSAGES, (_event, payload) => handleAssistantGetThreadMessages(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_KPIS, (_event, payload) => handleDbGetKpis(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_TIMESERIES, (_event, payload) => handleDbGetTimeseries(backend, payload));
   ipcMain.handle(IPC_CHANNELS.DB_GET_CHANNEL_INFO, (_event, payload) => handleDbGetChannelInfo(backend, payload));

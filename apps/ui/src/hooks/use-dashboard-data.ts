@@ -1,5 +1,8 @@
 ﻿import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type {
+  AssistantAskResultDTO,
+  AssistantThreadListResultDTO,
+  AssistantThreadMessagesResultDTO,
   CsvImportColumnMappingDTO,
   DataMode,
   MlAnomalySeverity,
@@ -9,12 +12,15 @@ import type {
 } from '@moze/shared';
 import {
   connectAuth,
+  askAssistant,
   createProfile,
   detectMlAnomalies,
   disconnectAuth,
   exportDashboardReport,
   fetchAppStatus,
   fetchAuthStatus,
+  fetchAssistantThreadMessages,
+  fetchAssistantThreads,
   fetchChannelInfo,
   fetchDashboardReport,
   fetchDataModeStatus,
@@ -89,6 +95,15 @@ export interface SearchContentResult {
   items: SearchContentItem[];
 }
 
+export interface AssistantAskInput {
+  threadId?: string | null;
+  channelId: string;
+  question: string;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  targetMetric?: MlTargetMetric;
+}
+
 function invalidateProfileScopedQueries(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: ['app'] });
   void queryClient.invalidateQueries({ queryKey: ['profiles'] });
@@ -97,6 +112,7 @@ function invalidateProfileScopedQueries(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: ['db'] });
   void queryClient.invalidateQueries({ queryKey: ['ml'] });
   void queryClient.invalidateQueries({ queryKey: ['reports'] });
+  void queryClient.invalidateQueries({ queryKey: ['assistant'] });
 }
 
 function toIsoDate(date: Date): string {
@@ -306,6 +322,50 @@ export function useSearchContentMutation() {
         total: result.total,
         items: result.items,
       };
+    },
+  });
+}
+
+export function useAssistantThreadsQuery(channelId: string, enabled: boolean) {
+  return useQuery<AssistantThreadListResultDTO>({
+    queryKey: ['assistant', 'threads', channelId],
+    queryFn: () =>
+      fetchAssistantThreads({
+        channelId,
+        limit: 20,
+      }),
+    enabled,
+    staleTime: 10_000,
+  });
+}
+
+export function useAssistantThreadMessagesQuery(threadId: string | null, enabled: boolean) {
+  return useQuery<AssistantThreadMessagesResultDTO>({
+    queryKey: ['assistant', 'thread', threadId],
+    queryFn: () =>
+      fetchAssistantThreadMessages({
+        threadId: threadId ?? '',
+      }),
+    enabled: enabled && Boolean(threadId),
+    staleTime: 5_000,
+  });
+}
+
+export function useAskAssistantMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<AssistantAskResultDTO, Error, AssistantAskInput>({
+    mutationFn: (input) =>
+      askAssistant({
+        threadId: input.threadId ?? null,
+        channelId: input.channelId,
+        question: input.question,
+        dateFrom: input.dateFrom ?? null,
+        dateTo: input.dateTo ?? null,
+        targetMetric: input.targetMetric ?? 'views',
+      }),
+    onSuccess: (result, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['assistant', 'threads', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['assistant', 'thread', result.threadId] });
     },
   });
 }

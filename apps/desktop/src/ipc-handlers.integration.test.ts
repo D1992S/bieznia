@@ -32,6 +32,9 @@ import {
   handleProfileSetActive,
   handleReportsExport,
   handleReportsGenerate,
+  handleAssistantAsk,
+  handleAssistantGetThreadMessages,
+  handleAssistantListThreads,
   handleSettingsGet,
   handleSettingsUpdate,
   handleSearchContent,
@@ -120,6 +123,33 @@ function createTestContext(): TestContext {
     connectedAt: null as string | null,
     storage: 'safeStorage' as const,
   };
+  let assistantThreadCounter = 0;
+  let assistantMessageCounter = 0;
+  let assistantThreads: Array<{
+    threadId: string;
+    channelId: string;
+    title: string;
+    lastQuestion: string | null;
+    updatedAt: string;
+    createdAt: string;
+  }> = [];
+  const assistantMessagesByThread = new Map<string, Array<{
+    messageId: number;
+    threadId: string;
+    role: 'user' | 'assistant';
+    text: string;
+    confidence: 'low' | 'medium' | 'high' | null;
+    followUpQuestions: string[];
+    evidence: Array<{
+      evidenceId: string;
+      tool: 'read_channel_info' | 'read_kpis' | 'read_top_videos' | 'read_anomalies';
+      label: string;
+      value: string;
+      sourceTable: string;
+      sourceRecordId: string;
+    }>;
+    createdAt: string;
+  }>>();
 
   const syncProfileFlags = (nextActiveProfileId: string): void => {
     activeProfileId = nextActiveProfileId;
@@ -489,6 +519,108 @@ function createTestContext(): TestContext {
           { kind: 'top_videos.csv', path: 'C:/tmp/moze-report/top_videos.csv', sizeBytes: 120 },
         ],
       }),
+    askAssistant: (input) => {
+      const nowIso = '2026-02-16T00:45:20.000Z';
+      const threadId = input.threadId && input.threadId.trim().length > 0
+        ? input.threadId
+        : `thread-${String(++assistantThreadCounter).padStart(3, '0')}`;
+      const existingThread = assistantThreads.find((thread) => thread.threadId === threadId);
+      if (!existingThread) {
+        assistantThreads = [
+          {
+            threadId,
+            channelId: input.channelId,
+            title: input.question,
+            lastQuestion: input.question,
+            createdAt: nowIso,
+            updatedAt: nowIso,
+          },
+          ...assistantThreads,
+        ];
+      } else {
+        assistantThreads = assistantThreads.map((thread) =>
+          thread.threadId === threadId
+            ? { ...thread, lastQuestion: input.question, updatedAt: nowIso }
+            : thread);
+      }
+
+      const history = assistantMessagesByThread.get(threadId) ?? [];
+      assistantMessageCounter += 1;
+      const userMessageId = assistantMessageCounter;
+      assistantMessageCounter += 1;
+      const assistantMessageId = assistantMessageCounter;
+      const assistantMessage = {
+        messageId: assistantMessageId,
+        threadId,
+        role: 'assistant' as const,
+        text: 'W analizowanym okresie kanal utrzymal dodatni trend wyswietlen.',
+        confidence: 'high' as const,
+        followUpQuestions: ['Czy chcesz porownanie z poprzednim okresem?'],
+        evidence: [
+          {
+            evidenceId: `ev-${String(assistantMessageId)}`,
+            tool: 'read_kpis' as const,
+            label: 'Suma wyswietlen',
+            value: '50000',
+            sourceTable: 'fact_channel_day',
+            sourceRecordId: `channel_id=${input.channelId}`,
+          },
+        ],
+        createdAt: nowIso,
+      };
+
+      assistantMessagesByThread.set(threadId, [
+        ...history,
+        {
+          messageId: userMessageId,
+          threadId,
+          role: 'user',
+          text: input.question,
+          confidence: null,
+          followUpQuestions: [],
+          evidence: [],
+          createdAt: nowIso,
+        },
+        assistantMessage,
+      ]);
+
+      return ok({
+        threadId,
+        messageId: assistantMessageId,
+        answer: assistantMessage.text,
+        confidence: assistantMessage.confidence,
+        followUpQuestions: assistantMessage.followUpQuestions,
+        evidence: assistantMessage.evidence,
+        usedStub: true,
+        createdAt: nowIso,
+      });
+    },
+    listAssistantThreads: (input) => {
+      const filtered = assistantThreads.filter((thread) => !input.channelId || thread.channelId === input.channelId);
+      return ok({
+        items: filtered.slice(0, input.limit),
+      });
+    },
+    getAssistantThreadMessages: (input) => {
+      const thread = assistantThreads.find((item) => item.threadId === input.threadId);
+      if (!thread) {
+        return err(
+          AppError.create(
+            'ASSISTANT_THREAD_NOT_FOUND',
+            'Nie znaleziono watku asystenta.',
+            'error',
+            { threadId: input.threadId },
+          ),
+        );
+      }
+
+      return ok({
+        threadId: thread.threadId,
+        channelId: thread.channelId,
+        title: thread.title,
+        messages: assistantMessagesByThread.get(input.threadId) ?? [],
+      });
+    },
     getKpis: (query) => metricsQueries.getKpis(query),
     getTimeseries: (query) => metricsQueries.getTimeseries(query),
     getChannelInfo: (query) => channelQueries.getChannelInfo(query),
@@ -745,6 +877,37 @@ describe('Desktop IPC handlers integration', () => {
       expect(reportExportResult.value.files.length).toBeGreaterThan(0);
     }
 
+    const assistantAskResult = await handleAssistantAsk(ctx.backend, {
+      channelId: ctx.channelId,
+      question: 'Jak szly moje filmy w ostatnim miesiacu?',
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      targetMetric: 'views',
+    });
+    expect(assistantAskResult.ok).toBe(true);
+    if (assistantAskResult.ok) {
+      expect(assistantAskResult.value.usedStub).toBe(true);
+      expect(assistantAskResult.value.evidence.length).toBeGreaterThan(0);
+    }
+
+    const assistantListResult = await handleAssistantListThreads(ctx.backend, {
+      channelId: ctx.channelId,
+      limit: 20,
+    });
+    expect(assistantListResult.ok).toBe(true);
+    if (assistantListResult.ok) {
+      expect(assistantListResult.value.items.length).toBeGreaterThan(0);
+    }
+
+    const assistantThreadId = assistantAskResult.ok ? assistantAskResult.value.threadId : null;
+    const assistantMessagesResult = await handleAssistantGetThreadMessages(ctx.backend, {
+      threadId: assistantThreadId ?? 'thread-001',
+    });
+    expect(assistantMessagesResult.ok).toBe(true);
+    if (assistantMessagesResult.ok) {
+      expect(assistantMessagesResult.value.messages.length).toBeGreaterThanOrEqual(2);
+    }
+
     const kpiResult = handleDbGetKpis(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -876,6 +1039,32 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidSearch.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidAssistantAsk = await handleAssistantAsk(ctx.backend, {
+      channelId: ctx.channelId,
+      question: 'ok',
+    });
+    expect(invalidAssistantAsk.ok).toBe(false);
+    if (!invalidAssistantAsk.ok) {
+      expect(invalidAssistantAsk.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidAssistantList = await handleAssistantListThreads(ctx.backend, {
+      channelId: ctx.channelId,
+      limit: 0,
+    });
+    expect(invalidAssistantList.ok).toBe(false);
+    if (!invalidAssistantList.ok) {
+      expect(invalidAssistantList.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidAssistantMessages = await handleAssistantGetThreadMessages(ctx.backend, {
+      threadId: '',
+    });
+    expect(invalidAssistantMessages.ok).toBe(false);
+    if (!invalidAssistantMessages.ok) {
+      expect(invalidAssistantMessages.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidSyncStart = await handleSyncStart(ctx.backend, { recentLimit: 10 });
     expect(invalidSyncStart.ok).toBe(false);
     if (!invalidSyncStart.ok) {
@@ -961,6 +1150,9 @@ describe('Desktop IPC handlers integration', () => {
       getMlTrend: (input) => ctx.backend.getMlTrend(input),
       generateReport: (input) => ctx.backend.generateReport(input),
       exportReport: (input) => ctx.backend.exportReport(input),
+      askAssistant: (input) => ctx.backend.askAssistant(input),
+      listAssistantThreads: (input) => ctx.backend.listAssistantThreads(input),
+      getAssistantThreadMessages: (input) => ctx.backend.getAssistantThreadMessages(input),
       getKpis: (query) => ctx.backend.getKpis(query),
       getTimeseries: (query) => ctx.backend.getTimeseries(query),
       getChannelInfo: (query) => ctx.backend.getChannelInfo(query),

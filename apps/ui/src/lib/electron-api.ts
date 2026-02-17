@@ -36,6 +36,12 @@ import type {
   ReportGenerateResultDTO,
   SearchContentInputDTO,
   SearchContentResultDTO,
+  AssistantAskInputDTO,
+  AssistantAskResultDTO,
+  AssistantThreadListInputDTO,
+  AssistantThreadListResultDTO,
+  AssistantThreadMessagesInputDTO,
+  AssistantThreadMessagesResultDTO,
   SettingsUpdateInputDTO,
   SyncCommandResultDTO,
   SyncResumeInputDTO,
@@ -214,6 +220,28 @@ export async function fetchDashboardReport(input: ReportGenerateInputDTO): Promi
 export async function exportDashboardReport(input: ReportExportInputDTO): Promise<ReportExportResultDTO> {
   const api = ensureElectronApi();
   const result = await api.reportsExport(input);
+  return unwrapResult(result);
+}
+
+export async function askAssistant(input: AssistantAskInputDTO): Promise<AssistantAskResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.assistantAsk(input);
+  return unwrapResult(result);
+}
+
+export async function fetchAssistantThreads(
+  input: AssistantThreadListInputDTO,
+): Promise<AssistantThreadListResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.assistantListThreads(input);
+  return unwrapResult(result);
+}
+
+export async function fetchAssistantThreadMessages(
+  input: AssistantThreadMessagesInputDTO,
+): Promise<AssistantThreadMessagesResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.assistantGetThreadMessages(input);
   return unwrapResult(result);
 }
 
