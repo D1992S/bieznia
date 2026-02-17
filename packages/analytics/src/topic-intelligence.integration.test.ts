@@ -80,8 +80,8 @@ describe('Topic intelligence integration', () => {
       channelId: seeded.channelId,
       dateFrom: seeded.dateFrom,
       dateTo: seeded.dateTo,
-      clusterLimit: 200,
-      gapLimit: 200,
+      clusterLimit: 30,
+      gapLimit: 30,
       now: () => new Date('2026-02-18T08:01:00.000Z'),
     });
     expect(runResult.ok).toBe(true);
@@ -162,8 +162,8 @@ describe('Topic intelligence integration', () => {
       channelId: seeded.channelId,
       dateFrom: seeded.dateFrom,
       dateTo: seeded.dateTo,
-      clusterLimit: 200,
-      gapLimit: 200,
+      clusterLimit: 30,
+      gapLimit: 30,
       now: () => new Date('2026-02-18T08:02:00.000Z'),
     });
     expect(getResult.ok).toBe(true);
@@ -246,8 +246,8 @@ describe('Topic intelligence integration', () => {
       channelId: seeded.channelId,
       dateFrom: seeded.dateFrom,
       dateTo: seeded.dateTo,
-      clusterLimit: 200,
-      gapLimit: 200,
+      clusterLimit: 30,
+      gapLimit: 30,
       now: () => new Date('2026-02-18T09:01:00.000Z'),
     });
     expect(runResult.ok).toBe(true);

@@ -13,6 +13,8 @@ import type {
 } from '@moze/shared';
 import {
   DEFAULT_CHANNEL_ID,
+  DEFAULT_TOPIC_CLUSTER_LIMIT,
+  DEFAULT_TOPIC_GAP_LIMIT,
   buildDateRange,
   isDateRangeValid,
   useAppStatusQuery,
@@ -405,6 +407,8 @@ export function App() {
   }, [customRange, datePreset]);
 
   const channelId = settingsQuery.data?.defaultChannelId ?? DEFAULT_CHANNEL_ID;
+  const topicClusterLimit = DEFAULT_TOPIC_CLUSTER_LIMIT;
+  const topicGapLimit = DEFAULT_TOPIC_GAP_LIMIT;
   const mlTargetMetric: MlTargetMetric = settingsQuery.data?.preferredForecastMetric ?? 'views';
   const exportFormats: ReportExportFormat[] = settingsQuery.data?.reportFormats ?? ['json', 'csv', 'html'];
   const timeseriesMetric: 'views' | 'subscribers' = mlTargetMetric === 'subscribers' ? 'subscribers' : 'views';
@@ -427,7 +431,10 @@ export function App() {
   const mlTrendQuery = useMlTrendQuery(channelId, mlTargetMetric, dateRange, dataEnabled);
   const qualityScoresQuery = useQualityScoresQuery(channelId, dateRange, dataEnabled);
   const competitorInsightsQuery = useCompetitorInsightsQuery(channelId, dateRange, dataEnabled);
-  const topicIntelligenceQuery = useTopicIntelligenceQuery(channelId, dateRange, dataEnabled);
+  const topicIntelligenceQuery = useTopicIntelligenceQuery(channelId, dateRange, dataEnabled, {
+    clusterLimit: topicClusterLimit,
+    gapLimit: topicGapLimit,
+  });
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
   const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
   const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
@@ -1405,8 +1412,8 @@ export function App() {
                   channelId,
                   dateFrom: dateRange.dateFrom,
                   dateTo: dateRange.dateTo,
-                  clusterLimit: 12,
-                  gapLimit: 10,
+                  clusterLimit: topicClusterLimit,
+                  gapLimit: topicGapLimit,
                 });
               }}
               disabled={isTopicIntelligenceRunDisabled}

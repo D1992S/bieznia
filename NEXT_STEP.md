@@ -23,7 +23,8 @@
 | 13 | Quality Scoring | DONE |
 | 14 | Competitor Intelligence | DONE |
 | 15 | Topic Intelligence | DONE |
-| 16-19 | Reszta | Oczekuje |
+| 16 | Planning System | Oczekuje |
+| 17-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 

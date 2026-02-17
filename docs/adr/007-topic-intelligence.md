@@ -1,7 +1,7 @@
 # ADR 007: Topic Intelligence - klasteryzacja tematow, trend i luki contentowe
 
 - Status: Accepted
-- Data: 2026-02-18
+- Date: 2026-02-17
 - Faza: 15
 
 ## Kontekst

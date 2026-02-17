@@ -52,6 +52,8 @@ import {
 } from '../lib/electron-api.ts';
 
 export const DEFAULT_CHANNEL_ID = 'UC-SEED-PL-001';
+export const DEFAULT_TOPIC_CLUSTER_LIMIT = 12;
+export const DEFAULT_TOPIC_GAP_LIMIT = 10;
 export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
 
 export interface DateRange {
@@ -577,32 +579,49 @@ export function useRunTopicIntelligenceMutation() {
       dateTo: string;
       clusterLimit?: number;
       gapLimit?: number;
-    }) =>
+    }) => {
+      const clusterLimit = input.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;
+      const gapLimit = input.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT;
+      return (
       runTopicIntelligence({
         channelId: input.channelId,
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
-        clusterLimit: input.clusterLimit ?? 12,
-        gapLimit: input.gapLimit ?? 10,
-      }),
+        clusterLimit,
+        gapLimit,
+      })
+      );
+    },
     onSuccess: (_result, input) => {
+      const clusterLimit = input.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;
+      const gapLimit = input.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT;
       void queryClient.invalidateQueries({
-        queryKey: ['analytics', 'topic', input.channelId, input.dateFrom, input.dateTo],
+        queryKey: ['analytics', 'topic', input.channelId, input.dateFrom, input.dateTo, clusterLimit, gapLimit],
       });
     },
   });
 }
 
-export function useTopicIntelligenceQuery(channelId: string, range: DateRange, enabled: boolean) {
+export function useTopicIntelligenceQuery(
+  channelId: string,
+  range: DateRange,
+  enabled: boolean,
+  options?: {
+    clusterLimit?: number;
+    gapLimit?: number;
+  },
+) {
+  const clusterLimit = options?.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;
+  const gapLimit = options?.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT;
   return useQuery<TopicIntelligenceResultDTO>({
-    queryKey: ['analytics', 'topic', channelId, range.dateFrom, range.dateTo],
+    queryKey: ['analytics', 'topic', channelId, range.dateFrom, range.dateTo, clusterLimit, gapLimit],
     queryFn: () =>
       fetchTopicIntelligence({
         channelId,
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
-        clusterLimit: 12,
-        gapLimit: 10,
+        clusterLimit,
+        gapLimit,
       }),
     enabled,
     staleTime: 30_000,
