@@ -31,7 +31,8 @@ export const planningSystemSchemaMigration: MigrationDefinition = {
         evidence_json TEXT NOT NULL DEFAULT '[]',
         warnings_json TEXT NOT NULL DEFAULT '[]',
         created_at TEXT NOT NULL,
-        CHECK (date(slot_date) IS NOT NULL)
+        CHECK (date(slot_date) IS NOT NULL),
+        UNIQUE(plan_id, slot_order)
       );
 
       CREATE INDEX IF NOT EXISTS idx_planning_plans_channel_range_generated

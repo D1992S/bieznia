@@ -48,130 +48,138 @@ function createSeededDb() {
 
 describe('Planning system integration', () => {
   it('generates deterministic recommendations with evidence and persists plan', () => {
-    const seeded = createSeededDb();
+    let seeded: ReturnType<typeof createSeededDb> | null = null;
+    try {
+      seeded = createSeededDb();
 
-    const syncResult = syncCompetitorSnapshots({
-      db: seeded.connection.db,
-      channelId: seeded.channelId,
-      dateFrom: seeded.dateFrom,
-      dateTo: seeded.dateTo,
-      competitorCount: 3,
-      now: () => new Date('2026-02-17T18:00:00.000Z'),
-    });
-    expect(syncResult.ok).toBe(true);
-
-    seeded.connection.db
-      .prepare<{ channelId: string; dateFrom: string; dateTo: string }>(
-        `
-          UPDATE fact_competitor_day
-          SET views = views * 4
-          WHERE channel_id = @channelId
-            AND date BETWEEN @dateFrom AND @dateTo
-        `,
-      )
-      .run({
+      const syncResult = syncCompetitorSnapshots({
+        db: seeded.connection.db,
         channelId: seeded.channelId,
         dateFrom: seeded.dateFrom,
         dateTo: seeded.dateTo,
+        competitorCount: 3,
+        now: () => new Date('2026-02-17T18:00:00.000Z'),
       });
+      expect(syncResult.ok).toBe(true);
 
-    const generateResult = generatePlanningPlan({
-      db: seeded.connection.db,
-      channelId: seeded.channelId,
-      dateFrom: seeded.dateFrom,
-      dateTo: seeded.dateTo,
-      maxRecommendations: 6,
-      clusterLimit: 12,
-      gapLimit: 10,
-      now: () => new Date('2026-02-17T18:02:00.000Z'),
-    });
-    expect(generateResult.ok).toBe(true);
-    if (!generateResult.ok) {
-      const closeResult = seeded.connection.close();
-      expect(closeResult.ok).toBe(true);
-      return;
-    }
+      seeded.connection.db
+        .prepare<{ channelId: string; dateFrom: string; dateTo: string }>(
+          `
+            UPDATE fact_competitor_day
+            SET views = views * 4
+            WHERE channel_id = @channelId
+              AND date BETWEEN @dateFrom AND @dateTo
+          `,
+        )
+        .run({
+          channelId: seeded.channelId,
+          dateFrom: seeded.dateFrom,
+          dateTo: seeded.dateTo,
+        });
 
-    expect(generateResult.value.totalRecommendations).toBeGreaterThan(0);
-    expect(generateResult.value.items.length).toBe(generateResult.value.totalRecommendations);
-
-    for (let index = 0; index < generateResult.value.items.length; index += 1) {
-      const item = generateResult.value.items[index];
-      if (!item) {
-        continue;
+      const generateResult = generatePlanningPlan({
+        db: seeded.connection.db,
+        channelId: seeded.channelId,
+        dateFrom: seeded.dateFrom,
+        dateTo: seeded.dateTo,
+        maxRecommendations: 6,
+        clusterLimit: 12,
+        gapLimit: 10,
+        now: () => new Date('2026-02-17T18:02:00.000Z'),
+      });
+      expect(generateResult.ok).toBe(true);
+      if (!generateResult.ok) {
+        return;
       }
 
-      expect(item.slotOrder).toBe(index + 1);
-      expect(item.slotDate >= seeded.dateFrom && item.slotDate <= seeded.dateTo).toBe(true);
-      expect(item.evidence.length).toBeGreaterThan(0);
-      expect(item.priorityScore).toBeGreaterThanOrEqual(0);
-      expect(item.priorityScore).toBeLessThanOrEqual(100);
-    }
+      expect(generateResult.value.totalRecommendations).toBeGreaterThan(0);
+      expect(generateResult.value.items.length).toBe(generateResult.value.totalRecommendations);
 
-    const persistedPlanCount = seeded.connection.db
-      .prepare<{ channelId: string; dateFrom: string; dateTo: string }, { total: number }>(
-        `
-          SELECT COUNT(*) AS total
-          FROM planning_plans
-          WHERE channel_id = @channelId
-            AND date_from = @dateFrom
-            AND date_to = @dateTo
-        `,
-      )
-      .get({
+      for (let index = 0; index < generateResult.value.items.length; index += 1) {
+        const item = generateResult.value.items[index];
+        if (!item) {
+          continue;
+        }
+
+        expect(item.slotOrder).toBe(index + 1);
+        expect(item.slotDate >= seeded.dateFrom && item.slotDate <= seeded.dateTo).toBe(true);
+        expect(item.evidence.length).toBeGreaterThan(0);
+        expect(item.priorityScore).toBeGreaterThanOrEqual(0);
+        expect(item.priorityScore).toBeLessThanOrEqual(100);
+      }
+
+      const persistedPlanCount = seeded.connection.db
+        .prepare<{ channelId: string; dateFrom: string; dateTo: string }, { total: number }>(
+          `
+            SELECT COUNT(*) AS total
+            FROM planning_plans
+            WHERE channel_id = @channelId
+              AND date_from = @dateFrom
+              AND date_to = @dateTo
+          `,
+        )
+        .get({
+          channelId: seeded.channelId,
+          dateFrom: seeded.dateFrom,
+          dateTo: seeded.dateTo,
+        });
+      expect(persistedPlanCount?.total).toBe(1);
+
+      const persistedRecommendationsCount = seeded.connection.db
+        .prepare<{ planId: string }, { total: number }>(
+          `
+            SELECT COUNT(*) AS total
+            FROM planning_recommendations
+            WHERE plan_id = @planId
+          `,
+        )
+        .get({
+          planId: generateResult.value.planId,
+        });
+      expect(persistedRecommendationsCount?.total).toBe(generateResult.value.totalRecommendations);
+
+      const getResult = getPlanningPlan({
+        db: seeded.connection.db,
         channelId: seeded.channelId,
         dateFrom: seeded.dateFrom,
         dateTo: seeded.dateTo,
+        now: () => new Date('2026-02-17T18:03:00.000Z'),
       });
-    expect(persistedPlanCount?.total).toBe(1);
-
-    const persistedRecommendationsCount = seeded.connection.db
-      .prepare<{ planId: string }, { total: number }>(
-        `
-          SELECT COUNT(*) AS total
-          FROM planning_recommendations
-          WHERE plan_id = @planId
-        `,
-      )
-      .get({
-        planId: generateResult.value.planId,
-      });
-    expect(persistedRecommendationsCount?.total).toBe(generateResult.value.totalRecommendations);
-
-    const getResult = getPlanningPlan({
-      db: seeded.connection.db,
-      channelId: seeded.channelId,
-      dateFrom: seeded.dateFrom,
-      dateTo: seeded.dateTo,
-      now: () => new Date('2026-02-17T18:03:00.000Z'),
-    });
-    expect(getResult.ok).toBe(true);
-    if (getResult.ok) {
-      expect(getResult.value.planId).toBe(generateResult.value.planId);
-      expect(getResult.value.items.length).toBe(generateResult.value.items.length);
+      expect(getResult.ok).toBe(true);
+      if (getResult.ok) {
+        expect(getResult.value.planId).toBe(generateResult.value.planId);
+        expect(getResult.value.items.length).toBe(generateResult.value.items.length);
+      }
+    } finally {
+      if (seeded) {
+        const closeResult = seeded.connection.close();
+        expect(closeResult.ok).toBe(true);
+      }
     }
-
-    const closeResult = seeded.connection.close();
-    expect(closeResult.ok).toBe(true);
   });
 
   it('returns empty plan read model when no plan has been generated yet', () => {
-    const seeded = createSeededDb();
+    let seeded: ReturnType<typeof createSeededDb> | null = null;
+    try {
+      seeded = createSeededDb();
 
-    const getResult = getPlanningPlan({
-      db: seeded.connection.db,
-      channelId: seeded.channelId,
-      dateFrom: seeded.dateFrom,
-      dateTo: seeded.dateTo,
-      now: () => new Date('2026-02-17T18:10:00.000Z'),
-    });
-    expect(getResult.ok).toBe(true);
-    if (getResult.ok) {
-      expect(getResult.value.totalRecommendations).toBe(0);
-      expect(getResult.value.items).toHaveLength(0);
+      const getResult = getPlanningPlan({
+        db: seeded.connection.db,
+        channelId: seeded.channelId,
+        dateFrom: seeded.dateFrom,
+        dateTo: seeded.dateTo,
+        now: () => new Date('2026-02-17T18:10:00.000Z'),
+      });
+      expect(getResult.ok).toBe(true);
+      if (getResult.ok) {
+        expect(getResult.value.totalRecommendations).toBe(0);
+        expect(getResult.value.items).toHaveLength(0);
+      }
+    } finally {
+      if (seeded) {
+        const closeResult = seeded.connection.close();
+        expect(closeResult.ok).toBe(true);
+      }
     }
-
-    const closeResult = seeded.connection.close();
-    expect(closeResult.ok).toBe(true);
   });
 });

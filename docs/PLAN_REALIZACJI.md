@@ -878,7 +878,7 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Performance i stabilnosc: cache wynikow analitycznych + invalidacja po sync/import + inkrementalny pipeline + monitoring p50/p95/hit-rate. DONE Faza 12
 - [x] Quality Scoring: tabela `agg_quality_scores`, silnik komponentow (percentile rank), confidence labels i integracja IPC/UI. DONE Faza 13
 - [x] Competitor Intelligence: `dim_competitor` + `fact_competitor_day`, sync snapshotow, hit detection > 3 sigma, momentum ranking i panel UI. DONE Faza 14
-- [x] Topic Intelligence: `dim_topic_cluster` + `fact_topic_pressure_day` + `agg_topic_gaps`, klasteryzacja i gap detection z integracja IPC/UI. DONE Faza 15
+- [x] Topic Intelligence: `dim_topic_cluster` + `fact_topic_pressure_day` + `agg_topic_gaps`, klasteryzacja i gap detection z integracją IPC/UI. DONE Faza 15
 - [x] Planning System: `planning_plans` + `planning_recommendations`, planner deterministyczny, evidence/rationale/confidence, integracja IPC/UI. DONE Faza 16
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
