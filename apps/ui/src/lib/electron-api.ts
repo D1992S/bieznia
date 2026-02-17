@@ -35,6 +35,9 @@ import type {
   TopicIntelligenceRunInputDTO,
   TopicIntelligenceQueryInputDTO,
   TopicIntelligenceResultDTO,
+  PlanningGenerateInputDTO,
+  PlanningGetPlanInputDTO,
+  PlanningPlanResultDTO,
   ProfileListResultDTO,
   ProfileCreateInputDTO,
   ProfileSetActiveInputDTO,
@@ -253,6 +256,18 @@ export async function fetchTopicIntelligence(
 ): Promise<TopicIntelligenceResultDTO> {
   const api = ensureElectronApi();
   const result = await api.analyticsGetTopicIntelligence(input);
+  return unwrapResult(result);
+}
+
+export async function generatePlanningPlan(input: PlanningGenerateInputDTO): Promise<PlanningPlanResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.planningGeneratePlan(input);
+  return unwrapResult(result);
+}
+
+export async function fetchPlanningPlan(input: PlanningGetPlanInputDTO): Promise<PlanningPlanResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.planningGetPlan(input);
   return unwrapResult(result);
 }
 

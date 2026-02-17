@@ -37,6 +37,9 @@
   TopicIntelligenceRunInputDTOSchema,
   TopicIntelligenceQueryInputDTOSchema,
   TopicIntelligenceResultSchema,
+  PlanningGenerateInputDTOSchema,
+  PlanningGetPlanInputDTOSchema,
+  PlanningPlanResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultSchema,
   ProfileSetActiveInputDTOSchema,
@@ -96,6 +99,9 @@
   type TopicIntelligenceRunInputDTO,
   type TopicIntelligenceQueryInputDTO,
   type TopicIntelligenceResult,
+  type PlanningGenerateInputDTO,
+  type PlanningGetPlanInputDTO,
+  type PlanningPlanResult,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileSetActiveInputDTO,
@@ -153,6 +159,8 @@ export interface ElectronAPI {
   analyticsGetCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Promise<CompetitorInsightsResult>;
   analyticsRunTopicIntelligence: (input: TopicIntelligenceRunInputDTO) => Promise<TopicIntelligenceResult>;
   analyticsGetTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Promise<TopicIntelligenceResult>;
+  planningGeneratePlan: (input: PlanningGenerateInputDTO) => Promise<PlanningPlanResult>;
+  planningGetPlan: (input: PlanningGetPlanInputDTO) => Promise<PlanningPlanResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
@@ -427,6 +435,20 @@ const api: ElectronAPI = {
       input,
       TopicIntelligenceQueryInputDTOSchema,
       TopicIntelligenceResultSchema,
+    ),
+  planningGeneratePlan: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.PLANNING_GENERATE_PLAN,
+      input,
+      PlanningGenerateInputDTOSchema,
+      PlanningPlanResultSchema,
+    ),
+  planningGetPlan: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.PLANNING_GET_PLAN,
+      input,
+      PlanningGetPlanInputDTOSchema,
+      PlanningPlanResultSchema,
     ),
   reportsGenerate: (input) =>
     invokeValidated(

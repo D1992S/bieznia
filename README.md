@@ -4,7 +4,7 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 
 ## Postęp realizacji
 
-> Aktualny status: **Faza 15 ukończona, następna Faza 16 (Planning System).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+> Aktualny status: **Faza 16 ukończona, Faza 17 jest SKIP (solo), następna Faza 18 (Diagnostics + Recovery).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
 | Faza | Nazwa | Status | Co powinno działać (prosty opis) |
 |------|-------|--------|-----------------------------------|
@@ -25,9 +25,9 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | 13 | Quality Scoring | DONE | Każdy materiał dostaje czytelny wynik jakości z uzasadnieniem i confidence. |
 | 14 | Competitor Intelligence | DONE | Widać porównanie do konkurencji i sygnały o ich mocnych ruchach. |
 | 15 | Topic Intelligence | DONE | Aplikacja podpowiada tematy z potencjałem i pokazuje luki tematyczne. |
-| 16 | Planning System | **NASTĘPNA** | Można planować publikacje i oceniać pomysły przed nagraniem. |
+| 16 | Planning System | DONE | Można wygenerować plan publikacji z priorytetami, evidence i ostrzeżeniami kanibalizacji. |
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) | Poza zakresem w trybie solo (bez plugin runtime). |
-| 18 | Diagnostics + Recovery | — | Aplikacja wykrywa problemy techniczne i pomaga je naprawić. |
+| 18 | Diagnostics + Recovery | **NASTĘPNA** | Aplikacja wykrywa problemy techniczne i pomaga je naprawić. |
 | 19 | Polish + Local UX | — | Dopracowany UX lokalny bez packagingu dystrybucyjnego i bez telemetrii opt-in. |
 
 ## Dokumentacja

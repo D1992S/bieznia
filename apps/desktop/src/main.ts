@@ -19,7 +19,9 @@ import { runDataPipeline } from '@moze/data-pipeline';
 import { createAssistantLiteService, type AssistantLiteService } from '@moze/llm';
 import { getLatestMlForecast, getMlAnomalies, getMlTrend, runAnomalyTrendAnalysis, runMlBaseline } from '@moze/ml';
 import {
+  generatePlanningPlan,
   getCompetitorInsights,
+  getPlanningPlan,
   getQualityScores,
   getTopicIntelligence,
   runTopicIntelligence,
@@ -74,6 +76,9 @@ import {
   type TopicIntelligenceRunInputDTO,
   type TopicIntelligenceQueryInputDTO,
   type TopicIntelligenceResultDTO,
+  type PlanningGenerateInputDTO,
+  type PlanningGetPlanInputDTO,
+  type PlanningPlanResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResultDTO,
   type ProfileSetActiveInputDTO,
@@ -1499,6 +1504,123 @@ function getTopicIntelligenceCommand(input: TopicIntelligenceQueryInputDTO): Res
   });
 }
 
+function generatePlanningPlanCommand(input: PlanningGenerateInputDTO): Result<PlanningPlanResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'planning.generatePlan',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      maxRecommendations: input.maxRecommendations,
+      clusterLimit: input.clusterLimit,
+      gapLimit: input.gapLimit,
+    },
+    lineage: [
+      {
+        sourceTable: 'agg_quality_scores,fact_video_day',
+        primaryKeys: ['channel_id', 'video_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'dim_competitor,fact_competitor_day',
+        primaryKeys: ['channel_id', 'competitor_channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'dim_topic_cluster,agg_topic_gaps,fact_topic_pressure_day',
+        primaryKeys: ['channel_id', 'cluster_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'planning_plans,planning_recommendations',
+        primaryKeys: ['plan_id', 'recommendation_id'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.items.length,
+    execute: () => {
+      const planResult = generatePlanningPlan({
+        db,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        maxRecommendations: input.maxRecommendations,
+        clusterLimit: input.clusterLimit,
+        gapLimit: input.gapLimit,
+      });
+
+      if (planResult.ok) {
+        invalidateAnalyticsCache('planning-generate', {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          recommendations: planResult.value.totalRecommendations,
+        });
+      }
+
+      return planResult;
+    },
+  });
+}
+
+function getPlanningPlanCommand(input: PlanningGetPlanInputDTO): Result<PlanningPlanResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'planning.getPlan',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+    },
+    lineage: [
+      {
+        sourceTable: 'planning_plans,planning_recommendations',
+        primaryKeys: ['plan_id', 'recommendation_id'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.items.length,
+    execute: () =>
+      getPlanningPlan({
+        db,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+      }),
+  });
+}
+
 function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGenerateResultDTO, AppError> {
   const db = backendState.connection?.db;
   if (!db) {
@@ -1563,6 +1685,8 @@ const ipcBackend: DesktopIpcBackend = {
   getCompetitorInsights: (input) => getCompetitorInsightsCommand(input),
   runTopicIntelligence: (input) => runTopicIntelligenceCommand(input),
   getTopicIntelligence: (input) => getTopicIntelligenceCommand(input),
+  generatePlanningPlan: (input) => generatePlanningPlanCommand(input),
+  getPlanningPlan: (input) => getPlanningPlanCommand(input),
   generateReport: (input) => generateReportCommand(input),
   exportReport: (input) => exportReportCommand(input),
   askAssistant: (input) => askAssistantCommand(input),

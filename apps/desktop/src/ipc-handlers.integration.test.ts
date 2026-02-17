@@ -30,6 +30,8 @@ import {
   handleAnalyticsGetCompetitorInsights,
   handleAnalyticsRunTopicIntelligence,
   handleAnalyticsGetTopicIntelligence,
+  handlePlanningGeneratePlan,
+  handlePlanningGetPlan,
   handleMlDetectAnomalies,
   handleMlRunBaseline,
   handleProfileCreate,
@@ -694,6 +696,119 @@ function createTestContext(): TestContext {
           },
         ],
       }),
+    generatePlanningPlan: (input) =>
+      ok({
+        planId: `plan-${input.channelId}-${input.dateFrom}-${input.dateTo}`,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        generatedAt: '2026-02-18T11:00:00.000Z',
+        totalRecommendations: 2,
+        items: [
+          {
+            recommendationId: `rec-${input.channelId}-001`,
+            slotDate: input.dateFrom,
+            slotOrder: 1,
+            topicClusterId: 'topic-overlaptopic',
+            topicLabel: 'Overlaptopic',
+            suggestedTitle: 'Overlaptopic: analiza trendu i formatu',
+            priorityScore: 86.4,
+            confidence: 'high',
+            rationale: 'Wysoki gap score i rosnący trend tematu przy aktywności konkurencji.',
+            evidence: [
+              {
+                evidenceId: 'ev-planning-1',
+                source: 'topic_intelligence',
+                label: 'Gap score',
+                value: '7200.50',
+                context: 'trend=rising',
+              },
+              {
+                evidenceId: 'ev-planning-2',
+                source: 'quality_scoring',
+                label: 'Średni quality score',
+                value: '82.30',
+                context: 'top5',
+              },
+            ],
+            warnings: ['Wysokie ryzyko kanibalizacji. Zachowaj większy odstęp między podobnymi publikacjami.'],
+          },
+          {
+            recommendationId: `rec-${input.channelId}-002`,
+            slotDate: input.dateTo,
+            slotOrder: 2,
+            topicClusterId: 'topic-shorts',
+            topicLabel: 'Shorts',
+            suggestedTitle: 'Shorts: szybki test tematu w 3 krokach',
+            priorityScore: 71.2,
+            confidence: 'medium',
+            rationale: 'Stabilny trend i dobra relacja popytu do ryzyka.',
+            evidence: [
+              {
+                evidenceId: 'ev-planning-3',
+                source: 'competitor_intelligence',
+                label: 'Presja konkurencji',
+                value: '0.510',
+                context: 'hits=1',
+              },
+            ],
+            warnings: [],
+          },
+        ],
+      }),
+    getPlanningPlan: (input) =>
+      ok({
+        planId: `plan-${input.channelId}-${input.dateFrom}-${input.dateTo}`,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        generatedAt: '2026-02-18T11:00:00.000Z',
+        totalRecommendations: 2,
+        items: [
+          {
+            recommendationId: `rec-${input.channelId}-001`,
+            slotDate: input.dateFrom,
+            slotOrder: 1,
+            topicClusterId: 'topic-overlaptopic',
+            topicLabel: 'Overlaptopic',
+            suggestedTitle: 'Overlaptopic: analiza trendu i formatu',
+            priorityScore: 86.4,
+            confidence: 'high',
+            rationale: 'Wysoki gap score i rosnący trend tematu przy aktywności konkurencji.',
+            evidence: [
+              {
+                evidenceId: 'ev-planning-1',
+                source: 'topic_intelligence',
+                label: 'Gap score',
+                value: '7200.50',
+                context: 'trend=rising',
+              },
+            ],
+            warnings: ['Wysokie ryzyko kanibalizacji. Zachowaj większy odstęp między podobnymi publikacjami.'],
+          },
+          {
+            recommendationId: `rec-${input.channelId}-002`,
+            slotDate: input.dateTo,
+            slotOrder: 2,
+            topicClusterId: 'topic-shorts',
+            topicLabel: 'Shorts',
+            suggestedTitle: 'Shorts: szybki test tematu w 3 krokach',
+            priorityScore: 71.2,
+            confidence: 'medium',
+            rationale: 'Stabilny trend i dobra relacja popytu do ryzyka.',
+            evidence: [
+              {
+                evidenceId: 'ev-planning-3',
+                source: 'competitor_intelligence',
+                label: 'Presja konkurencji',
+                value: '0.510',
+                context: 'hits=1',
+              },
+            ],
+            warnings: [],
+          },
+        ],
+      }),
     generateReport: (input) =>
       ok({
         generatedAt: '2026-02-12T22:30:00.000Z',
@@ -1159,6 +1274,31 @@ describe('Desktop IPC handlers integration', () => {
       expect(topicGetResult.value.clusters.length).toBeGreaterThan(0);
     }
 
+    const planningGenerateResult = await handlePlanningGeneratePlan(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      maxRecommendations: 6,
+      clusterLimit: 12,
+      gapLimit: 10,
+    });
+    expect(planningGenerateResult.ok).toBe(true);
+    if (planningGenerateResult.ok) {
+      expect(planningGenerateResult.value.totalRecommendations).toBeGreaterThan(0);
+      expect(planningGenerateResult.value.items[0]?.evidence.length).toBeGreaterThan(0);
+    }
+
+    const planningGetResult = await handlePlanningGetPlan(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+    });
+    expect(planningGetResult.ok).toBe(true);
+    if (planningGetResult.ok) {
+      expect(planningGetResult.value.items.length).toBeGreaterThan(0);
+      expect(planningGetResult.value.items[0]?.topicClusterId).toBeTruthy();
+    }
+
     const reportGenerateResult = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -1457,6 +1597,27 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidTopicGet.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidPlanningGenerate = await handlePlanningGeneratePlan(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: '2026-02-03',
+      dateTo: '2026-02-01',
+      maxRecommendations: 99,
+    });
+    expect(invalidPlanningGenerate.ok).toBe(false);
+    if (!invalidPlanningGenerate.ok) {
+      expect(invalidPlanningGenerate.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidPlanningGet = await handlePlanningGetPlan(ctx.backend, {
+      channelId: '',
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+    });
+    expect(invalidPlanningGet.ok).toBe(false);
+    if (!invalidPlanningGet.ok) {
+      expect(invalidPlanningGet.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidReportGenerate = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: '2026-01-01',
@@ -1510,6 +1671,8 @@ describe('Desktop IPC handlers integration', () => {
       getCompetitorInsights: (input) => ctx.backend.getCompetitorInsights(input),
       runTopicIntelligence: (input) => ctx.backend.runTopicIntelligence(input),
       getTopicIntelligence: (input) => ctx.backend.getTopicIntelligence(input),
+      generatePlanningPlan: (input) => ctx.backend.generatePlanningPlan(input),
+      getPlanningPlan: (input) => ctx.backend.getPlanningPlan(input),
       generateReport: (input) => ctx.backend.generateReport(input),
       exportReport: (input) => ctx.backend.exportReport(input),
       askAssistant: (input) => ctx.backend.askAssistant(input),

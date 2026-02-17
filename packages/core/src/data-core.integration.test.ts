@@ -69,6 +69,8 @@ describe('Data Core integration', () => {
       'dim_topic_cluster',
       'fact_topic_pressure_day',
       'agg_topic_gaps',
+      'planning_plans',
+      'planning_recommendations',
       'assistant_threads',
       'assistant_messages',
       'assistant_message_evidence',

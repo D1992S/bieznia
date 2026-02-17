@@ -23,8 +23,9 @@
 | 13 | Quality Scoring | DONE |
 | 14 | Competitor Intelligence | DONE |
 | 15 | Topic Intelligence | DONE |
-| 16 | Planning System | Oczekuje |
-| 17-19 | Reszta | Oczekuje |
+| 16 | Planning System | DONE |
+| 17 | Plugins (Insights/Alerts) | SKIP (solo) |
+| 18-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -346,38 +347,88 @@
 - [x] UI pokazuje topic gaps i trend tematow dla wybranego zakresu.
 - [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
-## Co robic teraz - Faza 16: Planning System
+## Co zostalo zrobione (Faza 16)
 
-**Cel:** uruchomic system planowania publikacji oparty o sygnaly z quality, competitor i topic intelligence.
+- Kontrakty `shared` rozszerzono o Planning System:
+  - `planning:generatePlan`,
+  - `planning:getPlan`,
+  - DTO/result schemas:
+    - `PlanningGenerateInputDTO`,
+    - `PlanningGetPlanInputDTO`,
+    - `PlanningPlanResultDTO`,
+    - `PlanningRecommendationItemDTO`,
+    - `PlanningEvidenceItemDTO`.
+- `core` dostal migracje `012-planning-system-schema`:
+  - `planning_plans`,
+  - `planning_recommendations`,
+  - indeksy pod odczyty per `channel_id/date` i `plan_id/slot_order`.
+- Wdrozone `@moze/analytics`:
+  - `generatePlanningPlan(...)`:
+    - laczenie sygnalow z quality + competitor + topic,
+    - deterministyczny ranking rekomendacji,
+    - conflict resolution (deduplikacja tematow + kara za kanibalizacje),
+    - persystencja planu i rekomendacji.
+  - `getPlanningPlan(...)`:
+    - read-only odczyt ostatniego planu dla zakresu.
+- Desktop runtime i IPC:
+  - nowe komendy backendu z tracingiem:
+    - `planning.generatePlan`,
+    - `planning.getPlan`,
+  - handlery IPC + preload bridge dla `planning:*`.
+- UI:
+  - podlaczono API + hooki React Query dla Planning System,
+  - nowy panel "System planowania (Faza 16)" w zakladce `Statystyki`:
+    - generowanie planu publikacji,
+    - lista rekomendacji ze slotami, confidence, rationale i evidence,
+    - ostrzezenia o ryzyku kanibalizacji.
+- Testy:
+  - `packages/analytics/src/planning-system.integration.test.ts`,
+  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`,
+  - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzone `packages/core/src/data-core.integration.test.ts` (tabele migracji 012).
+- ADR:
+  - dodano `docs/adr/008-planning-system.md`.
 
-**Scope freeze 16 (robimy / nie robimy):**
+**Definition of Done (Faza 16):**
+- [x] Planner zwraca rekomendacje publikacji dla zakresu dat.
+- [x] Kazda rekomendacja ma rationale + evidence.
+- [x] UI pozwala odswiezyc i przejrzec plan bez bledow IPC.
+- [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
+
+## Co robic teraz - Faza 18: Diagnostics + Recovery
+
+> Faza 17 jest **SKIP (solo)** i nie implementujemy plugin runtime.
+
+**Cel:** uruchomic warstwe diagnostyki i bezpiecznego recovery dla calego pipeline.
+
+**Scope freeze 18 (robimy / nie robimy):**
 - Robimy:
-  - kontrakty IPC/DTO dla draft planu publikacji i rekomendacji tematow,
-  - podstawowy planner oparty o reguly (nie model generatywny),
-  - UI planera z lista rekomendacji i powodami (evidence),
-  - testy integracyjne plannera i IPC.
+  - health check techniczny (DB, cache, pipeline, IPC),
+  - ekran diagnostyczny w UI,
+  - bezpieczne akcje recovery (np. reset cache, rerun pipeline, sanity checks),
+  - testy integracyjne dla scenariuszy degradacji i naprawy.
 - Nie robimy:
-  - auto-publikacji do zewnetrznych kalendarzy,
-  - asynchronicznej orkiestracji wieloetapowych workflow AI,
-  - plugin runtime i alert center.
+  - nowych feature'ow analitycznych,
+  - plugin runtime (pozostaje skip),
+  - telemetry opt-in / packaging dystrybucyjny (Faza 19).
 
 **Zakres (MVP):**
 1. Kontrakty:
-   - `planning:generatePlan`,
-   - `planning:getPlan`,
-   - DTO planu (sloty publikacji, temat, confidence, rationale, evidence).
+   - `diagnostics:getHealth`,
+   - `diagnostics:runRecovery`,
+   - DTO wynikow health i recovery.
 2. Silnik:
-   - laczenie sygnalow z quality scoring + competitor hits + topic gaps,
-   - deterministyczny ranking rekomendacji.
+   - reguly health-check i kody statusow,
+   - deterministyczne akcje recovery.
 3. Integracja:
-   - desktop IPC + preload + UI panel planowania.
+   - desktop IPC + preload + panel diagnostyczny w UI.
 4. Testy:
-   - seeded scenariusze dla conflict resolution i priorytetyzacji rekomendacji.
+   - seeded scenariusze awarii i weryfikacja skutecznosci recovery.
 
-**Definition of Done (Faza 16):**
-- [ ] Planner zwraca rekomendacje publikacji dla zakresu dat.
-- [ ] Kazda rekomendacja ma rationale + evidence.
-- [ ] UI pozwala odswiezyc i przejrzec plan bez bledow IPC.
+**Definition of Done (Faza 18):**
+- [ ] Health check zwraca czytelny status kluczowych modulow.
+- [ ] Recovery potrafi naprawic minimum jeden scenariusz stalego stanu danych/cache.
+- [ ] UI pokazuje status i pozwala uruchomic recovery bez bledow IPC.
 - [ ] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
 ## Krytyczne zasady (nie pomijaj)

@@ -33,6 +33,9 @@ import type {
   TopicIntelligenceRunInputDTO,
   TopicIntelligenceQueryInputDTO,
   TopicIntelligenceResult,
+  PlanningGenerateInputDTO,
+  PlanningGetPlanInputDTO,
+  PlanningPlanResult,
   ProfileCreateInputDTO,
   ProfileListResult,
   ProfileSetActiveInputDTO,
@@ -88,6 +91,8 @@ export interface ElectronAPI {
   analyticsGetCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Promise<CompetitorInsightsResult>;
   analyticsRunTopicIntelligence: (input: TopicIntelligenceRunInputDTO) => Promise<TopicIntelligenceResult>;
   analyticsGetTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Promise<TopicIntelligenceResult>;
+  planningGeneratePlan: (input: PlanningGenerateInputDTO) => Promise<PlanningPlanResult>;
+  planningGetPlan: (input: PlanningGetPlanInputDTO) => Promise<PlanningPlanResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
