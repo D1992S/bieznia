@@ -42,6 +42,12 @@ import {
   QualityScoreQueryInputDTOSchema,
   QualityScoreResultDTOSchema,
   QualityScoreResultSchema,
+  CompetitorSyncInputDTOSchema,
+  CompetitorSyncResultDTOSchema,
+  CompetitorSyncResultSchema,
+  CompetitorInsightsQueryInputDTOSchema,
+  CompetitorInsightsResultDTOSchema,
+  CompetitorInsightsResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultDTOSchema,
   ProfileListResultSchema,
@@ -116,6 +122,12 @@ import {
   type QualityScoreQueryInputDTO,
   type QualityScoreResult,
   type QualityScoreResultDTO,
+  type CompetitorSyncInputDTO,
+  type CompetitorSyncResult,
+  type CompetitorSyncResultDTO,
+  type CompetitorInsightsQueryInputDTO,
+  type CompetitorInsightsResult,
+  type CompetitorInsightsResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileListResultDTO,
@@ -176,6 +188,8 @@ export interface DesktopIpcBackend {
   getMlAnomalies: (input: MlAnomalyQueryInputDTO) => Result<MlAnomalyListResultDTO, AppError> | Promise<Result<MlAnomalyListResultDTO, AppError>>;
   getMlTrend: (input: MlTrendQueryInputDTO) => Result<MlTrendResultDTO, AppError> | Promise<Result<MlTrendResultDTO, AppError>>;
   getQualityScores: (input: QualityScoreQueryInputDTO) => Result<QualityScoreResultDTO, AppError> | Promise<Result<QualityScoreResultDTO, AppError>>;
+  syncCompetitors: (input: CompetitorSyncInputDTO) => Result<CompetitorSyncResultDTO, AppError> | Promise<Result<CompetitorSyncResultDTO, AppError>>;
+  getCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Result<CompetitorInsightsResultDTO, AppError> | Promise<Result<CompetitorInsightsResultDTO, AppError>>;
   generateReport: (input: ReportGenerateInputDTO) => Result<ReportGenerateResultDTO, AppError> | Promise<Result<ReportGenerateResultDTO, AppError>>;
   exportReport: (input: ReportExportInputDTO) => Result<ReportExportResultDTO, AppError> | Promise<Result<ReportExportResultDTO, AppError>>;
   askAssistant: (input: AssistantAskInputDTO) => Result<AssistantAskResultDTO, AppError> | Promise<Result<AssistantAskResultDTO, AppError>>;
@@ -571,6 +585,32 @@ export async function handleAnalyticsGetQualityScores(
   );
 }
 
+export async function handleAnalyticsSyncCompetitors(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<CompetitorSyncResult> {
+  return runHandlerAsync(
+    payload,
+    CompetitorSyncInputDTOSchema,
+    CompetitorSyncResultDTOSchema,
+    CompetitorSyncResultSchema,
+    (input) => backend.syncCompetitors(input),
+  );
+}
+
+export async function handleAnalyticsGetCompetitorInsights(
+  backend: DesktopIpcBackend,
+  payload: unknown,
+): Promise<CompetitorInsightsResult> {
+  return runHandlerAsync(
+    payload,
+    CompetitorInsightsQueryInputDTOSchema,
+    CompetitorInsightsResultDTOSchema,
+    CompetitorInsightsResultSchema,
+    (input) => backend.getCompetitorInsights(input),
+  );
+}
+
 export async function handleReportsGenerate(
   backend: DesktopIpcBackend,
   payload: unknown,
@@ -690,6 +730,8 @@ export function registerIpcHandlers(ipcMain: IpcMainLike, backend: DesktopIpcBac
   ipcMain.handle(IPC_CHANNELS.ML_GET_ANOMALIES, (_event, payload) => handleMlGetAnomalies(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ML_GET_TREND, (_event, payload) => handleMlGetTrend(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ANALYTICS_GET_QUALITY_SCORES, (_event, payload) => handleAnalyticsGetQualityScores(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ANALYTICS_SYNC_COMPETITORS, (_event, payload) => handleAnalyticsSyncCompetitors(backend, payload));
+  ipcMain.handle(IPC_CHANNELS.ANALYTICS_GET_COMPETITOR_INSIGHTS, (_event, payload) => handleAnalyticsGetCompetitorInsights(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_GENERATE, (_event, payload) => handleReportsGenerate(backend, payload));
   ipcMain.handle(IPC_CHANNELS.REPORTS_EXPORT, (_event, payload) => handleReportsExport(backend, payload));
   ipcMain.handle(IPC_CHANNELS.ASSISTANT_ASK, (_event, payload) => handleAssistantAsk(backend, payload));

@@ -64,6 +64,8 @@ describe('Data Core integration', () => {
       'analytics_query_cache',
       'analytics_cache_events',
       'agg_quality_scores',
+      'dim_competitor',
+      'fact_competitor_day',
       'assistant_threads',
       'assistant_messages',
       'assistant_message_evidence',

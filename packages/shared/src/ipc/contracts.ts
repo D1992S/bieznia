@@ -443,6 +443,86 @@ export type QualityScoreResultDTO = z.infer<typeof QualityScoreResultDTOSchema>;
 export const QualityScoreResultSchema = IpcResultSchema(QualityScoreResultDTOSchema);
 export type QualityScoreResult = z.infer<typeof QualityScoreResultSchema>;
 
+export const CompetitorSyncInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  competitorCount: z.number().int().min(3).max(20).default(3),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type CompetitorSyncInputDTO = z.infer<typeof CompetitorSyncInputDTOSchema>;
+
+export const CompetitorSyncResultDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  competitorsSynced: z.number().int().nonnegative(),
+  snapshotsProcessed: z.number().int().nonnegative(),
+  inserted: z.number().int().nonnegative(),
+  updated: z.number().int().nonnegative(),
+  unchanged: z.number().int().nonnegative(),
+  generatedAt: z.iso.datetime(),
+});
+export type CompetitorSyncResultDTO = z.infer<typeof CompetitorSyncResultDTOSchema>;
+export const CompetitorSyncResultSchema = IpcResultSchema(CompetitorSyncResultDTOSchema);
+export type CompetitorSyncResult = z.infer<typeof CompetitorSyncResultSchema>;
+
+export const CompetitorInsightsQueryInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  limit: z.number().int().min(1).max(50).default(10),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type CompetitorInsightsQueryInputDTO = z.infer<typeof CompetitorInsightsQueryInputDTOSchema>;
+
+export const CompetitorOwnerBenchmarkDTOSchema = z.object({
+  totalViews: z.number().nonnegative(),
+  avgViewsPerDay: z.number().nonnegative(),
+  growthRate: z.number(),
+  uploadsPerWeek: z.number().nonnegative(),
+});
+export type CompetitorOwnerBenchmarkDTO = z.infer<typeof CompetitorOwnerBenchmarkDTOSchema>;
+
+export const CompetitorInsightItemDTOSchema = z.object({
+  competitorChannelId: z.string().min(1),
+  name: z.string().min(1),
+  handle: z.string().min(1).nullable(),
+  daysWithData: z.number().int().nonnegative(),
+  totalViews: z.number().nonnegative(),
+  avgViewsPerDay: z.number().nonnegative(),
+  marketShare: z.number().min(0).max(1),
+  relativeGrowth: z.number(),
+  uploadsPerWeek: z.number().nonnegative(),
+  uploadFrequencyDelta: z.number(),
+  momentumScore: z.number().min(0).max(100),
+  hitCount: z.number().int().nonnegative(),
+  lastHitDate: z.iso.date().nullable(),
+});
+export type CompetitorInsightItemDTO = z.infer<typeof CompetitorInsightItemDTOSchema>;
+
+export const CompetitorHitDTOSchema = z.object({
+  competitorChannelId: z.string().min(1),
+  competitorName: z.string().min(1),
+  date: z.iso.date(),
+  views: z.number().nonnegative(),
+  threshold: z.number().nonnegative(),
+  zScore: z.number().nonnegative(),
+});
+export type CompetitorHitDTO = z.infer<typeof CompetitorHitDTOSchema>;
+
+export const CompetitorInsightsResultDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  totalCompetitors: z.number().int().nonnegative(),
+  generatedAt: z.iso.datetime(),
+  ownerBenchmark: CompetitorOwnerBenchmarkDTOSchema,
+  items: z.array(CompetitorInsightItemDTOSchema),
+  hits: z.array(CompetitorHitDTOSchema),
+});
+export type CompetitorInsightsResultDTO = z.infer<typeof CompetitorInsightsResultDTOSchema>;
+export const CompetitorInsightsResultSchema = IpcResultSchema(CompetitorInsightsResultDTOSchema);
+export type CompetitorInsightsResult = z.infer<typeof CompetitorInsightsResultSchema>;
+
 export const ReportDateRangeDTOSchema = z.object({
   dateFrom: z.iso.date(),
   dateTo: z.iso.date(),
@@ -875,6 +955,8 @@ export const IPC_CHANNELS = {
   REPORTS_GENERATE: 'reports:generate',
   REPORTS_EXPORT: 'reports:export',
   ANALYTICS_GET_QUALITY_SCORES: 'analytics:getQualityScores',
+  ANALYTICS_SYNC_COMPETITORS: 'analytics:syncCompetitors',
+  ANALYTICS_GET_COMPETITOR_INSIGHTS: 'analytics:getCompetitorInsights',
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',

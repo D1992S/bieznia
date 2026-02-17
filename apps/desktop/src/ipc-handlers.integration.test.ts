@@ -26,6 +26,8 @@ import {
   handleMlGetAnomalies,
   handleMlGetTrend,
   handleAnalyticsGetQualityScores,
+  handleAnalyticsSyncCompetitors,
+  handleAnalyticsGetCompetitorInsights,
   handleMlDetectAnomalies,
   handleMlRunBaseline,
   handleProfileCreate,
@@ -511,6 +513,89 @@ function createTestContext(): TestContext {
           },
         ],
       }),
+    syncCompetitors: (input) =>
+      ok({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        competitorsSynced: input.competitorCount,
+        snapshotsProcessed: 90 * input.competitorCount,
+        inserted: 90 * input.competitorCount,
+        updated: 0,
+        unchanged: 0,
+        generatedAt: '2026-02-17T10:05:00.000Z',
+      }),
+    getCompetitorInsights: (input) =>
+      ok({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        totalCompetitors: 3,
+        generatedAt: '2026-02-17T10:06:00.000Z',
+        ownerBenchmark: {
+          totalViews: 50000,
+          avgViewsPerDay: 1666.6,
+          growthRate: 0.14,
+          uploadsPerWeek: 2.1,
+        },
+        items: [
+          {
+            competitorChannelId: 'UC-COMP-ALFA',
+            name: 'Kanał Alfa',
+            handle: '@kanal_alfa',
+            daysWithData: 30,
+            totalViews: 62000,
+            avgViewsPerDay: 2066.6,
+            marketShare: 0.55,
+            relativeGrowth: 0.07,
+            uploadsPerWeek: 2.7,
+            uploadFrequencyDelta: 0.6,
+            momentumScore: 79.2,
+            hitCount: 1,
+            lastHitDate: input.dateTo,
+          },
+          {
+            competitorChannelId: 'UC-COMP-BETA',
+            name: 'Kanał Beta',
+            handle: '@kanal_beta',
+            daysWithData: 30,
+            totalViews: 54000,
+            avgViewsPerDay: 1800,
+            marketShare: 0.52,
+            relativeGrowth: 0.03,
+            uploadsPerWeek: 2.4,
+            uploadFrequencyDelta: 0.3,
+            momentumScore: 70.1,
+            hitCount: 0,
+            lastHitDate: null,
+          },
+          {
+            competitorChannelId: 'UC-COMP-GAMMA',
+            name: 'Kanał Gamma',
+            handle: '@kanal_gamma',
+            daysWithData: 30,
+            totalViews: 51000,
+            avgViewsPerDay: 1700,
+            marketShare: 0.5,
+            relativeGrowth: -0.01,
+            uploadsPerWeek: 1.9,
+            uploadFrequencyDelta: -0.2,
+            momentumScore: 62.4,
+            hitCount: 0,
+            lastHitDate: null,
+          },
+        ],
+        hits: [
+          {
+            competitorChannelId: 'UC-COMP-ALFA',
+            competitorName: 'Kanał Alfa',
+            date: input.dateTo,
+            views: 12000,
+            threshold: 6000,
+            zScore: 4.1,
+          },
+        ],
+      }),
     generateReport: (input) =>
       ok({
         generatedAt: '2026-02-12T22:30:00.000Z',
@@ -925,6 +1010,31 @@ describe('Desktop IPC handlers integration', () => {
       expect(qualityScoresResult.value.items[0]?.score).toBeGreaterThan(0);
     }
 
+    const competitorSyncResult = await handleAnalyticsSyncCompetitors(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      competitorCount: 3,
+    });
+    expect(competitorSyncResult.ok).toBe(true);
+    if (competitorSyncResult.ok) {
+      expect(competitorSyncResult.value.competitorsSynced).toBe(3);
+      expect(competitorSyncResult.value.snapshotsProcessed).toBeGreaterThan(0);
+    }
+
+    const competitorInsightsResult = await handleAnalyticsGetCompetitorInsights(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: ctx.dateFrom,
+      dateTo: ctx.dateTo,
+      limit: 5,
+    });
+    expect(competitorInsightsResult.ok).toBe(true);
+    if (competitorInsightsResult.ok) {
+      expect(competitorInsightsResult.value.totalCompetitors).toBeGreaterThanOrEqual(3);
+      expect(competitorInsightsResult.value.items.length).toBeGreaterThanOrEqual(3);
+      expect(competitorInsightsResult.value.hits.length).toBeGreaterThan(0);
+    }
+
     const reportGenerateResult = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: ctx.dateFrom,
@@ -1181,6 +1291,27 @@ describe('Desktop IPC handlers integration', () => {
       expect(invalidQualityScores.error.code).toBe('IPC_INVALID_PAYLOAD');
     }
 
+    const invalidCompetitorSync = await handleAnalyticsSyncCompetitors(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: '2026-02-02',
+      dateTo: '2026-01-01',
+      competitorCount: 2,
+    });
+    expect(invalidCompetitorSync.ok).toBe(false);
+    if (!invalidCompetitorSync.ok) {
+      expect(invalidCompetitorSync.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
+    const invalidCompetitorInsights = await handleAnalyticsGetCompetitorInsights(ctx.backend, {
+      channelId: ctx.channelId,
+      dateFrom: '2026-02-02',
+      dateTo: '2026-01-01',
+    });
+    expect(invalidCompetitorInsights.ok).toBe(false);
+    if (!invalidCompetitorInsights.ok) {
+      expect(invalidCompetitorInsights.error.code).toBe('IPC_INVALID_PAYLOAD');
+    }
+
     const invalidReportGenerate = await handleReportsGenerate(ctx.backend, {
       channelId: ctx.channelId,
       dateFrom: '2026-01-01',
@@ -1230,6 +1361,8 @@ describe('Desktop IPC handlers integration', () => {
       getMlAnomalies: (input) => ctx.backend.getMlAnomalies(input),
       getMlTrend: (input) => ctx.backend.getMlTrend(input),
       getQualityScores: (input) => ctx.backend.getQualityScores(input),
+      syncCompetitors: (input) => ctx.backend.syncCompetitors(input),
+      getCompetitorInsights: (input) => ctx.backend.getCompetitorInsights(input),
       generateReport: (input) => ctx.backend.generateReport(input),
       exportReport: (input) => ctx.backend.exportReport(input),
       askAssistant: (input) => ctx.backend.askAssistant(input),

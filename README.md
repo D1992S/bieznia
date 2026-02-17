@@ -4,7 +4,7 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 
 ## Postęp realizacji
 
-> Aktualny status: **Faza 13 ukończona, następna Faza 14 (Competitor Intelligence).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+> Aktualny status: **Faza 14 ukończona, następna Faza 15 (Topic Intelligence).** Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
 
 | Faza | Nazwa | Status | Co powinno działać (prosty opis) |
 |------|-------|--------|-----------------------------------|
@@ -23,8 +23,8 @@ Analityczna maszyna dla content creatorów (YouTube) — desktop app (Electron),
 | 11 | LLM Assistant (Lite) | DONE | Działa lekki asystent AI oparty o whitelist tooli i evidence z DB. |
 | 12 | Performance i stabilność (cache + inkrementalność) | DONE | Działa cache metryk, invalidacja po sync/import i inkrementalne przeliczenia pipeline. |
 | 13 | Quality Scoring | DONE | Każdy materiał dostaje czytelny wynik jakości z uzasadnieniem i confidence. |
-| 14 | Competitor Intelligence | **NASTĘPNA** | Widać porównanie do konkurencji i sygnały o ich mocnych ruchach. |
-| 15 | Topic Intelligence | — | Aplikacja podpowiada tematy z potencjałem i pokazuje luki tematyczne. |
+| 14 | Competitor Intelligence | DONE | Widać porównanie do konkurencji i sygnały o ich mocnych ruchach. |
+| 15 | Topic Intelligence | **NASTĘPNA** | Aplikacja podpowiada tematy z potencjałem i pokazuje luki tematyczne. |
 | 16 | Planning System | — | Można planować publikacje i oceniać pomysły przed nagraniem. |
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) | Poza zakresem w trybie solo (bez plugin runtime). |
 | 18 | Diagnostics + Recovery | — | Aplikacja wykrywa problemy techniczne i pomaga je naprawić. |

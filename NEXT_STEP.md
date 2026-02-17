@@ -21,7 +21,8 @@
 | 11 | LLM Assistant (Lite) | DONE |
 | 12 | Performance i stabilnosc (cache + inkrementalnosc) | DONE |
 | 13 | Quality Scoring | DONE |
-| 14-19 | Reszta | Oczekuje |
+| 14 | Competitor Intelligence | DONE |
+| 15-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -252,31 +253,86 @@
 - [x] Confidence labels sa zgodne z dlugoscia historii.
 - [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
-## Co robic teraz - Faza 14: Competitor Intelligence
+## Co zostalo zrobione (Faza 14)
 
-**Cel:** uruchomic analize konkurencji oparta o porownywalne metryki i sygnaly hitow.
+- Kontrakty `shared` rozszerzono o competitor intelligence:
+  - `analytics:syncCompetitors`,
+  - `analytics:getCompetitorInsights`,
+  - DTO/result schemas dla sync i insightow konkurencji.
+- `core` dostal migracje `010-competitor-intelligence-schema`:
+  - tabela `dim_competitor`,
+  - tabela `fact_competitor_day`,
+  - indeksy pod odczyt po `channel_id/date` i `(channel_id, competitor_channel_id, date)`.
+- Dodano serwis `@moze/analytics`:
+  - `syncCompetitorSnapshots(...)`:
+    - deterministiczny local-stub snapshotow konkurencji,
+    - delta detection (`inserted/updated/unchanged`).
+  - `getCompetitorInsights(...)`:
+    - relative growth,
+    - market share,
+    - content frequency comparison,
+    - hit detection (`views > mean + 3 * sigma`),
+    - momentum ranking.
+- Desktop runtime i IPC:
+  - nowe komendy backendu i tracing:
+    - `analytics.syncCompetitors`,
+    - `analytics.getCompetitorInsights`,
+  - handlery IPC + preload bridge dla nowych endpointow.
+- UI:
+  - nowy panel "Analiza konkurencji (Faza 14)" w zakladce `Statystyki`,
+  - synchronizacja konkurencji,
+  - ranking momentum i lista hitow konkurencji.
+- Testy:
+  - `packages/analytics/src/competitor-intelligence.integration.test.ts`,
+  - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`,
+  - rozszerzone `packages/core/src/data-core.integration.test.ts` (nowe tabele migracji 010).
+- ADR:
+  - dodano `docs/adr/006-competitor-intelligence.md`.
+
+**Definition of Done (Faza 14):**
+- [x] Dane konkurencji sa zapisywane i odczytywane przez IPC.
+- [x] Hit detection flaguje planted outliers.
+- [x] UI pokazuje porownanie min. 3 kanalow.
+- [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
+
+## Co robic teraz - Faza 15: Topic Intelligence
+
+**Cel:** uruchomic analize tematow i wykrywanie luk contentowych na bazie danych kanalu oraz konkurencji.
+
+**Scope freeze 15 (robimy / nie robimy):**
+- Robimy:
+  - schema topic intelligence (`dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`),
+  - pipeline tekstowy (tokenizacja PL/EN + TF-IDF),
+  - clustering tematow i trend per cluster,
+  - gap detection: tematy popularne w niszy, ktorych kanal nie pokrywa,
+  - podstawowy panel UI z lista topic gaps i uzasadnieniem.
+- Nie robimy:
+  - zaawansowanego NLP (LLM embeddings, topic labeling przez model zewnetrzny),
+  - automatycznej publikacji rekomendacji do kalendarza (to Faza 16),
+  - plugin runtime/alert center (poza zakresem solo).
 
 **Zakres (MVP):**
 1. Schemat i storage:
-   - `dim_competitor`, `fact_competitor_day`,
-   - indeksy pod odczyt po `channel_id/date` i per konkurent.
-2. Ingestion:
-   - warstwa pobierania publicznych metryk konkurencji,
-   - snapshot dzienny z delta detection.
-3. Silnik analityczny:
-   - relative growth,
-   - content frequency comparison,
-   - hit detection (outlier > 3 sigma vs baseline konkurenta).
+   - `dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`,
+   - indeksy pod odczyt per `channel_id`, `cluster_id`, `date`.
+2. Silnik analityczny:
+   - tokenizacja + stopwords + stemming (PL/EN),
+   - TF-IDF i grupowanie tematow,
+   - trend topicow: rising / stable / declining.
+3. Gap detection:
+   - porownanie tematow kanal vs konkurencja,
+   - ranking luk tematycznych z impact score.
 4. Integracja UI/IPC:
-   - panel porownawczy "my kanal vs konkurenci",
-   - podstawowy ranking momentum.
+   - endpointy IPC dla topic trend i topic gaps,
+   - panel "Topic Intelligence (Faza 15)" w `Statystyki`.
 5. Testy:
-   - seeded scenariusze z planted hit videos i znanym porzadkiem momentum.
+   - seeded scenariusze z planted overlap/cannibalization i oczekiwanym rankingiem gapow.
 
-**Definition of Done (Faza 14):**
-- [ ] Dane konkurencji sa zapisywane i odczytywane przez IPC.
-- [ ] Hit detection flaguje planted outliers.
-- [ ] UI pokazuje porownanie min. 3 kanalow.
+**Definition of Done (Faza 15):**
+- [ ] Clustering grupuje filmy w sensowne tematy (fixtures + test integracyjny).
+- [ ] Gap detection zwraca ranking luk z uzasadnieniem.
+- [ ] UI pokazuje topic gaps i trend tematow dla wybranego zakresu.
 - [ ] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
 ## Krytyczne zasady (nie pomijaj)

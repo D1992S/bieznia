@@ -15,6 +15,10 @@ import {
   MlTrendResultDTOSchema,
   QualityScoreQueryInputDTOSchema,
   QualityScoreResultDTOSchema,
+  CompetitorSyncInputDTOSchema,
+  CompetitorSyncResultDTOSchema,
+  CompetitorInsightsQueryInputDTOSchema,
+  CompetitorInsightsResultDTOSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   AuthConnectInputDTOSchema,
@@ -458,6 +462,95 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Competitor intelligence DTO', () => {
+    it('applies defaults for competitor sync/query and validates payloads', () => {
+      const syncInput = CompetitorSyncInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(syncInput.competitorCount).toBe(3);
+
+      const queryInput = CompetitorInsightsQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(queryInput.limit).toBe(10);
+
+      const syncResult = CompetitorSyncResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        competitorsSynced: 3,
+        snapshotsProcessed: 93,
+        inserted: 93,
+        updated: 0,
+        unchanged: 0,
+        generatedAt: '2026-02-17T12:00:00.000Z',
+      });
+      expect(syncResult.competitorsSynced).toBe(3);
+
+      const insightsResult = CompetitorInsightsResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        totalCompetitors: 3,
+        generatedAt: '2026-02-17T12:00:00.000Z',
+        ownerBenchmark: {
+          totalViews: 100000,
+          avgViewsPerDay: 3225.8,
+          growthRate: 0.12,
+          uploadsPerWeek: 2.3,
+        },
+        items: [
+          {
+            competitorChannelId: 'UC-COMP-001',
+            name: 'Konkurent 1',
+            handle: '@konkurent1',
+            daysWithData: 31,
+            totalViews: 120000,
+            avgViewsPerDay: 3870.9,
+            marketShare: 0.54,
+            relativeGrowth: 0.08,
+            uploadsPerWeek: 2.9,
+            uploadFrequencyDelta: 0.6,
+            momentumScore: 77.4,
+            hitCount: 1,
+            lastHitDate: '2026-01-29',
+          },
+        ],
+        hits: [
+          {
+            competitorChannelId: 'UC-COMP-001',
+            competitorName: 'Konkurent 1',
+            date: '2026-01-29',
+            views: 12000,
+            threshold: 6000,
+            zScore: 4.2,
+          },
+        ],
+      });
+      expect(insightsResult.items[0]?.momentumScore).toBeGreaterThan(0);
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        CompetitorSyncInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+
+      expect(() =>
+        CompetitorInsightsQueryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+    });
+  });
+
   describe('Reports DTO', () => {
     it('applies defaults for report generate input', () => {
       const parsed = ReportGenerateInputDTOSchema.parse({
@@ -835,6 +928,8 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.REPORTS_GENERATE).toBe('reports:generate');
       expect(IPC_CHANNELS.REPORTS_EXPORT).toBe('reports:export');
       expect(IPC_CHANNELS.ANALYTICS_GET_QUALITY_SCORES).toBe('analytics:getQualityScores');
+      expect(IPC_CHANNELS.ANALYTICS_SYNC_COMPETITORS).toBe('analytics:syncCompetitors');
+      expect(IPC_CHANNELS.ANALYTICS_GET_COMPETITOR_INSIGHTS).toBe('analytics:getCompetitorInsights');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');
