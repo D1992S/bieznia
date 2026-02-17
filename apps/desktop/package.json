@@ -15,6 +15,7 @@
     "@moze/analytics": "workspace:*",
     "@moze/core": "workspace:*",
     "@moze/data-pipeline": "workspace:*",
+    "@moze/diagnostics": "workspace:*",
     "@moze/llm": "workspace:*",
     "@moze/ml": "workspace:*",
     "@moze/reports": "workspace:*",

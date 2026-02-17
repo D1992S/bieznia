@@ -25,6 +25,10 @@ import {
   PlanningGenerateInputDTOSchema,
   PlanningGetPlanInputDTOSchema,
   PlanningPlanResultDTOSchema,
+  DiagnosticsGetHealthInputDTOSchema,
+  DiagnosticsHealthResultDTOSchema,
+  DiagnosticsRunRecoveryInputDTOSchema,
+  DiagnosticsRunRecoveryResultDTOSchema,
   MlRunBaselineInputDTOSchema,
   MlRunBaselineResultDTOSchema,
   AuthConnectInputDTOSchema,
@@ -807,6 +811,98 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Diagnostics DTO', () => {
+    it('applies defaults and validates diagnostics health payloads', () => {
+      const healthInput = DiagnosticsGetHealthInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(healthInput.windowHours).toBe(24);
+
+      const healthResult = DiagnosticsHealthResultDTOSchema.parse({
+        generatedAt: '2026-02-17T20:00:00.000Z',
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        windowHours: 24,
+        overallStatus: 'warning',
+        checks: [
+          {
+            checkId: 'db.integrity',
+            module: 'db',
+            status: 'ok',
+            message: 'Integralnosc bazy danych jest poprawna.',
+            durationMs: 3,
+            details: { quickCheck: 'ok', foreignKeyViolations: 0 },
+          },
+          {
+            checkId: 'cache.snapshot',
+            module: 'cache',
+            status: 'warning',
+            message: 'Cache analityki ma niski hit-rate.',
+            durationMs: 2,
+            details: { hitRate: 0.12 },
+          },
+        ],
+      });
+      expect(healthResult.checks).toHaveLength(2);
+    });
+
+    it('validates recovery payloads', () => {
+      const recoveryInput = DiagnosticsRunRecoveryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        actions: ['invalidate_analytics_cache', 'rerun_data_pipeline', 'integrity_check'],
+      });
+      expect(recoveryInput.actions).toHaveLength(3);
+
+      const recoveryResult = DiagnosticsRunRecoveryResultDTOSchema.parse({
+        generatedAt: '2026-02-17T20:05:00.000Z',
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        requestedActions: ['invalidate_analytics_cache', 'rerun_data_pipeline', 'integrity_check'],
+        overallStatus: 'ok',
+        steps: [
+          {
+            action: 'invalidate_analytics_cache',
+            status: 'ok',
+            message: 'Zainwalidowano cache analityki.',
+            durationMs: 1,
+            details: { revision: 3, invalidatedEntries: 7 },
+          },
+          {
+            action: 'integrity_check',
+            status: 'ok',
+            message: 'Szybki check integralnosci zakonczyl sie powodzeniem.',
+            durationMs: 2,
+            details: { quickCheck: 'ok', foreignKeyViolations: 0 },
+          },
+        ],
+      });
+      expect(recoveryResult.overallStatus).toBe('ok');
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        DiagnosticsGetHealthInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+
+      expect(() =>
+        DiagnosticsRunRecoveryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+          actions: ['integrity_check'],
+        })).toThrow();
+    });
+  });
+
   describe('Profile/Auth/Settings DTO', () => {
     it('validates profile create/list/set-active payloads', () => {
       const createInput = ProfileCreateInputDTOSchema.parse({
@@ -1086,6 +1182,8 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.ANALYTICS_GET_TOPIC_INTELLIGENCE).toBe('analytics:getTopicIntelligence');
       expect(IPC_CHANNELS.PLANNING_GENERATE_PLAN).toBe('planning:generatePlan');
       expect(IPC_CHANNELS.PLANNING_GET_PLAN).toBe('planning:getPlan');
+      expect(IPC_CHANNELS.DIAGNOSTICS_GET_HEALTH).toBe('diagnostics:getHealth');
+      expect(IPC_CHANNELS.DIAGNOSTICS_RUN_RECOVERY).toBe('diagnostics:runRecovery');
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');

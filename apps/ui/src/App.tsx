@@ -2,6 +2,7 @@
 import type {
   CsvImportColumnMappingDTO,
   DataMode,
+  DiagnosticsRecoveryAction,
   MlAnomalySeverity,
   MlForecastPointDTO,
   MlTargetMetric,
@@ -13,6 +14,7 @@ import type {
 } from '@moze/shared';
 import {
   DEFAULT_CHANNEL_ID,
+  DEFAULT_DIAGNOSTICS_RECOVERY_ACTIONS,
   DEFAULT_TOPIC_CLUSTER_LIMIT,
   DEFAULT_TOPIC_GAP_LIMIT,
   buildDateRange,
@@ -28,6 +30,7 @@ import {
   useCsvImportPreviewMutation,
   useCsvImportRunMutation,
   useDetectMlAnomaliesMutation,
+  useDiagnosticsHealthQuery,
   useCreateProfileMutation,
   useDashboardReportQuery,
   useDataModeStatusQuery,
@@ -44,6 +47,7 @@ import {
   useProfilesQuery,
   useResumeSyncMutation,
   useRunMlBaselineMutation,
+  useRunDiagnosticsRecoveryMutation,
   useRunTopicIntelligenceMutation,
   useSearchContentMutation,
   useSetActiveProfileMutation,
@@ -272,6 +276,68 @@ function getPlanningConfidenceLabel(confidence: 'low' | 'medium' | 'high'): stri
   }
 }
 
+function getDiagnosticsHealthStatusLabel(status: 'ok' | 'warning' | 'error'): string {
+  switch (status) {
+    case 'ok':
+      return 'OK';
+    case 'warning':
+      return 'ostrzeżenie';
+    case 'error':
+      return 'błąd';
+  }
+}
+
+function getDiagnosticsRecoveryStatusLabel(status: 'ok' | 'partial' | 'failed'): string {
+  switch (status) {
+    case 'ok':
+      return 'zakończono pomyślnie';
+    case 'partial':
+      return 'częściowo wykonano';
+    case 'failed':
+      return 'zakończono błędem';
+  }
+}
+
+function getDiagnosticsStepStatusLabel(status: 'ok' | 'skipped' | 'failed'): string {
+  switch (status) {
+    case 'ok':
+      return 'wykonano';
+    case 'skipped':
+      return 'pominięto';
+    case 'failed':
+      return 'błąd';
+  }
+}
+
+function getDiagnosticsActionLabel(action: DiagnosticsRecoveryAction): string {
+  switch (action) {
+    case 'invalidate_analytics_cache':
+      return 'Inwalidacja cache analityki';
+    case 'rerun_data_pipeline':
+      return 'Ponowne przeliczenie pipeline';
+    case 'vacuum_database':
+      return 'VACUUM bazy danych';
+    case 'reindex_fts':
+      return 'REINDEX FTS';
+    case 'integrity_check':
+      return 'Kontrola integralności';
+  }
+}
+
+function getDiagnosticsStatusColor(status: 'ok' | 'warning' | 'error' | 'skipped' | 'failed'): string {
+  switch (status) {
+    case 'ok':
+      return STUDIO_THEME.success;
+    case 'warning':
+      return STUDIO_THEME.warning;
+    case 'skipped':
+      return STUDIO_THEME.muted;
+    case 'error':
+    case 'failed':
+      return STUDIO_THEME.danger;
+  }
+}
+
 function mergeSeriesWithForecast(
   actualPoints: TimeseriesPoint[] | undefined,
   forecastPoints: MlForecastPointDTO[] | undefined,
@@ -379,6 +445,7 @@ export function App() {
   const syncCompetitorsMutation = useSyncCompetitorsMutation();
   const runTopicIntelligenceMutation = useRunTopicIntelligenceMutation();
   const generatePlanningPlanMutation = useGeneratePlanningPlanMutation();
+  const runDiagnosticsRecoveryMutation = useRunDiagnosticsRecoveryMutation();
 
   useEffect(() => {
     const defaultDatePreset = settingsQuery.data?.defaultDatePreset;
@@ -450,6 +517,7 @@ export function App() {
     gapLimit: topicGapLimit,
   });
   const planningPlanQuery = usePlanningPlanQuery(channelId, dateRange, dataEnabled);
+  const diagnosticsHealthQuery = useDiagnosticsHealthQuery(channelId, dateRange, dataEnabled);
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
   const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
   const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
@@ -622,6 +690,8 @@ export function App() {
   const competitorInsights = competitorInsightsQuery.data;
   const topicIntelligence = topicIntelligenceQuery.data;
   const planningPlan = planningPlanQuery.data;
+  const diagnosticsHealth = diagnosticsHealthQuery.data;
+  const diagnosticsRecoveryResult = runDiagnosticsRecoveryMutation.data;
   const isCompetitorSyncDisabled = syncCompetitorsMutation.isPending
     || !dataEnabled
     || channelId.trim().length === 0
@@ -631,6 +701,10 @@ export function App() {
     || channelId.trim().length === 0
     || !isDateRangeValid(dateRange);
   const isPlanningGenerateDisabled = generatePlanningPlanMutation.isPending
+    || !dataEnabled
+    || channelId.trim().length === 0
+    || !isDateRangeValid(dateRange);
+  const isDiagnosticsRecoveryDisabled = runDiagnosticsRecoveryMutation.isPending
     || !dataEnabled
     || channelId.trim().length === 0
     || !isDateRangeValid(dateRange);
@@ -1666,6 +1740,133 @@ export function App() {
                 )}
               </div>
             </>
+          )}
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            border: `1px solid ${STUDIO_THEME.border}`,
+            borderRadius: 16,
+            background: STUDIO_THEME.panelElevated,
+            padding: 14,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div>
+              <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Diagnostyka i recovery (Faza 18)</h3>
+              <p style={{ marginTop: 6, marginBottom: 0, color: STUDIO_THEME.muted }}>
+                Health check modułów DB/cache/pipeline/IPC oraz bezpieczne akcje naprawcze.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  void diagnosticsHealthQuery.refetch();
+                }}
+                disabled={!dataEnabled || diagnosticsHealthQuery.isFetching}
+              >
+                {diagnosticsHealthQuery.isFetching ? 'Odświeżanie...' : 'Odśwież health check'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isDiagnosticsRecoveryDisabled) {
+                    return;
+                  }
+                  runDiagnosticsRecoveryMutation.mutate({
+                    channelId,
+                    dateFrom: dateRange.dateFrom,
+                    dateTo: dateRange.dateTo,
+                    actions: DEFAULT_DIAGNOSTICS_RECOVERY_ACTIONS,
+                  });
+                }}
+                disabled={isDiagnosticsRecoveryDisabled}
+              >
+                {runDiagnosticsRecoveryMutation.isPending ? 'Uruchamianie recovery...' : 'Uruchom recovery'}
+              </button>
+            </div>
+          </div>
+
+          {diagnosticsHealthQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie diagnostyki...</p>}
+          {diagnosticsHealthQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać diagnostyki.</p>}
+
+          {runDiagnosticsRecoveryMutation.isPending && (
+            <p style={{ color: STUDIO_THEME.muted, marginBottom: 0 }}>
+              Trwa wykonywanie akcji recovery...
+            </p>
+          )}
+          {runDiagnosticsRecoveryMutation.isError && (
+            <p style={{ color: STUDIO_THEME.danger, marginBottom: 0 }}>
+              {readMutationErrorMessage(runDiagnosticsRecoveryMutation.error, 'Nie udało się uruchomić recovery.')}
+            </p>
+          )}
+
+          {diagnosticsHealth && (
+            <>
+              <p style={{ marginTop: 8, marginBottom: 10, color: STUDIO_THEME.title }}>
+                Status ogólny:{' '}
+                <strong style={{ color: getDiagnosticsStatusColor(diagnosticsHealth.overallStatus) }}>
+                  {getDiagnosticsHealthStatusLabel(diagnosticsHealth.overallStatus)}
+                </strong>{' '}
+                | wygenerowano: {new Date(diagnosticsHealth.generatedAt).toLocaleString('pl-PL')}
+              </p>
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                {diagnosticsHealth.checks.map((check) => (
+                  <article
+                    key={check.checkId}
+                    style={{
+                      border: `1px solid ${STUDIO_THEME.border}`,
+                      borderRadius: 10,
+                      background: STUDIO_THEME.panel,
+                      padding: 10,
+                    }}
+                  >
+                    <p style={{ margin: 0 }}>
+                      <strong>{check.checkId}</strong> ({check.module}) | status:{' '}
+                      <span style={{ color: getDiagnosticsStatusColor(check.status) }}>
+                        {getDiagnosticsHealthStatusLabel(check.status)}
+                      </span>{' '}
+                      | czas: {check.durationMs} ms
+                    </p>
+                    <p style={{ margin: '4px 0 0', color: STUDIO_THEME.muted, fontSize: 13 }}>{check.message}</p>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+
+          {diagnosticsRecoveryResult && (
+            <div style={{ marginTop: 10 }}>
+              <p style={{ margin: 0, color: STUDIO_THEME.title }}>
+                Ostatnie recovery:{' '}
+                <strong
+                  style={{
+                    color: diagnosticsRecoveryResult.overallStatus === 'ok'
+                      ? STUDIO_THEME.success
+                      : diagnosticsRecoveryResult.overallStatus === 'partial'
+                        ? STUDIO_THEME.warning
+                        : STUDIO_THEME.danger,
+                  }}
+                >
+                  {getDiagnosticsRecoveryStatusLabel(diagnosticsRecoveryResult.overallStatus)}
+                </strong>
+                {' '}| akcje: {diagnosticsRecoveryResult.requestedActions.map((action) => getDiagnosticsActionLabel(action)).join(', ')}
+              </p>
+              <ul style={{ marginTop: 6, marginBottom: 0, paddingLeft: 18 }}>
+                {diagnosticsRecoveryResult.steps.map((step) => (
+                  <li key={`${step.action}-${step.status}-${step.durationMs}`} style={{ color: STUDIO_THEME.title }}>
+                    {getDiagnosticsActionLabel(step.action)}: {' '}
+                    <span style={{ color: getDiagnosticsStatusColor(step.status) }}>
+                      {getDiagnosticsStepStatusLabel(step.status)}
+                    </span>
+                    {' '}({step.durationMs} ms)
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       </section>

@@ -652,6 +652,88 @@ export type PlanningPlanResultDTO = z.infer<typeof PlanningPlanResultDTOSchema>;
 export const PlanningPlanResultSchema = IpcResultSchema(PlanningPlanResultDTOSchema);
 export type PlanningPlanResult = z.infer<typeof PlanningPlanResultSchema>;
 
+export const DiagnosticsHealthStatusSchema = z.enum(['ok', 'warning', 'error']);
+export type DiagnosticsHealthStatus = z.infer<typeof DiagnosticsHealthStatusSchema>;
+
+export const DiagnosticsModuleSchema = z.enum(['db', 'cache', 'pipeline', 'ipc']);
+export type DiagnosticsModule = z.infer<typeof DiagnosticsModuleSchema>;
+
+export const DiagnosticsGetHealthInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  windowHours: z.number().int().min(1).max(24 * 30).default(24),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type DiagnosticsGetHealthInputDTO = z.infer<typeof DiagnosticsGetHealthInputDTOSchema>;
+
+export const DiagnosticsHealthCheckItemDTOSchema = z.object({
+  checkId: z.string().min(1),
+  module: DiagnosticsModuleSchema,
+  status: DiagnosticsHealthStatusSchema,
+  message: z.string().min(1),
+  durationMs: z.number().int().nonnegative(),
+  details: z.record(z.string(), z.unknown()),
+});
+export type DiagnosticsHealthCheckItemDTO = z.infer<typeof DiagnosticsHealthCheckItemDTOSchema>;
+
+export const DiagnosticsHealthResultDTOSchema = z.object({
+  generatedAt: z.iso.datetime(),
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  windowHours: z.number().int().positive(),
+  overallStatus: DiagnosticsHealthStatusSchema,
+  checks: z.array(DiagnosticsHealthCheckItemDTOSchema),
+});
+export type DiagnosticsHealthResultDTO = z.infer<typeof DiagnosticsHealthResultDTOSchema>;
+export const DiagnosticsHealthResultSchema = IpcResultSchema(DiagnosticsHealthResultDTOSchema);
+export type DiagnosticsHealthResult = z.infer<typeof DiagnosticsHealthResultSchema>;
+
+export const DiagnosticsRecoveryActionSchema = z.enum([
+  'invalidate_analytics_cache',
+  'rerun_data_pipeline',
+  'vacuum_database',
+  'reindex_fts',
+  'integrity_check',
+]);
+export type DiagnosticsRecoveryAction = z.infer<typeof DiagnosticsRecoveryActionSchema>;
+
+export const DiagnosticsRunRecoveryInputDTOSchema = z.object({
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  actions: z.array(DiagnosticsRecoveryActionSchema).min(1).max(20),
+}).refine((value) => value.dateFrom <= value.dateTo, 'Data poczatkowa nie moze byc pozniejsza niz koncowa.');
+export type DiagnosticsRunRecoveryInputDTO = z.infer<typeof DiagnosticsRunRecoveryInputDTOSchema>;
+
+export const DiagnosticsRecoveryStepStatusSchema = z.enum(['ok', 'skipped', 'failed']);
+export type DiagnosticsRecoveryStepStatus = z.infer<typeof DiagnosticsRecoveryStepStatusSchema>;
+
+export const DiagnosticsRecoveryStepResultDTOSchema = z.object({
+  action: DiagnosticsRecoveryActionSchema,
+  status: DiagnosticsRecoveryStepStatusSchema,
+  message: z.string().min(1),
+  durationMs: z.number().int().nonnegative(),
+  details: z.record(z.string(), z.unknown()),
+});
+export type DiagnosticsRecoveryStepResultDTO = z.infer<typeof DiagnosticsRecoveryStepResultDTOSchema>;
+
+export const DiagnosticsRecoveryResultStatusSchema = z.enum(['ok', 'partial', 'failed']);
+export type DiagnosticsRecoveryResultStatus = z.infer<typeof DiagnosticsRecoveryResultStatusSchema>;
+
+export const DiagnosticsRunRecoveryResultDTOSchema = z.object({
+  generatedAt: z.iso.datetime(),
+  channelId: z.string().min(1),
+  dateFrom: z.iso.date(),
+  dateTo: z.iso.date(),
+  requestedActions: z.array(DiagnosticsRecoveryActionSchema),
+  overallStatus: DiagnosticsRecoveryResultStatusSchema,
+  steps: z.array(DiagnosticsRecoveryStepResultDTOSchema),
+});
+export type DiagnosticsRunRecoveryResultDTO = z.infer<typeof DiagnosticsRunRecoveryResultDTOSchema>;
+export const DiagnosticsRunRecoveryResultSchema = IpcResultSchema(DiagnosticsRunRecoveryResultDTOSchema);
+export type DiagnosticsRunRecoveryResult = z.infer<typeof DiagnosticsRunRecoveryResultSchema>;
+
 export const ReportDateRangeDTOSchema = z.object({
   dateFrom: z.iso.date(),
   dateTo: z.iso.date(),
@@ -1090,6 +1172,8 @@ export const IPC_CHANNELS = {
   ANALYTICS_GET_TOPIC_INTELLIGENCE: 'analytics:getTopicIntelligence',
   PLANNING_GENERATE_PLAN: 'planning:generatePlan',
   PLANNING_GET_PLAN: 'planning:getPlan',
+  DIAGNOSTICS_GET_HEALTH: 'diagnostics:getHealth',
+  DIAGNOSTICS_RUN_RECOVERY: 'diagnostics:runRecovery',
   DB_GET_KPIS: 'db:getKpis',
   DB_GET_TIMESERIES: 'db:getTimeseries',
   DB_GET_CHANNEL_INFO: 'db:getChannelInfo',

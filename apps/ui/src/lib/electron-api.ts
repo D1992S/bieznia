@@ -38,6 +38,10 @@ import type {
   PlanningGenerateInputDTO,
   PlanningGetPlanInputDTO,
   PlanningPlanResultDTO,
+  DiagnosticsGetHealthInputDTO,
+  DiagnosticsHealthResultDTO,
+  DiagnosticsRunRecoveryInputDTO,
+  DiagnosticsRunRecoveryResultDTO,
   ProfileListResultDTO,
   ProfileCreateInputDTO,
   ProfileSetActiveInputDTO,
@@ -268,6 +272,20 @@ export async function generatePlanningPlan(input: PlanningGenerateInputDTO): Pro
 export async function fetchPlanningPlan(input: PlanningGetPlanInputDTO): Promise<PlanningPlanResultDTO> {
   const api = ensureElectronApi();
   const result = await api.planningGetPlan(input);
+  return unwrapResult(result);
+}
+
+export async function fetchDiagnosticsHealth(input: DiagnosticsGetHealthInputDTO): Promise<DiagnosticsHealthResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.diagnosticsGetHealth(input);
+  return unwrapResult(result);
+}
+
+export async function runDiagnosticsRecovery(
+  input: DiagnosticsRunRecoveryInputDTO,
+): Promise<DiagnosticsRunRecoveryResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.diagnosticsRunRecovery(input);
   return unwrapResult(result);
 }
 

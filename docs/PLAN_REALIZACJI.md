@@ -862,7 +862,7 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Pakiet `reports`: generator raportu + eksport JSON/CSV/HTML. ✅ Faza 7
 - [x] App `desktop`: Electron main + preload (security hardened). ✅ Faza 0
 - [x] App `ui`: React + Zustand + TanStack Query skeleton. ✅ Faza 0
-- [x] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries` + rozszerzenia `app:getDataMode`, `app:setDataMode`, `app:probeDataMode`, `profile:list`, `profile:create`, `profile:setActive`, `settings:get`, `settings:update`, `auth:getStatus`, `auth:connect`, `auth:disconnect`, `sync:start`, `sync:resume`, `ml:runBaseline`, `ml:getForecast`, `ml:detectAnomalies`, `ml:getAnomalies`, `ml:getTrend`, `analytics:getQualityScores`, `analytics:syncCompetitors`, `analytics:getCompetitorInsights`, `analytics:runTopicIntelligence`, `analytics:getTopicIntelligence`, `planning:generatePlan`, `planning:getPlan`, `reports:generate`, `reports:export`, `import:previewCsv`, `import:runCsv`, `search:content`, `assistant:ask`, `assistant:listThreads`, `assistant:getThreadMessages`. DONE Faza 2/3/5/6/7/8/9/10/11/13/14/15/16
+- [x] Minimal IPC: `app:getStatus`, `db:getKpis`, `db:getTimeseries` + rozszerzenia `app:getDataMode`, `app:setDataMode`, `app:probeDataMode`, `profile:list`, `profile:create`, `profile:setActive`, `settings:get`, `settings:update`, `auth:getStatus`, `auth:connect`, `auth:disconnect`, `sync:start`, `sync:resume`, `ml:runBaseline`, `ml:getForecast`, `ml:detectAnomalies`, `ml:getAnomalies`, `ml:getTrend`, `analytics:getQualityScores`, `analytics:syncCompetitors`, `analytics:getCompetitorInsights`, `analytics:runTopicIntelligence`, `analytics:getTopicIntelligence`, `planning:generatePlan`, `planning:getPlan`, `diagnostics:getHealth`, `diagnostics:runRecovery`, `reports:generate`, `reports:export`, `import:previewCsv`, `import:runCsv`, `search:content`, `assistant:ask`, `assistant:listThreads`, `assistant:getThreadMessages`. DONE Faza 2/3/5/6/7/8/9/10/11/13/14/15/16/18
 - [x] Realistyczne fixture data (90 dni, 50 filmów). ✅ Faza 1
 - [x] Fake mode (runtime toggle + loader fixture). ✅ Faza 3
 - [x] Record mode + replay fixture (real -> fixture -> fake). ✅ Faza 3
@@ -880,6 +880,7 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Competitor Intelligence: `dim_competitor` + `fact_competitor_day`, sync snapshotow, hit detection > 3 sigma, momentum ranking i panel UI. DONE Faza 14
 - [x] Topic Intelligence: `dim_topic_cluster` + `fact_topic_pressure_day` + `agg_topic_gaps`, klasteryzacja i gap detection z integracją IPC/UI. DONE Faza 15
 - [x] Planning System: `planning_plans` + `planning_recommendations`, planner deterministyczny, evidence/rationale/confidence, integracja IPC/UI. DONE Faza 16
+- [x] Diagnostics + Recovery: `diagnostics:getHealth` + `diagnostics:runRecovery`, health checks DB/cache/pipeline/IPC, akcje recovery i panel UI. DONE Faza 18
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---

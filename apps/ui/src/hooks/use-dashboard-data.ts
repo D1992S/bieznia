@@ -6,6 +6,8 @@ import type {
   CompetitorInsightsResultDTO,
   CsvImportColumnMappingDTO,
   DataMode,
+  DiagnosticsHealthResultDTO,
+  DiagnosticsRecoveryAction,
   MlAnomalySeverity,
   MlTargetMetric,
   PlanningPlanResultDTO,
@@ -20,6 +22,7 @@ import {
   createProfile,
   detectMlAnomalies,
   disconnectAuth,
+  fetchDiagnosticsHealth,
   fetchPlanningPlan,
   exportDashboardReport,
   fetchAppStatus,
@@ -43,6 +46,7 @@ import {
   probeDataMode,
   resumeSync,
   runCsvImport,
+  runDiagnosticsRecovery,
   generatePlanningPlan,
   runMlBaseline,
   runTopicIntelligence,
@@ -57,6 +61,14 @@ import {
 export const DEFAULT_CHANNEL_ID = 'UC-SEED-PL-001';
 export const DEFAULT_TOPIC_CLUSTER_LIMIT = 12;
 export const DEFAULT_TOPIC_GAP_LIMIT = 10;
+export const DEFAULT_DIAGNOSTICS_WINDOW_HOURS = 24;
+export const DEFAULT_DIAGNOSTICS_RECOVERY_ACTIONS: DiagnosticsRecoveryAction[] = [
+  'integrity_check',
+  'invalidate_analytics_cache',
+  'rerun_data_pipeline',
+  'reindex_fts',
+  'vacuum_database',
+];
 export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
 
 export interface DateRange {
@@ -128,6 +140,7 @@ function invalidateProfileScopedQueries(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: ['planning'] });
   void queryClient.invalidateQueries({ queryKey: ['reports'] });
   void queryClient.invalidateQueries({ queryKey: ['assistant'] });
+  void queryClient.invalidateQueries({ queryKey: ['diagnostics'] });
 }
 
 function toIsoDate(date: Date): string {
@@ -685,6 +698,47 @@ export function usePlanningPlanQuery(channelId: string, range: DateRange, enable
       }),
     enabled,
     staleTime: 30_000,
+  });
+}
+
+export function useDiagnosticsHealthQuery(channelId: string, range: DateRange, enabled: boolean) {
+  return useQuery<DiagnosticsHealthResultDTO>({
+    queryKey: ['diagnostics', 'health', channelId, range.dateFrom, range.dateTo, DEFAULT_DIAGNOSTICS_WINDOW_HOURS],
+    queryFn: () =>
+      fetchDiagnosticsHealth({
+        channelId,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        windowHours: DEFAULT_DIAGNOSTICS_WINDOW_HOURS,
+      }),
+    enabled,
+    staleTime: 15_000,
+  });
+}
+
+export function useRunDiagnosticsRecoveryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      channelId: string;
+      dateFrom: string;
+      dateTo: string;
+      actions?: DiagnosticsRecoveryAction[];
+    }) =>
+      runDiagnosticsRecovery({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        actions: input.actions ?? DEFAULT_DIAGNOSTICS_RECOVERY_ACTIONS,
+      }),
+    onSuccess: (_result, input) => {
+      void queryClient.invalidateQueries({ queryKey: ['diagnostics', 'health', input.channelId, input.dateFrom, input.dateTo] });
+      void queryClient.invalidateQueries({ queryKey: ['db'] });
+      void queryClient.invalidateQueries({ queryKey: ['ml'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      void queryClient.invalidateQueries({ queryKey: ['planning'] });
+      void queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
   });
 }
 
