@@ -38,6 +38,12 @@
   ReportGenerateResultSchema,
   SearchContentInputDTOSchema,
   SearchContentResultSchema,
+  AssistantAskInputDTOSchema,
+  AssistantAskResultSchema,
+  AssistantThreadListInputDTOSchema,
+  AssistantThreadListResultSchema,
+  AssistantThreadMessagesInputDTOSchema,
+  AssistantThreadMessagesResultSchema,
   SettingsUpdateInputDTOSchema,
   SyncCommandResultSchema,
   SyncCompleteEventSchema,
@@ -82,6 +88,12 @@
   type ReportGenerateResult,
   type SearchContentInputDTO,
   type SearchContentResult,
+  type AssistantAskInputDTO,
+  type AssistantAskResult,
+  type AssistantThreadListInputDTO,
+  type AssistantThreadListResult,
+  type AssistantThreadMessagesInputDTO,
+  type AssistantThreadMessagesResult,
   type SettingsUpdateInputDTO,
   type SyncCommandResult,
   type SyncCompleteEvent,
@@ -120,6 +132,9 @@ export interface ElectronAPI {
   mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
+  assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
+  assistantListThreads: (input: AssistantThreadListInputDTO) => Promise<AssistantThreadListResult>;
+  assistantGetThreadMessages: (input: AssistantThreadMessagesInputDTO) => Promise<AssistantThreadMessagesResult>;
   dbGetKpis: (query: KpiQueryDTO) => Promise<KpiResult>;
   dbGetTimeseries: (query: TimeseriesQueryDTO) => Promise<TimeseriesResult>;
   dbGetChannelInfo: (query: ChannelIdDTO) => Promise<ChannelInfoResult>;
@@ -368,6 +383,27 @@ const api: ElectronAPI = {
       input,
       ReportExportInputDTOSchema,
       ReportExportResultSchema,
+    ),
+  assistantAsk: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ASSISTANT_ASK,
+      input,
+      AssistantAskInputDTOSchema,
+      AssistantAskResultSchema,
+    ),
+  assistantListThreads: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ASSISTANT_LIST_THREADS,
+      input,
+      AssistantThreadListInputDTOSchema,
+      AssistantThreadListResultSchema,
+    ),
+  assistantGetThreadMessages: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ASSISTANT_GET_THREAD_MESSAGES,
+      input,
+      AssistantThreadMessagesInputDTOSchema,
+      AssistantThreadMessagesResultSchema,
     ),
   dbGetKpis: (query) =>
     invokeValidated(

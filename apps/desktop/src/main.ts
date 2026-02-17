@@ -14,6 +14,7 @@
   type SettingsQueries,
 } from '@moze/core';
 import { runDataPipeline } from '@moze/data-pipeline';
+import { createAssistantLiteService, type AssistantLiteService } from '@moze/llm';
 import { getLatestMlForecast, getMlAnomalies, getMlTrend, runAnomalyTrendAnalysis, runMlBaseline } from '@moze/ml';
 import { exportDashboardReport, generateDashboardReport } from '@moze/reports';
 import {
@@ -74,6 +75,12 @@ import {
   type SyncStartInputDTO,
   type TimeseriesQueryDTO,
   type TimeseriesResultDTO,
+  type AssistantAskInputDTO,
+  type AssistantAskResultDTO,
+  type AssistantThreadListInputDTO,
+  type AssistantThreadListResultDTO,
+  type AssistantThreadMessagesInputDTO,
+  type AssistantThreadMessagesResultDTO,
 } from '@moze/shared';
 import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
 import path from 'node:path';
@@ -102,6 +109,7 @@ interface BackendState {
   channelQueries: ChannelQueries | null;
   settingsQueries: SettingsQueries | null;
   importSearchQueries: ImportSearchQueries | null;
+  assistantService: AssistantLiteService | null;
   dataModeManager: DataModeManager | null;
   syncOrchestrator: SyncOrchestrator | null;
   profileManager: ProfileManager | null;
@@ -114,6 +122,7 @@ const backendState: BackendState = {
   channelQueries: null,
   settingsQueries: null,
   importSearchQueries: null,
+  assistantService: null,
   dataModeManager: null,
   syncOrchestrator: null,
   profileManager: null,
@@ -171,6 +180,15 @@ function createSyncNotReadyError(): AppError {
   return AppError.create(
     'APP_SYNC_NOT_READY',
     'Orkiestrator synchronizacji nie jest gotowy. Uruchom ponownie aplikacje.',
+    'error',
+    {},
+  );
+}
+
+function createAssistantNotReadyError(): AppError {
+  return AppError.create(
+    'APP_ASSISTANT_NOT_READY',
+    'Asystent nie jest gotowy. Uruchom ponownie aplikacje.',
     'error',
     {},
   );
@@ -419,6 +437,10 @@ function initializeBackend(): Result<void, AppError> {
   const channelQueries = createChannelQueries(connection.db);
   const settingsQueries = createSettingsQueries(connection.db);
   const importSearchQueries = createImportSearchQueries(connection.db);
+  const assistantService = createAssistantLiteService({
+    db: connection.db,
+    mode: 'local-stub',
+  });
 
   const dataModesResult = initializeDataModes();
   if (!dataModesResult.ok) {
@@ -453,6 +475,7 @@ function initializeBackend(): Result<void, AppError> {
   backendState.channelQueries = channelQueries;
   backendState.settingsQueries = settingsQueries;
   backendState.importSearchQueries = importSearchQueries;
+  backendState.assistantService = assistantService;
   backendState.dataModeManager = dataModesResult.value;
   backendState.syncOrchestrator = syncOrchestrator;
   backendState.dbPath = dbPathResult.value;
@@ -480,6 +503,7 @@ function closeBackend(): void {
   backendState.channelQueries = null;
   backendState.settingsQueries = null;
   backendState.importSearchQueries = null;
+  backendState.assistantService = null;
   backendState.dataModeManager = null;
   backendState.syncOrchestrator = null;
   backendState.dbPath = null;
@@ -846,6 +870,29 @@ function searchContentCommand(input: SearchContentInputDTO): Result<SearchConten
   return backendState.importSearchQueries.searchContent(input);
 }
 
+function askAssistantCommand(input: AssistantAskInputDTO): Result<AssistantAskResultDTO, AppError> {
+  if (!backendState.assistantService) {
+    return err(createAssistantNotReadyError());
+  }
+  return backendState.assistantService.ask(input);
+}
+
+function listAssistantThreadsCommand(input: AssistantThreadListInputDTO): Result<AssistantThreadListResultDTO, AppError> {
+  if (!backendState.assistantService) {
+    return err(createAssistantNotReadyError());
+  }
+  return backendState.assistantService.listThreads(input);
+}
+
+function getAssistantThreadMessagesCommand(
+  input: AssistantThreadMessagesInputDTO,
+): Result<AssistantThreadMessagesResultDTO, AppError> {
+  if (!backendState.assistantService) {
+    return err(createAssistantNotReadyError());
+  }
+  return backendState.assistantService.getThreadMessages(input);
+}
+
 async function startSync(input: SyncStartInputDTO): Promise<Result<SyncCommandResultDTO, AppError>> {
   if (!backendState.syncOrchestrator) {
     return err(createSyncNotReadyError());
@@ -1127,6 +1174,9 @@ const ipcBackend: DesktopIpcBackend = {
   getMlTrend: (input) => getMlTrendCommand(input),
   generateReport: (input) => generateReportCommand(input),
   exportReport: (input) => exportReportCommand(input),
+  askAssistant: (input) => askAssistantCommand(input),
+  listAssistantThreads: (input) => listAssistantThreadsCommand(input),
+  getAssistantThreadMessages: (input) => getAssistantThreadMessagesCommand(input),
   getKpis: (query) => readKpis(query),
   getTimeseries: (query) => readTimeseries(query),
   getChannelInfo: (query) => readChannelInfo(query),

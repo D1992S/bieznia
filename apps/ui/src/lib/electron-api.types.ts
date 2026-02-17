@@ -34,6 +34,12 @@ import type {
   ReportGenerateResult,
   SearchContentInputDTO,
   SearchContentResult,
+  AssistantAskInputDTO,
+  AssistantAskResult,
+  AssistantThreadListInputDTO,
+  AssistantThreadListResult,
+  AssistantThreadMessagesInputDTO,
+  AssistantThreadMessagesResult,
   SettingsUpdateInputDTO,
   SyncCommandResult,
   SyncCompleteEvent,
@@ -70,6 +76,9 @@ export interface ElectronAPI {
   mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
+  assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
+  assistantListThreads: (input: AssistantThreadListInputDTO) => Promise<AssistantThreadListResult>;
+  assistantGetThreadMessages: (input: AssistantThreadMessagesInputDTO) => Promise<AssistantThreadMessagesResult>;
   dbGetKpis: (query: KpiQueryDTO) => Promise<KpiResult>;
   dbGetTimeseries: (query: TimeseriesQueryDTO) => Promise<TimeseriesResult>;
   dbGetChannelInfo: (query: ChannelIdDTO) => Promise<ChannelInfoResult>;

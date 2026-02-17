@@ -16,6 +16,9 @@ import {
   buildDateRange,
   isDateRangeValid,
   useAppStatusQuery,
+  useAskAssistantMutation,
+  useAssistantThreadMessagesQuery,
+  useAssistantThreadsQuery,
   useAuthStatusQuery,
   useChannelInfoQuery,
   useConnectAuthMutation,
@@ -63,7 +66,7 @@ interface KpiCardData {
   tone: 'primary' | 'accent' | 'neutral';
 }
 
-type AppTab = 'stats' | 'reports' | 'settings' | 'import';
+type AppTab = 'stats' | 'reports' | 'settings' | 'import' | 'assistant';
 type TrendDirection = 'up' | 'down' | 'flat';
 type ChangePointDirection = 'up' | 'down';
 type AnomalyMethod = 'zscore' | 'iqr' | 'consensus';
@@ -295,6 +298,9 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [anomalySeverityFilter, setAnomalySeverityFilter] = useState<'all' | MlAnomalySeverity>('all');
   const [lastAutoAnomalyRunKey, setLastAutoAnomalyRunKey] = useState<string | null>(null);
+  const [assistantQuestion, setAssistantQuestion] = useState('Jak szły moje filmy w ostatnim miesiącu?');
+  const [activeAssistantThreadId, setActiveAssistantThreadId] = useState<string | null>(null);
+  const [isCreatingNewThread, setIsCreatingNewThread] = useState(false);
 
   const statusQuery = useAppStatusQuery();
   const dataModeQuery = useDataModeStatusQuery(isDesktopRuntime);
@@ -316,6 +322,7 @@ export function App() {
   const csvPreviewMutation = useCsvImportPreviewMutation();
   const csvImportMutation = useCsvImportRunMutation();
   const searchContentMutation = useSearchContentMutation();
+  const askAssistantMutation = useAskAssistantMutation();
 
   useEffect(() => {
     const defaultDatePreset = settingsQuery.data?.defaultDatePreset;
@@ -379,6 +386,8 @@ export function App() {
   );
   const mlTrendQuery = useMlTrendQuery(channelId, mlTargetMetric, dateRange, dataEnabled);
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
+  const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
+  const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
 
   useEffect(() => {
     setInitialized(statusQuery.data?.dbReady === true);
@@ -440,6 +449,39 @@ export function App() {
     lastAutoAnomalyRunKey,
     mlTargetMetric,
   ]);
+
+  useEffect(() => {
+    setActiveAssistantThreadId(null);
+    setIsCreatingNewThread(false);
+  }, [channelId]);
+
+  useEffect(() => {
+    if (!dataEnabled) {
+      return;
+    }
+
+    const firstThreadId = assistantThreadsQuery.data?.items[0]?.threadId ?? null;
+    if (isCreatingNewThread) {
+      if (!firstThreadId) {
+        setIsCreatingNewThread(false);
+      }
+      return;
+    }
+
+    if (!activeAssistantThreadId && firstThreadId) {
+      setActiveAssistantThreadId(firstThreadId);
+      setIsCreatingNewThread(false);
+      return;
+    }
+
+    if (
+      activeAssistantThreadId
+      && assistantThreadsQuery.data
+      && !assistantThreadsQuery.data.items.some((item) => item.threadId === activeAssistantThreadId)
+    ) {
+      setActiveAssistantThreadId(firstThreadId);
+    }
+  }, [activeAssistantThreadId, assistantThreadsQuery.data, dataEnabled, isCreatingNewThread]);
 
   if (!isDesktopRuntime) {
     return (
@@ -511,6 +553,8 @@ export function App() {
     const mappedHeader = csvMapping[field];
     return typeof mappedHeader === 'string' && mappedHeader.trim().length > 0;
   });
+  const assistantThreads = assistantThreadsQuery.data?.items ?? [];
+  const assistantMessages = assistantThreadMessagesQuery.data?.messages ?? [];
 
   return (
     <main
@@ -538,6 +582,7 @@ export function App() {
       <nav style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: '1rem' }}>
         {([
           { id: 'stats', label: 'Statystyki' },
+          { id: 'assistant', label: 'Asystent AI' },
           { id: 'reports', label: 'Raporty i eksport' },
           { id: 'import', label: 'Import i wyszukiwanie' },
           { id: 'settings', label: 'Ustawienia' },
@@ -1102,6 +1147,170 @@ export function App() {
                 </>
               )}
             </section>
+          </div>
+        </div>
+      </section>
+      )}
+
+      {activeTab === 'assistant' && (
+      <section style={{ marginBottom: '1.5rem', padding: '1rem', border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 16, background: STUDIO_THEME.panel }}>
+        <h2 style={{ marginTop: 0 }}>Asystent AI (Lite)</h2>
+        <p style={{ color: STUDIO_THEME.title }}>
+          Odpowiedzi są budowane tylko z danych SQLite przez whitelistowane narzędzia read-only.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) minmax(0, 1fr)', gap: 12 }}>
+          <aside style={{ border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 12, padding: 10, background: STUDIO_THEME.panelElevated }}>
+            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Wątki</h3>
+            {assistantThreadsQuery.isLoading && <p style={{ margin: 0 }}>Ładowanie wątków...</p>}
+            {assistantThreadsQuery.isError && <p style={{ margin: 0, color: STUDIO_THEME.danger }}>Nie udało się odczytać wątków.</p>}
+            <div style={{ display: 'grid', gap: 8 }}>
+              {assistantThreads.map((thread) => (
+                <button
+                  key={thread.threadId}
+                  type="button"
+                  onClick={() => {
+                    setActiveAssistantThreadId(thread.threadId);
+                    setIsCreatingNewThread(false);
+                  }}
+                  style={{
+                    textAlign: 'left',
+                    borderRadius: 10,
+                    border: `1px solid ${activeAssistantThreadId === thread.threadId ? STUDIO_THEME.accent : STUDIO_THEME.border}`,
+                    background: activeAssistantThreadId === thread.threadId ? '#1f2f46' : STUDIO_THEME.panel,
+                    padding: '0.55rem 0.6rem',
+                  }}
+                >
+                  <div style={{ fontWeight: 700, color: STUDIO_THEME.text }}>{thread.title}</div>
+                  <div style={{ color: STUDIO_THEME.muted, fontSize: 12 }}>
+                    {thread.lastQuestion ?? 'Brak pytania'}
+                  </div>
+                </button>
+              ))}
+              {assistantThreads.length === 0 && !assistantThreadsQuery.isLoading && (
+                <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak zapisanych wątków.</p>
+              )}
+            </div>
+          </aside>
+
+          <div style={{ border: `1px solid ${STUDIO_THEME.border}`, borderRadius: 12, padding: 10, background: STUDIO_THEME.panelElevated }}>
+            <h3 style={{ marginTop: 0, marginBottom: 8 }}>Rozmowa</h3>
+            {assistantThreadMessagesQuery.isLoading && activeAssistantThreadId && <p>Ładowanie historii...</p>}
+            {assistantThreadMessagesQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać historii wątku.</p>}
+
+            <div style={{ display: 'grid', gap: 8, maxHeight: 420, overflowY: 'auto', marginBottom: 12 }}>
+              {assistantMessages.map((message) => (
+                <article
+                  key={`assistant-message-${message.messageId}`}
+                  style={{
+                    border: `1px solid ${STUDIO_THEME.border}`,
+                    borderRadius: 10,
+                    padding: 10,
+                    background: message.role === 'assistant' ? '#172231' : STUDIO_THEME.panel,
+                  }}
+                >
+                  <p style={{ margin: '0 0 4px', color: STUDIO_THEME.muted, fontSize: 12 }}>
+                    {message.role === 'assistant' ? 'Asystent' : 'Ty'} | {new Date(message.createdAt).toLocaleString('pl-PL')}
+                    {message.confidence ? ` | pewność: ${message.confidence}` : ''}
+                  </p>
+                  <p style={{ margin: 0 }}>{message.text}</p>
+                  {message.evidence.length > 0 && (
+                    <details style={{ marginTop: 8 }}>
+                      <summary style={{ cursor: 'pointer' }}>Dowody ({message.evidence.length})</summary>
+                      <ul style={{ marginTop: 8, marginBottom: 0 }}>
+                        {message.evidence.map((evidenceItem) => (
+                          <li key={evidenceItem.evidenceId}>
+                            <strong>{evidenceItem.label}</strong>: {evidenceItem.value}{' '}
+                            <span style={{ color: STUDIO_THEME.muted }}>
+                              [{evidenceItem.sourceTable}{' -> '}{evidenceItem.sourceRecordId}]
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  {message.followUpQuestions.length > 0 && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                      {message.followUpQuestions.map((followUpQuestion) => (
+                        <button
+                          key={`${message.messageId}-${followUpQuestion}`}
+                          type="button"
+                          onClick={() => {
+                            setAssistantQuestion(followUpQuestion);
+                          }}
+                          style={{ padding: '0.35rem 0.55rem', fontSize: 12 }}
+                        >
+                          {followUpQuestion}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              ))}
+              {assistantMessages.length === 0 && (
+                <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
+                  Zacznij rozmowę: zadaj pytanie o wyniki kanału, filmy lub anomalie.
+                </p>
+              )}
+            </div>
+
+            <label style={{ display: 'grid', gap: 6 }}>
+              Pytanie do asystenta
+              <textarea
+                value={assistantQuestion}
+                onChange={(event) => {
+                  setAssistantQuestion(event.target.value);
+                }}
+                rows={3}
+                placeholder="Np. Jak szły moje filmy w ostatnim miesiącu?"
+                style={{ width: '100%', resize: 'vertical' }}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextQuestion = assistantQuestion.trim();
+                  if (nextQuestion.length < 3) {
+                    return;
+                  }
+
+                  askAssistantMutation.mutate(
+                    {
+                      threadId: activeAssistantThreadId,
+                      channelId,
+                      question: nextQuestion,
+                      dateFrom: dateRange.dateFrom,
+                      dateTo: dateRange.dateTo,
+                      targetMetric: mlTargetMetric,
+                    },
+                    {
+                      onSuccess: (response) => {
+                        setActiveAssistantThreadId(response.threadId);
+                        setIsCreatingNewThread(false);
+                        setAssistantQuestion('');
+                      },
+                    },
+                  );
+                }}
+                disabled={askAssistantMutation.isPending || assistantQuestion.trim().length < 3}
+              >
+                {askAssistantMutation.isPending ? 'Analiza...' : 'Zapytaj asystenta'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveAssistantThreadId(null);
+                  setIsCreatingNewThread(true);
+                }}
+              >
+                Nowy wątek
+              </button>
+            </div>
+            {askAssistantMutation.isError && (
+              <p style={{ marginBottom: 0, color: STUDIO_THEME.danger }}>
+                {readMutationErrorMessage(askAssistantMutation.error, 'Nie udało się uzyskać odpowiedzi asystenta.')}
+              </p>
+            )}
           </div>
         </div>
       </section>

@@ -61,6 +61,9 @@ describe('Data Core integration', () => {
       'ml_backtests',
       'analytics_trace_runs',
       'analytics_trace_lineage',
+      'assistant_threads',
+      'assistant_messages',
+      'assistant_message_evidence',
     ]) {
       expect(tableNames.has(tableName)).toBe(true);
     }

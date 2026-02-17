@@ -18,8 +18,9 @@
 | 9 | Import + Enrichment + Search | DONE |
 | 10 | Anomaly Detection + Trend Analysis | DONE |
 | 10.5 | Hardening (spojnosc liczb + regresje + trace + semantic layer) | DONE |
-| 11 | LLM Assistant (Lite) | **NASTEPNA** |
-| 12-19 | Reszta | Oczekuje |
+| 11 | LLM Assistant (Lite) | DONE |
+| 12 | Performance i stabilnosc (cache + inkrementalnosc) | **NASTEPNA** |
+| 13-19 | Reszta | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -124,27 +125,73 @@
 - [x] Wpis w `CHANGELOG_AI.md`.
 - [x] Aktualizacja `README.md` i `NEXT_STEP.md`.
 
-## Co robic teraz - Faza 11: LLM Assistant (Lite)
+## Co zostalo zrobione (Faza 11)
 
-**Cel:** uruchomic asystenta AI evidence-first, ktory odpowiada tylko na podstawie danych z DB i whitelisty narzedzi.
-
-**Zakres:**
-1. Tooling i kontrakty:
-   - kontrakty IPC + DTO dla zapytan asystenta i odpowiedzi z evidence.
-2. Executor asystenta:
-   - whitelist narzedzi read-only (bez dowolnego SQL),
-   - odpowiedz strukturalna: `answer`, `evidence[]`, `confidence`, `followUpQuestions[]`.
-3. Persistencja:
-   - historia rozmow + evidence w SQLite.
-4. UI:
-   - zakladka asystenta (chat + lista evidence + status confidence).
-5. Tryb offline:
-   - deterministyczny LocalStub.
+- Tooling i kontrakty:
+  - dodano kontrakty IPC/DTO dla asystenta:
+    - `assistant:ask`,
+    - `assistant:listThreads`,
+    - `assistant:getThreadMessages`,
+  - dodano struktury evidence:
+    - `answer`, `evidence[]`, `confidence`, `followUpQuestions[]`, `usedStub`.
+- Persistencja:
+  - dodano migracje `007-assistant-lite-schema`:
+    - `assistant_threads`,
+    - `assistant_messages`,
+    - `assistant_message_evidence`.
+- Executor asystenta (Lite):
+  - wdrozono `@moze/llm` z deterministicznym LocalStub,
+  - wdrozono whitelist narzedzi read-only:
+    - `read_channel_info`,
+    - `read_kpis`,
+    - `read_top_videos`,
+    - `read_anomalies`,
+  - brak dowolnego SQL od uzytkownika.
+- Desktop runtime i IPC:
+  - podlaczono serwis asystenta do backendu desktop,
+  - dodano handlery IPC + preload bridge dla komend `assistant:*`.
+- UI:
+  - dodano zakladke `Asystent AI`:
+    - chat,
+    - lista watkow,
+    - historia rozmow,
+    - viewer evidence + confidence + follow-up questions.
+- ADR + scope freeze:
+  - dodano `docs/adr/003-llm-assistant-lite-whitelist-localstub.md`.
+- Testy:
+  - dodano testy `packages/llm/src/assistant-lite.integration.test.ts`,
+  - rozszerzono `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzono `apps/desktop/src/ipc-handlers.integration.test.ts`,
+  - rozszerzono `packages/core/src/data-core.integration.test.ts` (nowe tabele migracji 007).
 
 **Definition of Done (Faza 11):**
-- [ ] Odpowiedzi asystenta zawieraja evidence z konkretnymi rekordami DB.
-- [ ] Dziala tryb LocalStub offline.
-- [ ] UI asystenta dziala przez IPC bez naruszenia granic architektury.
+- [x] Odpowiedzi asystenta zawieraja evidence z konkretnymi rekordami DB.
+- [x] Dziala tryb LocalStub offline.
+- [x] UI asystenta dziala przez IPC bez naruszenia granic architektury.
+- [x] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
+
+## Co robic teraz - Faza 12: Performance i stabilnosc (cache + inkrementalnosc)
+
+**Cel:** przyspieszyc analityke po stabilizacji metryk i asystenta, bez utraty spojnosci danych.
+
+**Zakres:**
+1. Cache wynikow analitycznych:
+   - cache po `(metric_id, params_hash)`,
+   - TTL i pomiar hit/miss.
+2. Inwalidacja cache:
+   - uniewaznianie po `sync` i `import`.
+3. Inkrementalne przeliczenia:
+   - tylko dla sciezek, gdzie wynik jest identyczny merytorycznie.
+4. Monitoring wydajnosci:
+   - p50/p95 czasu zapytan,
+   - cache hit-rate.
+5. Guardrails:
+   - brak regresji architektury i brak oslabienia constraints DB.
+
+**Definition of Done (Faza 12):**
+- [ ] Cache dziala dla kluczowych zapytan i raportuje hit/miss.
+- [ ] Inwalidacja po sync/import jest poprawna.
+- [ ] Inkrementalne sciezki skracaja czas bez zmiany wyniku.
 - [ ] `pnpm lint && pnpm typecheck && pnpm test && pnpm build` - 0 errors.
 
 ## Krytyczne zasady (nie pomijaj)

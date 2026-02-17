@@ -31,6 +31,12 @@ import {
   CsvImportRunResultDTOSchema,
   SearchContentInputDTOSchema,
   SearchContentResultDTOSchema,
+  AssistantAskInputDTOSchema,
+  AssistantAskResultDTOSchema,
+  AssistantThreadListInputDTOSchema,
+  AssistantThreadListResultDTOSchema,
+  AssistantThreadMessagesInputDTOSchema,
+  AssistantThreadMessagesResultDTOSchema,
   MlTargetMetricSchema,
   SyncCommandResultDTOSchema,
   SyncResumeInputDTOSchema,
@@ -646,6 +652,103 @@ describe('IPC Contracts', () => {
     });
   });
 
+  describe('Assistant DTO', () => {
+    it('applies defaults for assistant ask input and validates result payload', () => {
+      const askInput = AssistantAskInputDTOSchema.parse({
+        channelId: 'UC123',
+        question: 'Jak szly moje filmy w ostatnim miesiacu?',
+      });
+
+      expect(askInput.targetMetric).toBe('views');
+
+      const askResult = AssistantAskResultDTOSchema.parse({
+        threadId: 'thread-001',
+        messageId: 2,
+        answer: 'W analizowanym okresie kanal utrzymal stabilny wzrost.',
+        confidence: 'high',
+        followUpQuestions: ['Czy chcesz porownanie z poprzednim okresem?'],
+        evidence: [
+          {
+            evidenceId: 'ev-1',
+            tool: 'read_kpis',
+            label: 'Suma wyswietlen',
+            value: '50000',
+            sourceTable: 'fact_channel_day',
+            sourceRecordId: 'channel=UC123;date=2026-01-01..2026-01-31',
+          },
+        ],
+        usedStub: true,
+        createdAt: '2026-02-16T00:40:00.000Z',
+      });
+
+      expect(askResult.evidence).toHaveLength(1);
+      expect(askResult.usedStub).toBe(true);
+    });
+
+    it('validates assistant thread listing and message history payloads', () => {
+      const listInput = AssistantThreadListInputDTOSchema.parse({});
+      expect(listInput.limit).toBe(20);
+
+      const listResult = AssistantThreadListResultDTOSchema.parse({
+        items: [
+          {
+            threadId: 'thread-001',
+            channelId: 'UC123',
+            title: 'Jak szly moje filmy w ostatnim miesiacu?',
+            lastQuestion: 'Jak szly moje filmy w ostatnim miesiacu?',
+            updatedAt: '2026-02-16T00:41:00.000Z',
+            createdAt: '2026-02-16T00:40:00.000Z',
+          },
+        ],
+      });
+      expect(listResult.items).toHaveLength(1);
+
+      const messagesInput = AssistantThreadMessagesInputDTOSchema.parse({
+        threadId: 'thread-001',
+      });
+      expect(messagesInput.threadId).toBe('thread-001');
+
+      const messagesResult = AssistantThreadMessagesResultDTOSchema.parse({
+        threadId: 'thread-001',
+        channelId: 'UC123',
+        title: 'Jak szly moje filmy w ostatnim miesiacu?',
+        messages: [
+          {
+            messageId: 1,
+            threadId: 'thread-001',
+            role: 'user',
+            text: 'Jak szly moje filmy w ostatnim miesiacu?',
+            confidence: null,
+            followUpQuestions: [],
+            evidence: [],
+            createdAt: '2026-02-16T00:40:00.000Z',
+          },
+          {
+            messageId: 2,
+            threadId: 'thread-001',
+            role: 'assistant',
+            text: 'W analizowanym okresie kanal utrzymal stabilny wzrost.',
+            confidence: 'high',
+            followUpQuestions: ['Czy chcesz porownanie z poprzednim okresem?'],
+            evidence: [
+              {
+                evidenceId: 'ev-1',
+                tool: 'read_kpis',
+                label: 'Suma wyswietlen',
+                value: '50000',
+                sourceTable: 'fact_channel_day',
+                sourceRecordId: 'channel=UC123;date=2026-01-01..2026-01-31',
+              },
+            ],
+            createdAt: '2026-02-16T00:40:01.000Z',
+          },
+        ],
+      });
+
+      expect(messagesResult.messages).toHaveLength(2);
+    });
+  });
+
   describe('Channel constants', () => {
     it('IPC_CHANNELS has expected keys', () => {
       expect(IPC_CHANNELS.APP_GET_STATUS).toBe('app:getStatus');
@@ -675,6 +778,9 @@ describe('IPC Contracts', () => {
       expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
       expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
       expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');
+      expect(IPC_CHANNELS.ASSISTANT_ASK).toBe('assistant:ask');
+      expect(IPC_CHANNELS.ASSISTANT_LIST_THREADS).toBe('assistant:listThreads');
+      expect(IPC_CHANNELS.ASSISTANT_GET_THREAD_MESSAGES).toBe('assistant:getThreadMessages');
     });
 
     it('IPC_EVENTS has expected keys', () => {
