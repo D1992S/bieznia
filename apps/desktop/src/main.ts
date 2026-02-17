@@ -18,7 +18,7 @@ import {
 import { runDataPipeline } from '@moze/data-pipeline';
 import { createAssistantLiteService, type AssistantLiteService } from '@moze/llm';
 import { getLatestMlForecast, getMlAnomalies, getMlTrend, runAnomalyTrendAnalysis, runMlBaseline } from '@moze/ml';
-import { getQualityScores } from '@moze/analytics';
+import { getCompetitorInsights, getQualityScores, syncCompetitorSnapshots } from '@moze/analytics';
 import { exportDashboardReport, generateDashboardReport } from '@moze/reports';
 import {
   createCachedDataProvider,
@@ -61,6 +61,10 @@ import {
   type MlTrendResultDTO,
   type QualityScoreQueryInputDTO,
   type QualityScoreResultDTO,
+  type CompetitorSyncInputDTO,
+  type CompetitorSyncResultDTO,
+  type CompetitorInsightsQueryInputDTO,
+  type CompetitorInsightsResultDTO,
   type ProfileCreateInputDTO,
   type ProfileListResultDTO,
   type ProfileSetActiveInputDTO,
@@ -1246,6 +1250,102 @@ function getQualityScoresCommand(input: QualityScoreQueryInputDTO): Result<Quali
   });
 }
 
+function syncCompetitorsCommand(input: CompetitorSyncInputDTO): Result<CompetitorSyncResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'analytics.syncCompetitors',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      competitorCount: input.competitorCount,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_channel_day',
+        primaryKeys: ['channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'dim_competitor,fact_competitor_day',
+        primaryKeys: ['channel_id', 'competitor_channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+          competitorCount: input.competitorCount,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.snapshotsProcessed,
+    execute: () =>
+      syncCompetitorSnapshots({
+        db,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        competitorCount: input.competitorCount,
+      }),
+  });
+}
+
+function getCompetitorInsightsCommand(input: CompetitorInsightsQueryInputDTO): Result<CompetitorInsightsResultDTO, AppError> {
+  const db = backendState.connection?.db;
+  if (!db) {
+    return err(createDbNotReadyError());
+  }
+
+  return runWithAnalyticsTrace({
+    db,
+    operationName: 'analytics.getCompetitorInsights',
+    params: {
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      limit: input.limit,
+    },
+    lineage: [
+      {
+        sourceTable: 'fact_channel_day',
+        primaryKeys: ['channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+        },
+      },
+      {
+        sourceTable: 'dim_competitor,fact_competitor_day',
+        primaryKeys: ['channel_id', 'competitor_channel_id', 'date'],
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        filters: {
+          channelId: input.channelId,
+          limit: input.limit,
+        },
+      },
+    ],
+    estimateRowCount: (value) => value.items.length + value.hits.length,
+    execute: () =>
+      getCompetitorInsights({
+        db,
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        limit: input.limit,
+      }),
+  });
+}
+
 function generateReportCommand(input: ReportGenerateInputDTO): Result<ReportGenerateResultDTO, AppError> {
   const db = backendState.connection?.db;
   if (!db) {
@@ -1306,6 +1406,8 @@ const ipcBackend: DesktopIpcBackend = {
   getMlAnomalies: (input) => getMlAnomaliesCommand(input),
   getMlTrend: (input) => getMlTrendCommand(input),
   getQualityScores: (input) => getQualityScoresCommand(input),
+  syncCompetitors: (input) => syncCompetitorsCommand(input),
+  getCompetitorInsights: (input) => getCompetitorInsightsCommand(input),
   generateReport: (input) => generateReportCommand(input),
   exportReport: (input) => exportReportCommand(input),
   askAssistant: (input) => askAssistantCommand(input),

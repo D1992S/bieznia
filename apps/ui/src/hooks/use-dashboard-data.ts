@@ -3,6 +3,7 @@ import type {
   AssistantAskResultDTO,
   AssistantThreadListResultDTO,
   AssistantThreadMessagesResultDTO,
+  CompetitorInsightsResultDTO,
   CsvImportColumnMappingDTO,
   DataMode,
   MlAnomalySeverity,
@@ -26,6 +27,7 @@ import {
   fetchDashboardReport,
   fetchDataModeStatus,
   fetchMlAnomalies,
+  fetchCompetitorInsights,
   fetchKpis,
   fetchMlForecast,
   fetchQualityScores,
@@ -38,6 +40,7 @@ import {
   resumeSync,
   runCsvImport,
   runMlBaseline,
+  syncCompetitors,
   searchContent,
   setActiveProfile,
   setDataMode,
@@ -305,6 +308,7 @@ export function useCsvImportRunMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality', input.channelId] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['reports', 'dashboard', input.channelId] });
       void queryClient.invalidateQueries({ queryKey: ['search', 'content', input.channelId] });
     },
@@ -385,6 +389,7 @@ export function useStartSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies'] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -401,6 +406,7 @@ export function useResumeSyncMutation() {
       void queryClient.invalidateQueries({ queryKey: ['ml', 'anomalies'] });
       void queryClient.invalidateQueries({ queryKey: ['ml', 'trend'] });
       void queryClient.invalidateQueries({ queryKey: ['analytics', 'quality'] });
+      void queryClient.invalidateQueries({ queryKey: ['analytics', 'competitor'] });
       void queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
   });
@@ -512,6 +518,44 @@ export function useQualityScoresQuery(channelId: string, range: DateRange, enabl
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
         limit: 12,
+      }),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useSyncCompetitorsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      channelId: string;
+      dateFrom: string;
+      dateTo: string;
+      competitorCount?: number;
+    }) =>
+      syncCompetitors({
+        channelId: input.channelId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        competitorCount: input.competitorCount ?? 3,
+      }),
+    onSuccess: (_result, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['analytics', 'competitor', input.channelId, input.dateFrom, input.dateTo],
+      });
+    },
+  });
+}
+
+export function useCompetitorInsightsQuery(channelId: string, range: DateRange, enabled: boolean) {
+  return useQuery<CompetitorInsightsResultDTO>({
+    queryKey: ['analytics', 'competitor', channelId, range.dateFrom, range.dateTo],
+    queryFn: () =>
+      fetchCompetitorInsights({
+        channelId,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        limit: 6,
       }),
     enabled,
     staleTime: 30_000,

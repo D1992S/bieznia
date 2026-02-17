@@ -22,6 +22,7 @@ import {
   useAuthStatusQuery,
   useChannelInfoQuery,
   useConnectAuthMutation,
+  useCompetitorInsightsQuery,
   useCsvImportPreviewMutation,
   useCsvImportRunMutation,
   useDetectMlAnomaliesMutation,
@@ -43,6 +44,7 @@ import {
   useSearchContentMutation,
   useSetActiveProfileMutation,
   useSetDataModeMutation,
+  useSyncCompetitorsMutation,
   useStartSyncMutation,
   useTimeseriesQuery,
   useUpdateProfileSettingsMutation,
@@ -335,6 +337,7 @@ export function App() {
   const csvImportMutation = useCsvImportRunMutation();
   const searchContentMutation = useSearchContentMutation();
   const askAssistantMutation = useAskAssistantMutation();
+  const syncCompetitorsMutation = useSyncCompetitorsMutation();
 
   useEffect(() => {
     const defaultDatePreset = settingsQuery.data?.defaultDatePreset;
@@ -398,6 +401,7 @@ export function App() {
   );
   const mlTrendQuery = useMlTrendQuery(channelId, mlTargetMetric, dateRange, dataEnabled);
   const qualityScoresQuery = useQualityScoresQuery(channelId, dateRange, dataEnabled);
+  const competitorInsightsQuery = useCompetitorInsightsQuery(channelId, dateRange, dataEnabled);
   const reportQuery = useDashboardReportQuery(channelId, dateRange, mlTargetMetric, dataEnabled);
   const assistantThreadsQuery = useAssistantThreadsQuery(channelId, dataEnabled);
   const assistantThreadMessagesQuery = useAssistantThreadMessagesQuery(activeAssistantThreadId, dataEnabled);
@@ -567,6 +571,7 @@ export function App() {
     return typeof mappedHeader === 'string' && mappedHeader.trim().length > 0;
   });
   const qualityScores = qualityScoresQuery.data;
+  const competitorInsights = competitorInsightsQuery.data;
   const assistantThreads = assistantThreadsQuery.data?.items ?? [];
   const assistantMessages = assistantThreadMessagesQuery.data?.messages ?? [];
 
@@ -1218,6 +1223,118 @@ export function App() {
                 })}
                 {qualityScores.items.length === 0 && (
                   <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak filmów do oceny jakości dla wybranego zakresu.</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            border: `1px solid ${STUDIO_THEME.border}`,
+            borderRadius: 16,
+            background: STUDIO_THEME.panelElevated,
+            padding: 14,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <div>
+              <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Analiza konkurencji (Faza 14)</h3>
+              <p style={{ marginTop: 6, marginBottom: 0, color: STUDIO_THEME.muted }}>
+                Porównanie tempa wzrostu, częstotliwości publikacji, udziału rynku i wykrytych hitów konkurencji.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                syncCompetitorsMutation.mutate({
+                  channelId,
+                  dateFrom: dateRange.dateFrom,
+                  dateTo: dateRange.dateTo,
+                  competitorCount: 3,
+                });
+              }}
+              disabled={syncCompetitorsMutation.isPending}
+            >
+              {syncCompetitorsMutation.isPending ? 'Synchronizacja konkurencji...' : 'Synchronizuj konkurencję'}
+            </button>
+          </div>
+
+          {syncCompetitorsMutation.isError && (
+            <p style={{ color: STUDIO_THEME.danger, marginBottom: 0 }}>
+              {readMutationErrorMessage(syncCompetitorsMutation.error, 'Nie udało się zsynchronizować konkurencji.')}
+            </p>
+          )}
+          {syncCompetitorsMutation.isSuccess && (
+            <p style={{ color: STUDIO_THEME.title, marginBottom: 0 }}>
+              Zsynchronizowano {formatNumber(syncCompetitorsMutation.data.competitorsSynced)} kanały konkurencji; przetworzono{' '}
+              {formatNumber(syncCompetitorsMutation.data.snapshotsProcessed)} snapshotów.
+            </p>
+          )}
+
+          {competitorInsightsQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Ładowanie analizy konkurencji...</p>}
+          {competitorInsightsQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać analizy konkurencji.</p>}
+
+          {competitorInsights && (
+            <>
+              <p style={{ marginTop: 8, marginBottom: 10, color: STUDIO_THEME.title }}>
+                Benchmark kanału: średnio {formatNumber(competitorInsights.ownerBenchmark.avgViewsPerDay)} wyświetleń dziennie | wzrost{' '}
+                {formatPercent(competitorInsights.ownerBenchmark.growthRate)} | publikacje/tydzień:{' '}
+                {competitorInsights.ownerBenchmark.uploadsPerWeek.toFixed(2)}
+              </p>
+
+              {competitorInsights.totalCompetitors < 3 && (
+                <p style={{ marginTop: 0, color: STUDIO_THEME.warning }}>
+                  Brak pełnego porównania. Zsynchronizuj konkurencję, aby zobaczyć minimum 3 kanały.
+                </p>
+              )}
+
+              <div style={{ display: 'grid', gap: 8 }}>
+                {competitorInsights.items.map((item, index) => (
+                  <article
+                    key={`competitor-${item.competitorChannelId}`}
+                    style={{
+                      border: `1px solid ${STUDIO_THEME.border}`,
+                      borderRadius: 10,
+                      background: STUDIO_THEME.panel,
+                      padding: 10,
+                    }}
+                  >
+                    <p style={{ margin: 0 }}>
+                      <strong>#{index + 1} {item.name}</strong> ({item.competitorChannelId}) | momentum: <strong>{item.momentumScore.toFixed(2)}</strong>
+                    </p>
+                    <p style={{ margin: '4px 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                      udział rynku: {formatPercent(item.marketShare)} | względny wzrost: {formatPercent(item.relativeGrowth)} | publikacje/tydzień:{' '}
+                      {item.uploadsPerWeek.toFixed(2)} | różnica publikacji: {item.uploadFrequencyDelta.toFixed(2)}
+                    </p>
+                    <p style={{ margin: '4px 0 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
+                      dni danych: {formatNumber(item.daysWithData)} | średnie wyświetlenia/dzień: {formatNumber(item.avgViewsPerDay)} | hity:{' '}
+                      {formatNumber(item.hitCount)}{item.lastHitDate ? ` (ostatni: ${item.lastHitDate})` : ''}
+                    </p>
+                  </article>
+                ))}
+                {competitorInsights.items.length === 0 && (
+                  <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
+                    Brak danych konkurencji dla wybranego zakresu. Uruchom synchronizację konkurencji.
+                  </p>
+                )}
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <h4 style={{ margin: '0 0 6px 0' }}>Wykryte hity konkurencji</h4>
+                {competitorInsights.hits.length === 0 && (
+                  <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak hitów (&gt; 3 sigma) w wybranym zakresie.</p>
+                )}
+                {competitorInsights.hits.length > 0 && (
+                  <div style={{ display: 'grid', gap: 6 }}>
+                    {competitorInsights.hits.slice(0, 6).map((hit) => (
+                      <p key={`${hit.competitorChannelId}-${hit.date}`} style={{ margin: 0, color: STUDIO_THEME.title }}>
+                        <strong>{hit.competitorName}</strong> | {hit.date} | wyświetlenia: {formatNumber(hit.views)} | próg:{' '}
+                        {formatNumber(hit.threshold)} | z-score: {hit.zScore.toFixed(2)}
+                      </p>
+                    ))}
+                  </div>
                 )}
               </div>
             </>

@@ -28,6 +28,10 @@ import type {
   MlTrendResultDTO,
   QualityScoreQueryInputDTO,
   QualityScoreResultDTO,
+  CompetitorSyncInputDTO,
+  CompetitorSyncResultDTO,
+  CompetitorInsightsQueryInputDTO,
+  CompetitorInsightsResultDTO,
   ProfileListResultDTO,
   ProfileCreateInputDTO,
   ProfileSetActiveInputDTO,
@@ -216,6 +220,20 @@ export async function fetchMlTrend(input: MlTrendQueryInputDTO): Promise<MlTrend
 export async function fetchQualityScores(input: QualityScoreQueryInputDTO): Promise<QualityScoreResultDTO> {
   const api = ensureElectronApi();
   const result = await api.analyticsGetQualityScores(input);
+  return unwrapResult(result);
+}
+
+export async function syncCompetitors(input: CompetitorSyncInputDTO): Promise<CompetitorSyncResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.analyticsSyncCompetitors(input);
+  return unwrapResult(result);
+}
+
+export async function fetchCompetitorInsights(
+  input: CompetitorInsightsQueryInputDTO,
+): Promise<CompetitorInsightsResultDTO> {
+  const api = ensureElectronApi();
+  const result = await api.analyticsGetCompetitorInsights(input);
   return unwrapResult(result);
 }
 

@@ -30,6 +30,10 @@
   MlTrendResultSchema,
   QualityScoreQueryInputDTOSchema,
   QualityScoreResultSchema,
+  CompetitorSyncInputDTOSchema,
+  CompetitorSyncResultSchema,
+  CompetitorInsightsQueryInputDTOSchema,
+  CompetitorInsightsResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultSchema,
   ProfileSetActiveInputDTOSchema,
@@ -82,6 +86,10 @@
   type MlTrendResult,
   type QualityScoreQueryInputDTO,
   type QualityScoreResult,
+  type CompetitorSyncInputDTO,
+  type CompetitorSyncResult,
+  type CompetitorInsightsQueryInputDTO,
+  type CompetitorInsightsResult,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileSetActiveInputDTO,
@@ -135,6 +143,8 @@ export interface ElectronAPI {
   mlGetAnomalies: (input: MlAnomalyQueryInputDTO) => Promise<MlAnomalyListResult>;
   mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
   analyticsGetQualityScores: (input: QualityScoreQueryInputDTO) => Promise<QualityScoreResult>;
+  analyticsSyncCompetitors: (input: CompetitorSyncInputDTO) => Promise<CompetitorSyncResult>;
+  analyticsGetCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Promise<CompetitorInsightsResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
@@ -381,6 +391,20 @@ const api: ElectronAPI = {
       input,
       QualityScoreQueryInputDTOSchema,
       QualityScoreResultSchema,
+    ),
+  analyticsSyncCompetitors: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ANALYTICS_SYNC_COMPETITORS,
+      input,
+      CompetitorSyncInputDTOSchema,
+      CompetitorSyncResultSchema,
+    ),
+  analyticsGetCompetitorInsights: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.ANALYTICS_GET_COMPETITOR_INSIGHTS,
+      input,
+      CompetitorInsightsQueryInputDTOSchema,
+      CompetitorInsightsResultSchema,
     ),
   reportsGenerate: (input) =>
     invokeValidated(

@@ -26,6 +26,10 @@ import type {
   MlTrendResult,
   QualityScoreQueryInputDTO,
   QualityScoreResult,
+  CompetitorSyncInputDTO,
+  CompetitorSyncResult,
+  CompetitorInsightsQueryInputDTO,
+  CompetitorInsightsResult,
   ProfileCreateInputDTO,
   ProfileListResult,
   ProfileSetActiveInputDTO,
@@ -77,6 +81,8 @@ export interface ElectronAPI {
   mlGetAnomalies: (input: MlAnomalyQueryInputDTO) => Promise<MlAnomalyListResult>;
   mlGetTrend: (input: MlTrendQueryInputDTO) => Promise<MlTrendResult>;
   analyticsGetQualityScores: (input: QualityScoreQueryInputDTO) => Promise<QualityScoreResult>;
+  analyticsSyncCompetitors: (input: CompetitorSyncInputDTO) => Promise<CompetitorSyncResult>;
+  analyticsGetCompetitorInsights: (input: CompetitorInsightsQueryInputDTO) => Promise<CompetitorInsightsResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
