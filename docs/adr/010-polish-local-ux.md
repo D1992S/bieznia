@@ -1,7 +1,7 @@
 ﻿# ADR 010: Polish + Local UX (Faza 19)
 
-- Status: Accepted
-- Date: 2026-02-17
+- Status: Zaakceptowany
+- Data: 2026-02-17
 - Faza: 19
 
 ## Kontekst

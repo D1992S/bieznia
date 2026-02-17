@@ -841,11 +841,14 @@ export function App() {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const pressedWithCtrl = event.ctrlKey || event.metaKey;
-      const target = event.target as HTMLElement | null;
-      const isEditable = target?.tagName === 'INPUT'
-        || target?.tagName === 'TEXTAREA'
-        || target?.tagName === 'SELECT'
-        || target?.isContentEditable === true;
+      const target = event.target;
+      const isEditable = target instanceof HTMLElement
+        && (
+          target.tagName === 'INPUT'
+          || target.tagName === 'TEXTAREA'
+          || target.tagName === 'SELECT'
+          || target.isContentEditable
+        );
 
       if (pressedWithCtrl && !event.altKey && !event.shiftKey) {
         if (event.key === '1') {
@@ -1882,7 +1885,7 @@ export function App() {
                 ))}
                 {competitorInsights.items.length === 0 && (
                   <p style={{ margin: 0, color: STUDIO_THEME.muted }}>
-                    Brak danych konkurencji dla wybranego zakresu. Uruchom synchronizacjęhronizację konkurencji.
+                    Brak danych konkurencji dla wybranego zakresu. Uruchom synchronizację konkurencji.
                   </p>
                 )}
               </div>
