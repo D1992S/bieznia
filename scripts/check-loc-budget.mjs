@@ -17,10 +17,13 @@ function countLines(content) {
 }
 
 const violations = [];
+const budgetWithLines = [];
+
 for (const budget of budgets) {
   const absolutePath = path.join(repoRoot, budget.file);
   const content = readFileSync(absolutePath, 'utf8');
   const lines = countLines(content);
+  budgetWithLines.push({ ...budget, lines });
   if (lines > budget.maxLines) {
     violations.push(`${budget.file}: ${lines} linii (limit ${budget.maxLines}).`);
   }
@@ -35,9 +38,6 @@ if (violations.length > 0) {
 }
 
 console.log('Budżet LOC: OK');
-for (const budget of budgets) {
-  const absolutePath = path.join(repoRoot, budget.file);
-  const content = readFileSync(absolutePath, 'utf8');
-  const lines = countLines(content);
-  console.log(`- ${budget.file}: ${lines}/${budget.maxLines}`);
+for (const budget of budgetWithLines) {
+  console.log(`- ${budget.file}: ${budget.lines}/${budget.maxLines}`);
 }

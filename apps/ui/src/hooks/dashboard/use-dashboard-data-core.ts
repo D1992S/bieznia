@@ -607,15 +607,13 @@ export function useRunTopicIntelligenceMutation() {
     }) => {
       const clusterLimit = input.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;
       const gapLimit = input.gapLimit ?? DEFAULT_TOPIC_GAP_LIMIT;
-      return (
-      runTopicIntelligence({
+      return runTopicIntelligence({
         channelId: input.channelId,
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
         clusterLimit,
         gapLimit,
-      })
-      );
+      });
     },
     onSuccess: (_result, input) => {
       const clusterLimit = input.clusterLimit ?? DEFAULT_TOPIC_CLUSTER_LIMIT;

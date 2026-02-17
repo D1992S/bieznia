@@ -99,11 +99,60 @@ const workspacePackages = [
 
 const packageByName = new Map(workspacePackages.map((pkg) => [pkg.name, pkg]));
 const graph = new Map();
+const allowedDeps = new Map([
+  ['@moze/shared', []],
+  ['@moze/core', ['@moze/shared']],
+  ['@moze/data-pipeline', ['@moze/shared', '@moze/core']],
+  ['@moze/ml', ['@moze/shared', '@moze/core', '@moze/data-pipeline']],
+  ['@moze/analytics', ['@moze/shared', '@moze/core', '@moze/ml']],
+  ['@moze/sync', ['@moze/shared', '@moze/core', '@moze/data-pipeline']],
+  ['@moze/reports', ['@moze/shared', '@moze/core']],
+  ['@moze/llm', ['@moze/shared', '@moze/core']],
+  ['@moze/diagnostics', ['@moze/shared', '@moze/core']],
+  ['@moze/plugins', ['@moze/shared', '@moze/core']],
+  ['@moze/ui', ['@moze/shared']],
+  [
+    '@moze/desktop',
+    [
+      '@moze/shared',
+      '@moze/core',
+      '@moze/data-pipeline',
+      '@moze/ml',
+      '@moze/analytics',
+      '@moze/sync',
+      '@moze/reports',
+      '@moze/llm',
+      '@moze/diagnostics',
+    ],
+  ],
+]);
 
 for (const pkg of workspacePackages) {
   const deps = Object.keys(pkg.dependencies).filter((dep) => packageByName.has(dep));
   graph.set(pkg.name, deps);
 }
+
+function validateEdges() {
+  for (const [pkgName, deps] of graph.entries()) {
+    const allowed = allowedDeps.get(pkgName);
+    if (!allowed) {
+      violations.push(`Brak reguły allowedDeps dla pakietu ${pkgName}.`);
+      continue;
+    }
+
+    for (const dep of deps) {
+      if (!allowed.includes(dep)) {
+        violations.push(
+          `${pkgName}: niedozwolona zależność do ${dep}. Dozwolone: ${
+            allowed.length > 0 ? allowed.join(', ') : '(brak zależności @moze/*)'
+          }.`,
+        );
+      }
+    }
+  }
+}
+
+validateEdges();
 
 const visiting = new Set();
 const visited = new Set();
