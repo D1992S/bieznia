@@ -882,6 +882,7 @@ Task jest zamknięty **dopiero** gdy:
 - [x] Planning System: `planning_plans` + `planning_recommendations`, planner deterministyczny, evidence/rationale/confidence, integracja IPC/UI. DONE Faza 16
 - [x] Diagnostics + Recovery: `diagnostics:getHealth` + `diagnostics:runRecovery`, health checks DB/cache/pipeline/IPC, akcje recovery i panel UI. DONE Faza 18
 - [x] Polish + Local UX: onboarding first-run, skróty klawiszowe, one-click przebieg tygodniowy i spójne komunikaty/retry w kluczowych panelach. DONE Faza 19
+- [x] Audyt techniczny calego kodu + backlog poprawek dla kolejnego LLM (`docs/reviews/2026-02-17-audyt-kodu-i-plan-poprawek-llm.md`).
 - [ ] ADR-001: Wybór stack'u technologicznego.
 
 ---

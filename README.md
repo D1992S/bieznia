@@ -29,6 +29,7 @@ Analityczna aplikacja desktopowa (Electron) dla twórców YouTube: synchronizacj
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) | Poza zakresem dla trybu solo |
 | 18 | Diagnostics + Recovery | DONE | Kontrola stanu + akcje naprawcze |
 | 19 | Polish + Local UX | DONE | Onboarding, skróty, one-click flow, UX polish |
+| 20 | Refactor stabilizacyjny (modularyzacja UI/IPC + testy) | **NASTĘPNA** | Redukcja długu technicznego bez zmian funkcjonalnych |
 
 ## Uruchomienie lokalne
 

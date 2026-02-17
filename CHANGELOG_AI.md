@@ -1581,3 +1581,56 @@ Dziennik zmian wykonywanych przez modele AI.
   - Rozpoczac Faze 10: `Anomaly Detection + Trend Analysis`.
 
 
+
+## 2026-02-17 (v26)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `docs/reviews/2026-02-17-audyt-kodu-i-plan-poprawek-llm.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Wykonano doglebny audyt kodu calej aplikacji (apps + packages + CI).
+  - Przygotowano szczegolowy raport i uporzadkowany backlog poprawek dla kolejnego LLM (priorytety P0/P1/P2, DoD, ryzyka, plan 2 sprintow).
+  - Zaktualizowano `NEXT_STEP.md` o nowa Faze 20 jako **NASTEPNA** oraz precyzyjny zakres refaktoru stabilizacyjnego.
+  - Zaktualizowano tabele postepu w `README.md` o Faze 20 (`**NASTĘPNA**`).
+  - Odhaczono w `docs/PLAN_REALIZACJI.md` pozycje dotyczaca wykonanego audytu technicznego.
+- Dlaczego:
+  - Uzytkownik poprosil o doglebna recenzje calego kodu i liste poprawek gotowa do realizacji przez kolejny model.
+- Ryzyko/regresja:
+  - Zmiany są dokumentacyjne (brak zmian runtime), ryzyko regresji funkcjonalnej niskie.
+  - Ryzyko projektowe: backlog refaktoryzacji jest obszerny i wymaga realizacji etapami, aby uniknac naruszenia kontraktow IPC.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (116/116).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Rozpoczac Faze 20 od modularyzacji `apps/ui/src/App.tsx` (P0.1) w malych commitach bez zmian funkcjonalnych.
+
+## 2026-02-17 (v27)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `CHANGELOG_AI.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+- Co zmieniono:
+  - Poprawiono nitpick jezykowy w `CHANGELOG_AI.md`: `sa` -> `są` w zdaniu o ryzyku/regresji.
+  - W `NEXT_STEP.md` (sekcja „Co zostało zrobione (Sesja audytu 2026-02-17)`) przywrocono wskazane polskie znaki diakrytyczne.
+  - Usunieto BOM z `docs/PLAN_REALIZACJI.md` (UTF-8 bez BOM), aby pierwsza linia zaczynala sie od `# Plan realizacji projektu (AI-first)`.
+- Dlaczego:
+  - Uzytkownik zglosil uwagi inline do poprzedniego commita i poprosil o precyzyjne poprawki redakcyjne/encoding.
+- Ryzyko/regresja:
+  - Zmiany dokumentacyjne i encoding-only; brak zmian runtime i kontraktow.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS.
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Kontynuowac Faze 20 zgodnie z backlogiem z audytu (modularyzacja UI/IPC + testy).

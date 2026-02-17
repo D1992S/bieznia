@@ -27,6 +27,7 @@
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) |
 | 18 | Diagnostics + Recovery | DONE |
 | 19 | Polish + Local UX | DONE |
+| 20 | Refactor stabilizacyjny (modularyzacja UI/IPC + testy) | **NASTEPNA** |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -545,3 +546,44 @@ Szczegoly: `docs/PLAN_REALIZACJI.md`
   - umozliwic wykonanie testow osobie nietechnicznej, bez znajomosci Electron/IPC/ML.
 - Rekomendacja:
   - wykonac runbook od sekcji 2 do 8 i podjac decyzje GO/NO-GO przed startem implementacji Fazy 9.
+
+
+## Co zostało zrobione (Sesja audytu 2026-02-17)
+
+- Wykonano pełen przegląd kodu monorepo (apps + packages) oraz CI.
+- Potwierdzono zielony baseline regresji:
+  - `pnpm lint` PASS,
+  - `pnpm typecheck` PASS,
+  - `pnpm test` PASS (116/116),
+  - `pnpm build` PASS.
+- Przygotowano raport audytowy i backlog poprawek dla kolejnego LLM:
+  - `docs/reviews/2026-02-17-audyt-kodu-i-plan-poprawek-llm.md`.
+- Zidentyfikowano główne ryzyka techniczne:
+  - zbyt duże pliki centralne (`App.tsx`, `main.ts`, `use-dashboard-data.ts`, `ipc-handlers.ts`, `contracts.ts`),
+  - duplikacja mapowań IPC między shared/preload/desktop/ui,
+  - niski poziom testów UI względem złożoności ekranu głównego,
+  - brak twardego gate dla granic architektury i budżetów performance w CI.
+
+## Nastepna faza (Faza 20)
+
+**Cel:** obnizenie dlugu technicznego bez zmiany funkcjonalnej aplikacji.
+
+**Zakres:**
+- modularyzacja `apps/ui/src/App.tsx` (feature-first),
+- modularyzacja `apps/desktop/src/main.ts` i `apps/ui/src/hooks/use-dashboard-data.ts`,
+- redukcja duplikacji IPC (typed registry/parity tests),
+- rozbudowa testow UI i smoke E2E,
+- dodanie CI checkow dla granic zaleznosci i budgetow performance.
+
+**Pliki do utworzenia/zmiany (minimum):**
+- `apps/ui/src/features/*`
+- `apps/desktop/src/runtime/*`
+- testy parity IPC + testy UI komponentowe
+- aktualizacja `.github/workflows/ci.yml` o nowe gate'y
+
+**Definition of Done (Faza 20):**
+- `App.tsx` <= 600 LOC, `main.ts` <= 700 LOC, `use-dashboard-data.ts` <= 400 LOC,
+- dodanie testu IPC parity,
+- +10 testow UI dla krytycznych flow,
+- zielone `pnpm lint && pnpm typecheck && pnpm test && pnpm build`,
+- brak zmian kontraktow kompatybilnych wstecz (IPC v1).
