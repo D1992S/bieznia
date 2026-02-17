@@ -1173,12 +1173,12 @@ export function App() {
             padding: 14,
           }}
         >
-          <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Quality scoring (Faza 13)</h3>
+          <h3 style={{ margin: 0, color: STUDIO_THEME.text }}>Ocena jakości treści (Faza 13)</h3>
           <p style={{ marginTop: 6, marginBottom: 10, color: STUDIO_THEME.muted }}>
-            Ranking jakości treści na podstawie velocity, efficiency, engagement, retention i consistency.
+            Ranking jakości treści na podstawie dynamiki, efektywności, zaangażowania, retencji i stabilności.
           </p>
-          {qualityScoresQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Liczenie quality scoring...</p>}
-          {qualityScoresQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać quality scoring.</p>}
+          {qualityScoresQuery.isLoading && <p style={{ color: STUDIO_THEME.muted }}>Obliczanie oceny jakości...</p>}
+          {qualityScoresQuery.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się odczytać oceny jakości.</p>}
           {qualityScores && (
             <>
               <p style={{ marginTop: 0, color: STUDIO_THEME.title }}>
@@ -1209,15 +1209,15 @@ export function App() {
                         <span style={{ color: confidenceColor }}>{getQualityConfidenceLabel(item.confidence)}</span>
                       </p>
                       <p style={{ margin: '4px 0 0', color: STUDIO_THEME.muted, fontSize: 13 }}>
-                        velocity: {formatPercent(item.components.velocity)} | efficiency: {formatPercent(item.components.efficiency)} | engagement:{' '}
-                        {formatPercent(item.components.engagement)} | retention: {formatPercent(item.components.retention)} | consistency:{' '}
+                        dynamika: {formatPercent(item.components.velocity)} | efektywność: {formatPercent(item.components.efficiency)} | zaangażowanie:{' '}
+                        {formatPercent(item.components.engagement)} | retencja: {formatPercent(item.components.retention)} | stabilność:{' '}
                         {formatPercent(item.components.consistency)}
                       </p>
                     </article>
                   );
                 })}
                 {qualityScores.items.length === 0 && (
-                  <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak filmów do quality scoring dla wybranego zakresu.</p>
+                  <p style={{ margin: 0, color: STUDIO_THEME.muted }}>Brak filmów do oceny jakości dla wybranego zakresu.</p>
                 )}
               </div>
             </>

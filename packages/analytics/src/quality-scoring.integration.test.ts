@@ -120,9 +120,8 @@ describe('Quality scoring integration', () => {
       });
 
     expect(confidenceRows.length).toBeGreaterThan(0);
-    for (const row of confidenceRows) {
-      expect(row.confidence === 'low' || row.confidence === 'medium' || row.confidence === 'high').toBe(true);
-    }
+    const confidences: Array<'low' | 'medium' | 'high'> = confidenceRows.map((row) => row.confidence);
+    expect(confidences.length).toBe(confidenceRows.length);
 
     const closeResult = seeded.connection.close();
     expect(closeResult.ok).toBe(true);
