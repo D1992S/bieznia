@@ -16,7 +16,7 @@ Wymagania:
 
 ## Decyzja
 
-Wdraza sie `@moze/llm` jako deterministiczny executor Lite z:
+Wdraża się `@moze/llm` jako deterministiczny executor Lite z:
 
 - whitelist narzedzi read-only:
   - `read_channel_info`,

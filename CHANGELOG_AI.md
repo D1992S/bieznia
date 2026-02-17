@@ -1,4 +1,4 @@
-﻿# CHANGELOG_AI
+# CHANGELOG_AI
 
 Dziennik zmian wykonywanych przez modele AI.
 
@@ -6,12 +6,40 @@ Dziennik zmian wykonywanych przez modele AI.
 
 - Data:
 - Autor (model):
-- Zakres plikĂłw:
+- Zakres plików:
 - Co zmieniono:
 - Dlaczego:
 - Ryzyko/regresja:
 - Jak zweryfikowano:
-- NastÄ™pny krok:
+- Następny krok:
+
+## 2026-02-17 (v35)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/ui/src/App.tsx`
+  - `packages/llm/src/assistant-lite.ts`
+  - `docs/adr/003-llm-assistant-lite-whitelist-localstub.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Naprawiono flow "Nowy watek", aby auto-select pierwszego watku nie nadpisywal intencji utworzenia nowej rozmowy.
+  - Spolszczono user-facing etykiety w panelu asystenta (`Dowody`, `pewnosc`).
+  - Spolszczono komunikaty `createAssistantError(...)` zwracane przez warstwe `@moze/llm` do UI.
+  - Poprawiono diakrytyke w ADR 003 (`Wdraża się ...`) oraz naprawiono mojibake w template changeloga.
+  - Zapisano `CHANGELOG_AI.md` jako UTF-8 bez BOM.
+- Dlaczego:
+  - Celem bylo usuniecie regresji UX w watkach asystenta oraz domkniecie wymogu polskiej lokalizacji dla tekstow UI i bledow widocznych dla uzytkownika.
+- Ryzyko/regresja:
+  - Niskie: zmiany obejmuja glownie stringi i logike wyboru aktywnego watku.
+  - Umiarkowane: nowa flaga `isCreatingNewThread` steruje momentem auto-selekcji watku.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (91/91)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Zrobic review PR #15 pod katem copy i zachowania zakladki Asystent AI na istniejacych danych.
 
 ## 2026-02-17 (v34)
 

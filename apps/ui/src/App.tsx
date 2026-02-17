@@ -300,6 +300,7 @@ export function App() {
   const [lastAutoAnomalyRunKey, setLastAutoAnomalyRunKey] = useState<string | null>(null);
   const [assistantQuestion, setAssistantQuestion] = useState('Jak szly moje filmy w ostatnim miesiacu?');
   const [activeAssistantThreadId, setActiveAssistantThreadId] = useState<string | null>(null);
+  const [isCreatingNewThread, setIsCreatingNewThread] = useState(false);
 
   const statusQuery = useAppStatusQuery();
   const dataModeQuery = useDataModeStatusQuery(isDesktopRuntime);
@@ -451,6 +452,7 @@ export function App() {
 
   useEffect(() => {
     setActiveAssistantThreadId(null);
+    setIsCreatingNewThread(false);
   }, [channelId]);
 
   useEffect(() => {
@@ -459,8 +461,16 @@ export function App() {
     }
 
     const firstThreadId = assistantThreadsQuery.data?.items[0]?.threadId ?? null;
+    if (isCreatingNewThread) {
+      if (!firstThreadId) {
+        setIsCreatingNewThread(false);
+      }
+      return;
+    }
+
     if (!activeAssistantThreadId && firstThreadId) {
       setActiveAssistantThreadId(firstThreadId);
+      setIsCreatingNewThread(false);
       return;
     }
 
@@ -471,7 +481,7 @@ export function App() {
     ) {
       setActiveAssistantThreadId(firstThreadId);
     }
-  }, [activeAssistantThreadId, assistantThreadsQuery.data, dataEnabled]);
+  }, [activeAssistantThreadId, assistantThreadsQuery.data, dataEnabled, isCreatingNewThread]);
 
   if (!isDesktopRuntime) {
     return (
@@ -1160,6 +1170,7 @@ export function App() {
                   type="button"
                   onClick={() => {
                     setActiveAssistantThreadId(thread.threadId);
+                    setIsCreatingNewThread(false);
                   }}
                   style={{
                     textAlign: 'left',
@@ -1199,12 +1210,12 @@ export function App() {
                 >
                   <p style={{ margin: '0 0 4px', color: STUDIO_THEME.muted, fontSize: 12 }}>
                     {message.role === 'assistant' ? 'Asystent' : 'Ty'} | {new Date(message.createdAt).toLocaleString('pl-PL')}
-                    {message.confidence ? ` | confidence: ${message.confidence}` : ''}
+                    {message.confidence ? ` | pewność: ${message.confidence}` : ''}
                   </p>
                   <p style={{ margin: 0 }}>{message.text}</p>
                   {message.evidence.length > 0 && (
                     <details style={{ marginTop: 8 }}>
-                      <summary style={{ cursor: 'pointer' }}>Evidence ({message.evidence.length})</summary>
+                      <summary style={{ cursor: 'pointer' }}>Dowody ({message.evidence.length})</summary>
                       <ul style={{ marginTop: 8, marginBottom: 0 }}>
                         {message.evidence.map((evidenceItem) => (
                           <li key={evidenceItem.evidenceId}>
@@ -1275,6 +1286,7 @@ export function App() {
                     {
                       onSuccess: (response) => {
                         setActiveAssistantThreadId(response.threadId);
+                        setIsCreatingNewThread(false);
                         setAssistantQuestion('');
                       },
                     },
@@ -1288,6 +1300,7 @@ export function App() {
                 type="button"
                 onClick={() => {
                   setActiveAssistantThreadId(null);
+                  setIsCreatingNewThread(true);
                 }}
               >
                 Nowy watek

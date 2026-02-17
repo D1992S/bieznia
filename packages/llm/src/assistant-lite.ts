@@ -493,7 +493,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_CHANNEL_NOT_FOUND',
-            'Assistant channel lookup failed because channel does not exist.',
+            'Nie znaleziono kanału dla asystenta.',
             { channelId: context.channelId },
           ),
         );
@@ -518,7 +518,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       return err(
         createAssistantError(
           'LLM_ASSISTANT_READ_CHANNEL_FAILED',
-          'Assistant failed to read channel info.',
+          'Nie udało się odczytać informacji o kanale.',
           { channelId: context.channelId },
           cause,
         ),
@@ -539,7 +539,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       return err(
         createAssistantError(
           'LLM_ASSISTANT_READ_KPIS_FAILED',
-          'Assistant failed to read KPI metrics.',
+          'Nie udało się odczytać metryk KPI.',
           {
             channelId: context.channelId,
             dateFrom: context.dateRange.dateFrom,
@@ -623,7 +623,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       return err(
         createAssistantError(
           'LLM_ASSISTANT_READ_TOP_VIDEOS_FAILED',
-          'Assistant failed to read top videos.',
+          'Nie udało się odczytać top filmów.',
           { channelId: context.channelId },
           cause,
         ),
@@ -672,7 +672,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       return err(
         createAssistantError(
           'LLM_ASSISTANT_READ_ANOMALIES_FAILED',
-          'Assistant failed to read anomalies.',
+          'Nie udało się odczytać anomalii.',
           {
             channelId: context.channelId,
             targetMetric: context.targetMetric,
@@ -742,7 +742,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREAD_CHANNEL_MISMATCH',
-            'Assistant thread does not belong to requested channel.',
+            'Wybrany wątek asystenta nie należy do wskazanego kanału.',
             {
               threadId,
               expectedChannelId: existingThread.channelId,
@@ -831,7 +831,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_OUTPUT_INVALID',
-            'Assistant response payload is invalid.',
+            'Odpowiedź asystenta ma nieprawidłowy format.',
             { issues: parsed.error.issues },
           ),
         );
@@ -842,7 +842,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       return err(
         createAssistantError(
           'LLM_ASSISTANT_PERSIST_FAILED',
-          'Assistant failed to persist conversation.',
+          'Nie udało się zapisać rozmowy asystenta.',
           {
             channelId: assistantInput.channelId,
             threadId: assistantInput.threadId ?? null,
@@ -878,7 +878,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREADS_INVALID',
-            'Assistant threads payload is invalid.',
+            'Lista wątków asystenta ma nieprawidłowy format.',
             { issues: parsed.error.issues },
           ),
         );
@@ -889,7 +889,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       return err(
         createAssistantError(
           'LLM_ASSISTANT_THREADS_READ_FAILED',
-          'Assistant failed to read thread list.',
+          'Nie udało się odczytać listy wątków.',
           {
             channelId: listInput.channelId ?? null,
             limit: listInput.limit,
@@ -909,7 +909,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREAD_NOT_FOUND',
-            'Assistant thread does not exist.',
+            'Nie znaleziono wskazanego wątku asystenta.',
             { threadId: threadInput.threadId },
           ),
         );
@@ -951,7 +951,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         return err(
           createAssistantError(
             'LLM_ASSISTANT_THREAD_MESSAGES_INVALID',
-            'Assistant thread history payload is invalid.',
+            'Historia wątku asystenta ma nieprawidłowy format.',
             { threadId: threadInput.threadId, issues: parsed.error.issues },
           ),
         );
@@ -962,7 +962,7 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
       return err(
         createAssistantError(
           'LLM_ASSISTANT_THREAD_MESSAGES_READ_FAILED',
-          'Assistant failed to read thread messages.',
+          'Nie udało się odczytać wiadomości wątku.',
           { threadId: threadInput.threadId },
           cause,
         ),
