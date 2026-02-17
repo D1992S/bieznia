@@ -40,6 +40,10 @@
   PlanningGenerateInputDTOSchema,
   PlanningGetPlanInputDTOSchema,
   PlanningPlanResultSchema,
+  DiagnosticsGetHealthInputDTOSchema,
+  DiagnosticsHealthResultSchema,
+  DiagnosticsRunRecoveryInputDTOSchema,
+  DiagnosticsRunRecoveryResultSchema,
   ProfileCreateInputDTOSchema,
   ProfileListResultSchema,
   ProfileSetActiveInputDTOSchema,
@@ -102,6 +106,10 @@
   type PlanningGenerateInputDTO,
   type PlanningGetPlanInputDTO,
   type PlanningPlanResult,
+  type DiagnosticsGetHealthInputDTO,
+  type DiagnosticsHealthResult,
+  type DiagnosticsRunRecoveryInputDTO,
+  type DiagnosticsRunRecoveryResult,
   type ProfileCreateInputDTO,
   type ProfileListResult,
   type ProfileSetActiveInputDTO,
@@ -161,6 +169,8 @@ export interface ElectronAPI {
   analyticsGetTopicIntelligence: (input: TopicIntelligenceQueryInputDTO) => Promise<TopicIntelligenceResult>;
   planningGeneratePlan: (input: PlanningGenerateInputDTO) => Promise<PlanningPlanResult>;
   planningGetPlan: (input: PlanningGetPlanInputDTO) => Promise<PlanningPlanResult>;
+  diagnosticsGetHealth: (input: DiagnosticsGetHealthInputDTO) => Promise<DiagnosticsHealthResult>;
+  diagnosticsRunRecovery: (input: DiagnosticsRunRecoveryInputDTO) => Promise<DiagnosticsRunRecoveryResult>;
   reportsGenerate: (input: ReportGenerateInputDTO) => Promise<ReportGenerateResult>;
   reportsExport: (input: ReportExportInputDTO) => Promise<ReportExportResult>;
   assistantAsk: (input: AssistantAskInputDTO) => Promise<AssistantAskResult>;
@@ -449,6 +459,20 @@ const api: ElectronAPI = {
       input,
       PlanningGetPlanInputDTOSchema,
       PlanningPlanResultSchema,
+    ),
+  diagnosticsGetHealth: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.DIAGNOSTICS_GET_HEALTH,
+      input,
+      DiagnosticsGetHealthInputDTOSchema,
+      DiagnosticsHealthResultSchema,
+    ),
+  diagnosticsRunRecovery: (input) =>
+    invokeValidated(
+      IPC_CHANNELS.DIAGNOSTICS_RUN_RECOVERY,
+      input,
+      DiagnosticsRunRecoveryInputDTOSchema,
+      DiagnosticsRunRecoveryResultSchema,
     ),
   reportsGenerate: (input) =>
     invokeValidated(

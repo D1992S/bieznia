@@ -44,6 +44,9 @@ importers:
       '@moze/data-pipeline':
         specifier: workspace:*
         version: link:../../packages/data-pipeline
+      '@moze/diagnostics':
+        specifier: workspace:*
+        version: link:../../packages/diagnostics
       '@moze/llm':
         specifier: workspace:*
         version: link:../../packages/llm

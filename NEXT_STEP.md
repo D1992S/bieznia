@@ -25,7 +25,8 @@
 | 15 | Topic Intelligence | DONE |
 | 16 | Planning System | DONE |
 | 17 | Plugins (Insights/Alerts) | SKIP (solo) |
-| 18-19 | Reszta | Oczekuje |
+| 18 | Diagnostics + Recovery | DONE |
+| 19 | Polish + Local UX | Oczekuje |
 
 ## Co zostalo zrobione (Faza 9)
 
@@ -395,40 +396,72 @@
 - [x] UI pozwala odswiezyc i przejrzec plan bez bledow IPC.
 - [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
-## Co robic teraz - Faza 18: Diagnostics + Recovery
+## Co zostalo zrobione (Faza 18)
+
+- Kontrakty `shared` rozszerzono o Diagnostics + Recovery:
+  - `diagnostics:getHealth`,
+  - `diagnostics:runRecovery`,
+  - DTO/result schemas dla health check i recovery krokowego.
+- Dodano pakiet `@moze/diagnostics`:
+  - `getDiagnosticsHealth(...)`,
+  - `runDiagnosticsRecovery(...)`,
+  - checks: DB integrity, cache snapshot, pipeline freshness, IPC bridge,
+  - actions: `integrity_check`, `invalidate_analytics_cache`, `rerun_data_pipeline`, `reindex_fts`, `vacuum_database`.
+- Desktop runtime i IPC:
+  - nowe komendy backendu z tracingiem:
+    - `diagnostics.getHealth`,
+    - `diagnostics.runRecovery`,
+  - handlery IPC + preload bridge dla `diagnostics:*`.
+- UI:
+  - nowe hooki React Query i panel `Diagnostyka i recovery (Faza 18)` w zakladce `Statystyki`,
+  - odswiezenie health check,
+  - uruchamianie recovery i prezentacja statusu krokow.
+- Testy:
+  - `packages/diagnostics/src/diagnostics-service.integration.test.ts`,
+  - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+  - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`.
+- ADR:
+  - dodano `docs/adr/009-diagnostics-recovery.md`.
+- Regresja:
+  - `corepack pnpm lint` PASS
+  - `corepack pnpm typecheck` PASS
+  - `corepack pnpm test` PASS (116/116)
+  - `corepack pnpm build` PASS
+
+**Definition of Done (Faza 18):**
+- [x] Health check zwraca czytelny status kluczowych modulow.
+- [x] Recovery potrafi naprawic minimum jeden scenariusz stalego stanu danych/cache.
+- [x] UI pokazuje status i pozwala uruchomic recovery bez bledow IPC.
+- [x] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
+
+## Co robic teraz - Faza 19: Polish + Local UX
 
 > Faza 17 jest **SKIP (solo)** i nie implementujemy plugin runtime.
 
-**Cel:** uruchomic warstwe diagnostyki i bezpiecznego recovery dla calego pipeline.
+**Cel:** domknac UX lokalny single-user i przygotowac stabilny tryb codziennej pracy bez packagingu i bez telemetry opt-in.
 
-**Scope freeze 18 (robimy / nie robimy):**
+**Scope freeze 19 (robimy / nie robimy):**
 - Robimy:
-  - health check techniczny (DB, cache, pipeline, IPC),
-  - ekran diagnostyczny w UI,
-  - bezpieczne akcje recovery (np. reset cache, rerun pipeline, sanity checks),
-  - testy integracyjne dla scenariuszy degradacji i naprawy.
+  - dopracowanie UX (czytelnosc paneli, komunikaty, stany loading/error/empty),
+  - poprawki responsywnosci desktop + mniejsze ekrany,
+  - finalne porzadki copy/pl i ergonomii przeplywu codziennego.
 - Nie robimy:
-  - nowych feature'ow analitycznych,
-  - plugin runtime (pozostaje skip),
-  - telemetry opt-in / packaging dystrybucyjny (Faza 19).
+  - plugin runtime (pozostaje SKIP),
+  - packaging dystrybucyjny,
+  - telemetry opt-in i integracje chmurowe.
 
 **Zakres (MVP):**
-1. Kontrakty:
-   - `diagnostics:getHealth`,
-   - `diagnostics:runRecovery`,
-   - DTO wynikow health i recovery.
-2. Silnik:
-   - reguly health-check i kody statusow,
-   - deterministyczne akcje recovery.
-3. Integracja:
-   - desktop IPC + preload + panel diagnostyczny w UI.
-4. Testy:
-   - seeded scenariusze awarii i weryfikacja skutecznosci recovery.
+1. UI polish:
+   - finalny przeglad zakladek `Statystyki`, `Asystent AI`, `Raporty`, `Import`, `Ustawienia`.
+2. UX:
+   - dopracowanie komunikatow i akcji (success/error/retry),
+   - redukcja tarcia w najczestszych flow (sync -> analiza -> plan -> raport).
+3. Stabilnosc:
+   - brak regresji IPC i danych przy codziennym scenariuszu uzycia.
 
-**Definition of Done (Faza 18):**
-- [ ] Health check zwraca czytelny status kluczowych modulow.
-- [ ] Recovery potrafi naprawic minimum jeden scenariusz stalego stanu danych/cache.
-- [ ] UI pokazuje status i pozwala uruchomic recovery bez bledow IPC.
+**Definition of Done (Faza 19):**
+- [ ] Kluczowe flow sa spójne i czytelne UX-owo w codziennym uzyciu.
+- [ ] Brak krytycznych brakow copy/pl i brakow ergonomii w glownych panelach.
 - [ ] `corepack pnpm lint && corepack pnpm typecheck && corepack pnpm test && corepack pnpm build` - 0 errors.
 
 ## Krytyczne zasady (nie pomijaj)
