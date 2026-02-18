@@ -187,7 +187,7 @@ function readOwnerDayRows(
     return err(
       createCompetitorError(
         'COMPETITOR_OWNER_READ_FAILED',
-        'Nie udalo sie odczytac danych kanalu do analizy konkurencji.',
+        'Failed to read channel data for competitor analysis.',
         { channelId, dateFrom, dateTo, causeErrorCode: rowsResult.error.code },
         rowsResult.error,
       ),
@@ -201,7 +201,7 @@ function readOwnerDayRows(
       return err(
         createCompetitorError(
           'COMPETITOR_OWNER_ROW_INVALID',
-          'Dane kanalu do analizy konkurencji maja niepoprawny format.',
+          'Channel data for competitor analysis has an invalid format.',
           { channelId, dateFrom, dateTo, rowIndex: index, issues: parsed.error.issues },
         ),
       );

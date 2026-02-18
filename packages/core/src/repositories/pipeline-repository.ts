@@ -256,12 +256,15 @@ export function createPipelineRepository(db: Database.Database): PipelineReposit
       )
     `,
   );
+  const clearStagingTx = db.transaction((channelId: string) => {
+    deleteStgVideosStmt.run({ channelId });
+    deleteStgChannelStmt.run({ channelId });
+  });
 
   return {
     clearStagingForChannel: (input) => {
       try {
-        deleteStgVideosStmt.run({ channelId: input.channelId });
-        deleteStgChannelStmt.run({ channelId: input.channelId });
+        clearStagingTx(input.channelId);
         return ok(undefined);
       } catch (cause) {
         return err(

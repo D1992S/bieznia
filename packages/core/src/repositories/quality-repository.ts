@@ -108,7 +108,7 @@ export function createQualityRepository(db: Database.Database): QualityRepositor
         return err(
           AppError.create(
             'DB_QUALITY_SCORES_DELETE_FAILED',
-            'Nie udalo sie usunac poprzednich wynikow quality scoring.',
+            'Failed to delete previous quality scoring results.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -140,7 +140,7 @@ export function createQualityRepository(db: Database.Database): QualityRepositor
         return err(
           AppError.create(
             'DB_QUALITY_SCORE_INSERT_FAILED',
-            'Nie udalo sie zapisac wyniku quality scoring.',
+            'Failed to save quality scoring result.',
             'error',
             { channelId: input.channelId, videoId: input.videoId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -168,7 +168,7 @@ export function createQualityRepository(db: Database.Database): QualityRepositor
         return err(
           AppError.create(
             'DB_QUALITY_TRANSACTION_FAILED',
-            'Nie udalo sie wykonac transakcji quality scoring.',
+            'Failed to execute quality scoring transaction.',
             'error',
             {},
             toError(cause),

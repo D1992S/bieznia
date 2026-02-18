@@ -306,7 +306,7 @@ export function createMlRepository(db: Database.Database): MlRepository {
         return err(
           AppError.create(
             'DB_ML_CLEAR_ACTIVE_FAILED',
-            'Nie udalo sie wyczyscic aktywnych modeli ML.',
+            'Failed to clear active ML models.',
             'error',
             { channelId: input.channelId, targetMetric: input.targetMetric },
             toError(cause),
@@ -334,7 +334,7 @@ export function createMlRepository(db: Database.Database): MlRepository {
         return err(
           AppError.create(
             'DB_ML_MODEL_INSERT_FAILED',
-            'Nie udalo sie zapisac modelu ML.',
+            'Failed to insert ML model.',
             'error',
             { channelId: input.channelId, targetMetric: input.targetMetric, modelType: input.modelType },
             toError(cause),
@@ -361,7 +361,7 @@ export function createMlRepository(db: Database.Database): MlRepository {
         return err(
           AppError.create(
             'DB_ML_BACKTEST_INSERT_FAILED',
-            'Nie udalo sie zapisac backtestu ML.',
+            'Failed to insert ML backtest.',
             'error',
             { modelId: input.modelId, channelId: input.channelId, targetMetric: input.targetMetric },
             toError(cause),
@@ -390,7 +390,7 @@ export function createMlRepository(db: Database.Database): MlRepository {
         return err(
           AppError.create(
             'DB_ML_PREDICTION_INSERT_FAILED',
-            'Nie udalo sie zapisac predykcji ML.',
+            'Failed to insert ML prediction.',
             'error',
             {
               modelId: input.modelId,
@@ -417,7 +417,7 @@ export function createMlRepository(db: Database.Database): MlRepository {
         return err(
           AppError.create(
             'DB_ML_ANOMALY_DELETE_FAILED',
-            'Nie udalo sie usunac anomalii ML.',
+            'Failed to delete ML anomalies.',
             'error',
             {
               channelId: input.channelId,
@@ -455,7 +455,7 @@ export function createMlRepository(db: Database.Database): MlRepository {
         return err(
           AppError.create(
             'DB_ML_ANOMALY_INSERT_FAILED',
-            'Nie udalo sie zapisac anomalii ML.',
+            'Failed to insert ML anomaly.',
             'error',
             {
               channelId: input.channelId,
@@ -487,7 +487,7 @@ export function createMlRepository(db: Database.Database): MlRepository {
         return err(
           AppError.create(
             'DB_ML_TRANSACTION_FAILED',
-            'Nie udalo sie wykonac transakcji ML.',
+            'Failed to execute ML transaction.',
             'error',
             {},
             toError(cause),

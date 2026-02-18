@@ -108,7 +108,7 @@ export function createPlanningRepository(db: Database.Database): PlanningReposit
         return err(
           AppError.create(
             'DB_PLANNING_PLAN_DELETE_FAILED',
-            'Nie udalo sie usunac poprzednich planow.',
+            'Failed to delete previous plans.',
             'error',
             { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
             toError(cause),
@@ -133,7 +133,7 @@ export function createPlanningRepository(db: Database.Database): PlanningReposit
         return err(
           AppError.create(
             'DB_PLANNING_PLAN_INSERT_FAILED',
-            'Nie udalo sie zapisac planu.',
+            'Failed to save plan.',
             'error',
             { planId: input.planId, channelId: input.channelId },
             toError(cause),
@@ -165,7 +165,7 @@ export function createPlanningRepository(db: Database.Database): PlanningReposit
         return err(
           AppError.create(
             'DB_PLANNING_RECOMMENDATION_INSERT_FAILED',
-            'Nie udalo sie zapisac rekomendacji planu.',
+            'Failed to save planning recommendation.',
             'error',
             { planId: input.planId, recommendationId: input.recommendationId },
             toError(cause),
@@ -193,7 +193,7 @@ export function createPlanningRepository(db: Database.Database): PlanningReposit
         return err(
           AppError.create(
             'DB_PLANNING_TRANSACTION_FAILED',
-            'Nie udalo sie wykonac transakcji planowania.',
+            'Failed to execute planning transaction.',
             'error',
             {},
             toError(cause),
