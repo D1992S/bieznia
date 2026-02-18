@@ -1,44 +1,97 @@
 ﻿# Mozetobedzieto
 
-Analityczna aplikacja desktopowa (Electron) dla twórców YouTube: synchronizacja danych, pipeline analityczny, ML, asystent AI Lite, scoring jakości, analiza konkurencji, analiza tematów, planowanie publikacji oraz diagnostyka.
+Mozetobedzieto to desktopowa aplikacja analityczna dla twórców YouTube.
 
-## Postęp realizacji
+Cel: w jednym miejscu przejść od danych kanału do decyzji publikacyjnych:
+- zsynchronizować dane,
+- przeanalizować KPI, trendy i anomalie,
+- sprawdzić jakość treści, konkurencję i tematy,
+- wygenerować plan publikacji,
+- wyeksportować raport.
 
-> Ukończono fazy 0-20 (z wyjątkiem Fazy 17 oznaczonej jako SKIP solo). Projekt jest gotowy do używania lokalnie i do testów regresyjnych. Szczegóły: [`NEXT_STEP.md`](NEXT_STEP.md)
+## Co aplikacja robi w praktyce
 
-| Faza | Nazwa | Status | Co działa |
-|------|-------|--------|-----------|
-| 0 | Foundation | DONE | Szkielet monorepo + Electron + TS |
-| 1 | Data Core | DONE | SQLite, migracje i warstwa zapytań |
-| 2 | Desktop Backend + IPC | DONE | Stabilna komunikacja UI ↔ backend |
-| 3 | Data Modes + Fixtures | DONE | Tryby fake/real/record |
-| 4 | Data Pipeline + Feature Engineering | DONE | Deterministyczny ETL i cechy |
-| 5 | Sync Orchestrator | DONE | Kontrolowany sync z retry/wznawianiem |
-| 6 | Bazowy ML Framework | DONE | Bazowe prognozy i metryki jakości |
-| 7 | Dashboard + Raporty + Eksport | DONE | Dashboard KPI + eksport JSON/CSV/HTML |
-| 8 | Auth + Profile + Settings | DONE | Profile, ustawienia i połączenie konta |
-| 9 | Import + Enrichment + Search | DONE | Import CSV i wyszukiwanie FTS |
-| 10 | Anomaly Detection + Trend Analysis | DONE | Anomalie, trend i punkty zmiany |
-| 10.5 | Hardening | DONE | Snapshoty, trace, lineage, semantic layer |
-| 11 | LLM Assistant (Lite) | DONE | Asystent z evidence i LocalStub |
-| 12 | Performance i stabilność | DONE | Cache + inwalidacja + inkrementalny pipeline |
-| 13 | Quality Scoring | DONE | Ranking jakości i confidence |
-| 14 | Competitor Intelligence | DONE | Snapshoty konkurencji i momentum |
-| 15 | Topic Intelligence | DONE | Klastry tematów i wykrywanie luk |
-| 16 | Planning System | DONE | Plan publikacji z evidence/rationale |
-| 17 | Plugins (Insights/Alerts) | SKIP (solo) | Poza zakresem dla trybu solo |
-| 18 | Diagnostics + Recovery | DONE | Kontrola stanu + akcje naprawcze |
-| 19 | Polish + Local UX | DONE | Onboarding, skróty, one-click flow, UX polish |
-| 20 | Refactor stabilizacyjny (modularyzacja UI/IPC + testy) | DONE | Redukcja długu technicznego bez zmian funkcjonalnych |
+### 1) Zakładka `Statystyki`
+- KPI kanału dla wybranego zakresu dat.
+- Wykres szeregów czasowych + prognoza ML.
+- Analiza anomalii i punktów zmiany trendu.
+- Ocena jakości treści (ranking filmów).
+- Analiza konkurencji (snapshoty i momentum).
+- Analiza tematów (klastry i luki contentowe).
+- Planowanie publikacji (rekomendacje z uzasadnieniem).
+- Diagnostyka i naprawa kluczowych modułów.
 
-## Uruchomienie lokalne
+### 2) Zakładka `Asystent AI`
+- Asystent odpowiada na pytania o dane z aplikacji.
+- Pokazuje kontekst/evidence użyte do odpowiedzi.
+- Utrzymuje historię wątków i wiadomości.
+
+### 3) Zakładka `Raporty i eksport`
+- Generuje raport dashboardowy.
+- Eksportuje wyniki do plików (JSON/CSV/HTML).
+
+### 4) Zakładka `Import i wyszukiwanie`
+- Importuje dane CSV do lokalnej bazy.
+- Obsługuje mapowanie kolumn i walidację danych.
+- Umożliwia wyszukiwanie treści po imporcie.
+
+### 5) Zakładka `Ustawienia`
+- Profile użytkownika (przełączanie kontekstu pracy).
+- Połączenie/rozłączenie konta YouTube.
+- Ustawienia domyślnego kanału i zakresu dat.
+- Przełączanie trybu danych (`fake` / `real` / `record`).
+
+## Jak używać aplikacji (prosty workflow)
+
+1. Otwórz zakładkę `Statystyki`.
+2. Ustaw zakres dat (np. 30 dni) i kanał.
+3. Kliknij `Uruchom przebieg tygodniowy` (one-click flow).
+4. Sprawdź:
+   - KPI i prognozę,
+   - anomalie/trendy,
+   - jakość treści,
+   - konkurencję i tematy,
+   - plan publikacji.
+5. Przejdź do `Raporty i eksport` i zapisz raport.
+6. Jeśli coś działa niestabilnie, użyj sekcji `Diagnostyka i naprawa`.
+
+## Instalacja i uruchomienie
+
+### Wymagania
+- Node.js `>=22`
+- pnpm `>=10`
+
+### Start lokalny (dev)
 
 ```bash
 corepack pnpm install
 corepack pnpm dev
 ```
 
-## Bramka jakości
+Po starcie aplikacja uruchamia:
+- UI (`Vite`) na `http://localhost:5173`,
+- desktop (`Electron`) z backendem IPC.
+
+## Najczęstsze problemy i szybkie rozwiązania
+
+### Problem: błąd `better-sqlite3` / `NODE_MODULE_VERSION`
+Objaw: aplikacja lub testy nie startują po zmianie wersji Node/Electron.
+
+Rozwiązanie:
+1. Dla testów pod Node:
+```bash
+pnpm --filter @moze/core rebuild better-sqlite3
+```
+2. Dla uruchomienia desktop (Electron) przebuduj zależności natywne pod Electron.
+
+### Problem: uruchamia się tylko web UI bez IPC
+Sprawdź, czy startujesz przez:
+```bash
+corepack pnpm dev
+```
+a nie sam serwer UI.
+
+## Bramka jakości (dla developmentu)
 
 ```bash
 corepack pnpm lint
@@ -47,10 +100,24 @@ corepack pnpm test
 corepack pnpm build
 ```
 
-## Dokumentacja
+## Architektura repo (skrót)
 
-- [`NEXT_STEP.md`](NEXT_STEP.md) - aktualny status i kolejny krok
-- [`docs/PLAN_REALIZACJI.md`](docs/PLAN_REALIZACJI.md) - plan faz i checklisty
-- [`AGENTS.md`](AGENTS.md) - zasady pracy w repo
-- [`docs/architecture/overview.md`](docs/architecture/overview.md) - mapa architektury
-- [`docs/adr`](docs/adr) - decyzje architektoniczne (ADR)
+- `apps/desktop` - proces główny Electron + IPC backend.
+- `apps/ui` - interfejs React.
+- `packages/core` - DB SQLite, migracje, zapytania.
+- `packages/sync` - synchronizacja danych.
+- `packages/data-pipeline` - pipeline analityczny.
+- `packages/ml` - modele i analizy ML.
+- `packages/analytics` - scoring, konkurencja, tematy, planowanie.
+- `packages/reports` - raporty i eksport.
+- `packages/diagnostics` - health checks i recovery.
+- `packages/llm` - warstwa asystenta AI.
+
+## Status projektu
+
+Projekt jest ukończony funkcjonalnie dla faz 0-20 (z wyjątkiem Fazy 17 oznaczonej jako `SKIP solo`).
+
+Szczegóły planu i statusu:
+- `NEXT_STEP.md`
+- `docs/PLAN_REALIZACJI.md`
+- `docs/architecture/overview.md`
