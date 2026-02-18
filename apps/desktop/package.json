@@ -19,12 +19,12 @@
     "@moze/llm": "workspace:*",
     "@moze/ml": "workspace:*",
     "@moze/reports": "workspace:*",
-    "@moze/sync": "workspace:*",
     "@moze/shared": "workspace:*",
+    "@moze/sync": "workspace:*",
     "better-sqlite3": "^12.6.2"
   },
   "devDependencies": {
-    "electron": "^40.4.0",
+    "electron": "^40.4.1",
     "esbuild": "^0.25.11"
   }
 }
