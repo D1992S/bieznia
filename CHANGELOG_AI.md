@@ -13,6 +13,44 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-18 (v49)
+
+- Data: 2026-02-18
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `package.json`
+  - `apps/desktop/package.json`
+  - `pnpm-lock.yaml`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Wykonano S3 (pierwsze okno maintenance) end-to-end.
+  - Audit/outdated:
+    - odczytano `pnpm audit` oraz `pnpm outdated -r`,
+    - wykonano bezpieczny batch update (bez major upgrade):
+      - `typescript-eslint` -> `8.56.0`,
+      - `electron` -> `40.4.1`.
+  - Zaktualizowano `NEXT_STEP.md`:
+    - S3 oznaczono jako DONE (cykl 1, 2026-02-18),
+    - dodano wynik cyklu i pozostale ryzyka.
+- Dlaczego:
+  - Realizacja planu solo wymaga regularnego, niskiego ryzyka maintenance zamiast rzadkich, duzych aktualizacji.
+- Ryzyko/regresja:
+  - Niskie: aktualizacje patch/minor tylko w narzedziach dev/runtime desktop.
+  - Pozostaje 1 advisory `moderate` (`ajv` przez `eslint`), do domkniecia przy kontrolowanym upgrade `eslint` major.
+- Jak zweryfikowano:
+  - `pnpm audit --json`
+  - `pnpm outdated -r`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm check:perf`
+  - `pnpm check:boundaries`
+  - `pnpm check:loc`
+- Następny krok:
+  - Kontynuowac prace produktowe oraz zaplanowac kolejne okno S3 za 2-4 tygodnie (z osobnym planem dla major update toolchainu).
+
 ## 2026-02-18 (v48)
 
 - Data: 2026-02-18

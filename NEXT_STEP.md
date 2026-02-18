@@ -28,7 +28,7 @@ Zakres:
 - `check:loc` pilnuje realnych hotspotow kodu (nie cienkich wrapperow).
 
 ### S3 - Cykliczny maintenance (co 2-4 tygodnie)
-Status: TODO
+Status: DONE (cykl 1: 2026-02-18)
 
 Zakres:
 1. `pnpm audit` i ocena ryzyk.
@@ -39,6 +39,15 @@ Zakres:
    - `pnpm test`
    - `pnpm build`
    - `pnpm check:perf`
+
+Wynik cyklu 1:
+- wykonano bezpieczny batch update:
+  - `typescript-eslint` -> `8.56.0`
+  - `electron` -> `40.4.1`
+- pelna regresja PASS.
+- pozostale aktualizacje (major) odlozone do osobnego okna:
+  - `eslint`, `@eslint/js`, `vite`, `@vitejs/plugin-react`, `esbuild`.
+- pozostaje 1 advisory `moderate` (`ajv` przez `eslint` chain); do domkniecia przy planowanym oknie upgrade `eslint`.
 
 ### S4 - Refaktor przy okazji
 Status: TODO (opcjonalne)
@@ -54,8 +63,8 @@ Zakres:
 
 ## Co robimy teraz
 
-1. Domknac S3 (pierwsze okno maintenance po wdrozeniu planu solo).
-2. Dalej rozwijac funkcje produktowe i robic tylko lokalne refaktory (S4).
+1. Rozwijac funkcje produktowe i robic tylko lokalne refaktory (S4).
+2. Zaplanowac kolejne okno S3 za 2-4 tygodnie (lub szybciej, jesli wejdzie zmiana toolchainu).
 
 ## Definicja gotowosci sesji
 
