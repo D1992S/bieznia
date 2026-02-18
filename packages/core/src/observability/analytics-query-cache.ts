@@ -381,7 +381,7 @@ export function createAnalyticsQueryCache(db: Database.Database): AnalyticsQuery
       const paramsHash = stableHash(input.params);
       const ttlMs = Math.max(1, Math.floor(input.ttlMs));
 
-      let revision = 0;
+      let revision: number;
       try {
         revision = readRevision();
       } catch {

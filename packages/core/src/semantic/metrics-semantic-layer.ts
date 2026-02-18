@@ -516,7 +516,7 @@ function readCountFromTable(
   input: { channelId: string; dateFrom: string; dateTo: string },
 ): Result<number, AppError> {
   const staticFilterSql = metric.staticWhereSql ? ` AND ${metric.staticWhereSql}` : '';
-  let sql = '';
+  let sql: string;
 
   switch (metric.sourceTable) {
     case 'ml_anomalies':
