@@ -13,6 +13,72 @@ Dziennik zmian wykonywanych przez modele AI.
 - Jak zweryfikowano:
 - Następny krok:
 
+## 2026-02-18 (v48)
+
+- Data: 2026-02-18
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `NEXT_STEP.md`
+  - `scripts/check-loc-budget.mjs`
+  - `docs/runbooks/smoke-regression-solo.md`
+  - `docs/runbooks/test-plan-faza-0-8.md`
+  - `SYSTEM_NOTES.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto S1, S2 i S5 w modelu solo.
+  - S1:
+    - skrocono `NEXT_STEP.md` do wersji operacyjnej,
+    - ustanowiono jeden aktualny runbook: `docs/runbooks/smoke-regression-solo.md`,
+    - stary runbook 0-8 oznaczono jako archiwalny.
+  - S2:
+    - `check:loc` przeniesiono z cienkich wrapperow na realne hotspoty:
+      - `apps/ui/src/features/studio/studio-app.tsx`
+      - `apps/desktop/src/runtime/desktop-main.ts`
+      - `apps/desktop/src/ipc-handlers.ts`
+      - `apps/ui/src/hooks/dashboard/use-dashboard-data-core.ts`
+  - S5:
+    - dodano `SYSTEM_NOTES.md` jako minimalna dokumentacje operacyjna dla jednej osoby.
+- Dlaczego:
+  - Uzytkownik potwierdzil utrzymanie aplikacji w trybie solo i poprosil o dopasowanie planu i procesu do pojedynczego wlasciciela.
+- Ryzyko/regresja:
+  - Niskie: zmiany w dokumentacji i skryptach quality gate.
+  - Potencjalne ryzyko operacyjne: `check:loc` moze teraz czesciej sygnalizowac przekroczenia na faktycznych hotspotach (celowe zachowanie).
+- Jak zweryfikowano:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm check:perf`
+  - `pnpm check:boundaries`
+  - `pnpm check:loc`
+- Następny krok:
+  - Rozpoczac S3: pierwsze okno maintenance (`pnpm audit`, `pnpm outdated -r`, bezpieczny batch update).
+
+## 2026-02-18 (v47)
+
+- Data: 2026-02-18
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Dodano nowy plan dalszych prac w trybie solo do `NEXT_STEP.md`.
+  - Plan zostal przestawiony z podejscia "zespolowego" na "single-owner":
+    - etapy obowiazkowe: S1 (porzadek operacyjny), S2 (realne bramki), S3 (cykliczny maintenance),
+    - etapy opcjonalne: S4 (refaktor przy okazji), S5 (minimalna dokumentacja modulow).
+  - Dodano sekcje "Co robimy teraz (najblizsza sesja)" z konkretnym kolejnym ruchem.
+- Dlaczego:
+  - Uzytkownik potwierdzil, ze aplikacja bedzie utrzymywana solo i poprosil o dostosowanie planu do takiego modelu pracy.
+  - Celem jest maksymalny efekt przy minimalnym koszcie utrzymania.
+- Ryzyko/regresja:
+  - Niskie: zmiany tylko dokumentacyjne.
+  - Ryzyko operacyjne: przy zbyt duzym upraszczaniu mozna pominac potrzebne porzadki; dlatego utrzymano obowiazkowe etapy S1-S3.
+- Jak zweryfikowano:
+  - Przeglad spojnosci wpisu i kolejnosci etapow w `NEXT_STEP.md`.
+  - Brak zmian runtime/kontraktow.
+- Następny krok:
+  - Zrealizowac S2: poprawic `check:loc`, aby pilnowal realnych hotspotow kodu.
+
 ## 2026-02-17 (v46)
 
 - Data: 2026-02-17
