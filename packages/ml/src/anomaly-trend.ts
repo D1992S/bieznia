@@ -1,4 +1,4 @@
-import type { DatabaseConnection } from '@moze/core';
+import { createMlQueries, createMlRepository, type DatabaseConnection } from '@moze/core';
 import {
   AppError,
   err,
@@ -108,10 +108,6 @@ function round(value: number): number {
   return Math.round(value * 1_000_000) / 1_000_000;
 }
 
-function toMetricColumn(targetMetric: MlTargetMetric): string {
-  return targetMetric === 'subscribers' ? 'subscribers' : 'views';
-}
-
 function parseIsoDate(dateIso: string): Date {
   return new Date(`${dateIso}T00:00:00.000Z`);
 }
@@ -162,21 +158,27 @@ function readSeries(
   channelId: string,
   targetMetric: MlTargetMetric,
 ): Result<SeriesPoint[], AppError> {
-  const metricColumn = toMetricColumn(targetMetric);
-  const sql = `
-    SELECT
-      date,
-      ${metricColumn} AS value
-    FROM fact_channel_day
-    WHERE channel_id = @channelId
-    ORDER BY date ASC
-  `;
+  const mlQueries = createMlQueries(db);
+  const rowsResult = mlQueries.getMetricSeries({ channelId, targetMetric });
+  if (!rowsResult.ok) {
+    return err(
+      createMlError(
+        'ML_TREND_SERIES_READ_FAILED',
+        'Nie udalo sie odczytac szeregu czasowego do analizy trendu.',
+        {
+          channelId,
+          targetMetric,
+          causeErrorCode: rowsResult.error.code,
+        },
+        rowsResult.error,
+      ),
+    );
+  }
 
   try {
-    const rows = db.prepare<{ channelId: string }, { date: string; value: number }>(sql).all({ channelId });
     const points: SeriesPoint[] = [];
-    for (let index = 0; index < rows.length; index += 1) {
-      const parsed = SERIES_ROW_SCHEMA.safeParse(rows[index]);
+    for (let index = 0; index < rowsResult.value.length; index += 1) {
+      const parsed = SERIES_ROW_SCHEMA.safeParse(rowsResult.value[index]);
       if (!parsed.success) {
         return err(
           createMlError(
@@ -491,34 +493,23 @@ function readDaysSinceLastVideoMap(
   db: DatabaseConnection['db'],
   channelId: string,
 ): Result<Map<string, number | null>, AppError> {
-  const sql = `
-    SELECT
-      date,
-      days_since_last_video AS daysSinceLastVideo
-    FROM ml_features
-    WHERE channel_id = @channelId
-    ORDER BY date ASC, feature_set_version ASC
-  `;
-
-  try {
-    const rows = db.prepare<{ channelId: string }, { date: string; daysSinceLastVideo: number | null }>(sql).all({
-      channelId,
-    });
-    const map = new Map<string, number | null>();
-    for (const row of rows) {
-      map.set(row.date, row.daysSinceLastVideo);
-    }
-    return ok(map);
-  } catch (cause) {
-    return err(
-      createMlError(
-        'ML_FEATURES_READ_FAILED',
-        'Nie udalo sie odczytac cech pipeline do opisu anomalii.',
-        { channelId },
-        cause,
-      ),
-    );
+  const mlQueries = createMlQueries(db);
+  const rowsResult = mlQueries.getDaysSinceLastVideoByDate({ channelId });
+  if (rowsResult.ok) {
+    return rowsResult;
   }
+
+  return err(
+    createMlError(
+      'ML_FEATURES_READ_FAILED',
+      'Nie udalo sie odczytac cech pipeline do opisu anomalii.',
+      {
+        channelId,
+        causeErrorCode: rowsResult.error.code,
+      },
+      rowsResult.error,
+    ),
+  );
 }
 
 function detectAnomalies(
@@ -607,122 +598,61 @@ function persistAnomalies(
     sourceSyncRunId: number | null;
   },
 ): Result<void, AppError> {
-  const deleteSql = `
-    DELETE FROM ml_anomalies
-    WHERE channel_id = @channelId
-      AND target_metric = @targetMetric
-      AND (@dateFrom IS NULL OR date >= @dateFrom)
-      AND (@dateTo IS NULL OR date <= @dateTo)
-  `;
+  const mlRepository = createMlRepository(input.db);
+  const transactionResult = mlRepository.runInTransaction(() => {
+    const deleteResult = mlRepository.deleteAnomalies({
+      channelId: input.channelId,
+      targetMetric: input.targetMetric,
+      dateFrom: input.dateFrom ?? null,
+      dateTo: input.dateTo ?? null,
+    });
+    if (!deleteResult.ok) {
+      return deleteResult;
+    }
 
-  const insertSql = `
-    INSERT INTO ml_anomalies (
-      channel_id,
-      target_metric,
-      date,
-      metric_value,
-      baseline_value,
-      deviation_ratio,
-      z_score,
-      iqr_lower,
-      iqr_upper,
-      method,
-      confidence,
-      severity,
-      explanation,
-      source_sync_run_id,
-      detected_at
-    )
-    VALUES (
-      @channelId,
-      @targetMetric,
-      @date,
-      @metricValue,
-      @baselineValue,
-      @deviationRatio,
-      @zScore,
-      @iqrLower,
-      @iqrUpper,
-      @method,
-      @confidence,
-      @severity,
-      @explanation,
-      @sourceSyncRunId,
-      @detectedAt
-    )
-  `;
-
-  try {
-    const deleteStmt = input.db.prepare<{
-      channelId: string;
-      targetMetric: MlTargetMetric;
-      dateFrom: string | null;
-      dateTo: string | null;
-    }>(deleteSql);
-
-    const insertStmt = input.db.prepare<{
-      channelId: string;
-      targetMetric: MlTargetMetric;
-      date: string;
-      metricValue: number;
-      baselineValue: number;
-      deviationRatio: number;
-      zScore: number | null;
-      iqrLower: number;
-      iqrUpper: number;
-      method: MlAnomalyMethod;
-      confidence: MlAnomalyConfidence;
-      severity: MlAnomalySeverity;
-      explanation: string;
-      sourceSyncRunId: number | null;
-      detectedAt: string;
-    }>(insertSql);
-
-    const tx = input.db.transaction(() => {
-      deleteStmt.run({
+    for (const anomaly of input.anomalies) {
+      const insertResult = mlRepository.insertAnomaly({
         channelId: input.channelId,
         targetMetric: input.targetMetric,
-        dateFrom: input.dateFrom ?? null,
-        dateTo: input.dateTo ?? null,
+        date: anomaly.date,
+        metricValue: anomaly.value,
+        baselineValue: anomaly.baseline,
+        deviationRatio: anomaly.deviationRatio,
+        zScore: anomaly.zScore,
+        iqrLower: anomaly.iqrLower,
+        iqrUpper: anomaly.iqrUpper,
+        method: anomaly.method,
+        confidence: anomaly.confidence,
+        severity: anomaly.severity,
+        explanation: anomaly.explanation,
+        sourceSyncRunId: input.sourceSyncRunId,
+        detectedAt: input.detectedAt,
       });
-
-      for (const anomaly of input.anomalies) {
-        insertStmt.run({
-          channelId: input.channelId,
-          targetMetric: input.targetMetric,
-          date: anomaly.date,
-          metricValue: anomaly.value,
-          baselineValue: anomaly.baseline,
-          deviationRatio: anomaly.deviationRatio,
-          zScore: anomaly.zScore,
-          iqrLower: anomaly.iqrLower,
-          iqrUpper: anomaly.iqrUpper,
-          method: anomaly.method,
-          confidence: anomaly.confidence,
-          severity: anomaly.severity,
-          explanation: anomaly.explanation,
-          sourceSyncRunId: input.sourceSyncRunId,
-          detectedAt: input.detectedAt,
-        });
+      if (!insertResult.ok) {
+        return insertResult;
       }
-    });
+    }
 
-    tx();
     return ok(undefined);
-  } catch (cause) {
-    return err(
-      createMlError(
-        'ML_ANOMALY_PERSIST_FAILED',
-        'Nie udalo sie zapisac anomalii do bazy danych.',
-        {
-          channelId: input.channelId,
-          targetMetric: input.targetMetric,
-          anomalies: input.anomalies.length,
-        },
-        cause,
-      ),
-    );
+  });
+
+  if (transactionResult.ok) {
+    return ok(undefined);
   }
+
+  return err(
+    createMlError(
+      'ML_ANOMALY_PERSIST_FAILED',
+      'Nie udalo sie zapisac anomalii do bazy danych.',
+      {
+        channelId: input.channelId,
+        targetMetric: input.targetMetric,
+        anomalies: input.anomalies.length,
+        causeErrorCode: transactionResult.error.code,
+      },
+      transactionResult.error,
+    ),
+  );
 }
 
 export function runAnomalyTrendAnalysis(
@@ -806,58 +736,15 @@ export function getMlAnomalies(input: GetMlAnomaliesInput): Result<MlAnomalyList
   }
 
   const normalizedSeverities = input.severities?.filter((severity) => severity.length > 0) ?? [];
-  const params: Record<string, unknown> = {
+  const mlQueries = createMlQueries(input.db);
+  const rowsResult = mlQueries.getPersistedAnomalies({
     channelId: input.channelId,
     targetMetric,
     dateFrom: input.dateFrom,
     dateTo: input.dateTo,
-  };
-
-  let severityFilterSql = '';
-  if (normalizedSeverities.length > 0) {
-    const placeholders: string[] = [];
-    for (let index = 0; index < normalizedSeverities.length; index += 1) {
-      const key = `severity${String(index)}`;
-      placeholders.push(`@${key}`);
-      params[key] = normalizedSeverities[index];
-    }
-    severityFilterSql = `AND severity IN (${placeholders.join(', ')})`;
-  }
-
-  const sql = `
-    SELECT
-      id,
-      channel_id AS channelId,
-      target_metric AS targetMetric,
-      date,
-      metric_value AS value,
-      baseline_value AS baseline,
-      deviation_ratio AS deviationRatio,
-      z_score AS zScore,
-      method,
-      confidence,
-      severity,
-      explanation,
-      detected_at AS detectedAt
-    FROM ml_anomalies
-    WHERE channel_id = @channelId
-      AND target_metric = @targetMetric
-      AND date BETWEEN @dateFrom AND @dateTo
-      ${severityFilterSql}
-    ORDER BY date DESC, id DESC
-  `;
-
-  try {
-    const rows = input.db.prepare<Record<string, unknown>, MlAnomalyListResultDTO['items'][number]>(sql).all(params);
-    return ok({
-      channelId: input.channelId,
-      targetMetric,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-      total: rows.length,
-      items: rows,
-    });
-  } catch (cause) {
+    severities: normalizedSeverities,
+  });
+  if (!rowsResult.ok) {
     return err(
       createMlError(
         'ML_ANOMALY_READ_FAILED',
@@ -868,11 +755,21 @@ export function getMlAnomalies(input: GetMlAnomaliesInput): Result<MlAnomalyList
           dateFrom: input.dateFrom,
           dateTo: input.dateTo,
           severities: normalizedSeverities,
+          causeErrorCode: rowsResult.error.code,
         },
-        cause,
+        rowsResult.error,
       ),
     );
   }
+
+  return ok({
+    channelId: input.channelId,
+    targetMetric,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    total: rowsResult.value.length,
+    items: rowsResult.value,
+  });
 }
 
 function toTrendDirection(delta: number, average: number): MlTrendDirection {

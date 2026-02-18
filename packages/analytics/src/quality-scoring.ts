@@ -1,4 +1,8 @@
-import type { DatabaseConnection } from '@moze/core';
+import {
+  createQualityQueries,
+  createQualityRepository,
+  type DatabaseConnection,
+} from '@moze/core';
 import { AppError, err, ok, type QualityScoreConfidence, type QualityScoreResultDTO, type Result } from '@moze/shared';
 import { z } from 'zod/v4';
 
@@ -115,45 +119,41 @@ function readAverageSubscribers(
   dateFrom: string,
   dateTo: string,
 ): Result<number, AppError> {
-  try {
-    const rangeRow = db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string },
-      { avgSubscribers: number | null }
-    >(
-      `
-        SELECT AVG(subscribers) AS avgSubscribers
-        FROM fact_channel_day
-        WHERE channel_id = @channelId
-          AND date BETWEEN @dateFrom AND @dateTo
-        ORDER BY date ASC
-      `,
-    ).get({ channelId, dateFrom, dateTo });
+  const qualityQueries = createQualityQueries(db);
 
-    if (typeof rangeRow?.avgSubscribers === 'number' && Number.isFinite(rangeRow.avgSubscribers)) {
-      return ok(Math.max(1, rangeRow.avgSubscribers));
-    }
-
-    const fallbackRow = db.prepare<{ channelId: string }, { subscriberCount: number }>(
-      `
-        SELECT subscriber_count AS subscriberCount
-        FROM dim_channel
-        WHERE channel_id = @channelId
-        ORDER BY channel_id ASC
-        LIMIT 1
-      `,
-    ).get({ channelId });
-
-    return ok(Math.max(1, fallbackRow?.subscriberCount ?? 1));
-  } catch (cause) {
+  const averageResult = qualityQueries.getAverageSubscribersInRange({
+    channelId,
+    dateFrom,
+    dateTo,
+  });
+  if (!averageResult.ok) {
     return err(
       createQualityScoringError(
         'QUALITY_SCORING_SUBSCRIBERS_READ_FAILED',
         'Nie udalo sie odczytac liczby subskrybentow do quality scoring.',
-        { channelId, dateFrom, dateTo },
-        cause,
+        { channelId, dateFrom, dateTo, causeErrorCode: averageResult.error.code },
+        averageResult.error,
       ),
     );
   }
+
+  if (typeof averageResult.value === 'number' && Number.isFinite(averageResult.value)) {
+    return ok(Math.max(1, averageResult.value));
+  }
+
+  const fallbackResult = qualityQueries.getChannelSubscriberCount({ channelId });
+  if (!fallbackResult.ok) {
+    return err(
+      createQualityScoringError(
+        'QUALITY_SCORING_SUBSCRIBERS_READ_FAILED',
+        'Nie udalo sie odczytac liczby subskrybentow do quality scoring.',
+        { channelId, dateFrom, dateTo, causeErrorCode: fallbackResult.error.code },
+        fallbackResult.error,
+      ),
+    );
+  }
+
+  return ok(Math.max(1, fallbackResult.value ?? 1));
 }
 
 function readVideoAggregates(
@@ -162,61 +162,35 @@ function readVideoAggregates(
   dateFrom: string,
   dateTo: string,
 ): Result<VideoAggregateRow[], AppError> {
-  const sql = `
-    SELECT
-      v.video_id AS videoId,
-      v.channel_id AS channelId,
-      v.title AS title,
-      v.published_at AS publishedAt,
-      COALESCE(v.duration_seconds, 0) AS durationSeconds,
-      COUNT(*) AS activeDays,
-      SUM(f.views) AS viewsSum,
-      SUM(f.likes) AS likesSum,
-      SUM(f.comments) AS commentsSum,
-      SUM(COALESCE(f.watch_time_minutes, 0)) AS watchTimeMinutesSum,
-      AVG(f.views) AS viewsAvg,
-      AVG(CAST(f.views AS REAL) * CAST(f.views AS REAL)) AS viewsSquaredAvg
-    FROM fact_video_day AS f
-    INNER JOIN dim_video AS v
-      ON v.video_id = f.video_id
-    WHERE f.channel_id = @channelId
-      AND f.date BETWEEN @dateFrom AND @dateTo
-    GROUP BY v.video_id, v.channel_id, v.title, v.published_at, v.duration_seconds
-    ORDER BY v.video_id ASC
-  `;
-
-  try {
-    const rows = db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string },
-      VideoAggregateRow
-    >(sql).all({ channelId, dateFrom, dateTo });
-
-    const result: VideoAggregateRow[] = [];
-    for (let index = 0; index < rows.length; index += 1) {
-      const parsed = VIDEO_AGGREGATE_ROW_SCHEMA.safeParse(rows[index]);
-      if (!parsed.success) {
-        return err(
-          createQualityScoringError(
-            'QUALITY_SCORING_INVALID_ROW',
-            'Dane quality scoring maja niepoprawny format.',
-            { channelId, dateFrom, dateTo, rowIndex: index, issues: parsed.error.issues },
-          ),
-        );
-      }
-      result.push(parsed.data);
-    }
-
-    return ok(result);
-  } catch (cause) {
+  const qualityQueries = createQualityQueries(db);
+  const rowsResult = qualityQueries.listVideoAggregates({ channelId, dateFrom, dateTo });
+  if (!rowsResult.ok) {
     return err(
       createQualityScoringError(
         'QUALITY_SCORING_READ_FAILED',
         'Nie udalo sie odczytac danych do quality scoring.',
-        { channelId, dateFrom, dateTo },
-        cause,
+        { channelId, dateFrom, dateTo, causeErrorCode: rowsResult.error.code },
+        rowsResult.error,
       ),
     );
   }
+
+  const result: VideoAggregateRow[] = [];
+  for (let index = 0; index < rowsResult.value.length; index += 1) {
+    const parsed = VIDEO_AGGREGATE_ROW_SCHEMA.safeParse(rowsResult.value[index]);
+    if (!parsed.success) {
+      return err(
+        createQualityScoringError(
+          'QUALITY_SCORING_INVALID_ROW',
+          'Dane quality scoring maja niepoprawny format.',
+          { channelId, dateFrom, dateTo, rowIndex: index, issues: parsed.error.issues },
+        ),
+      );
+    }
+    result.push(parsed.data);
+  }
+
+  return ok(result);
 }
 
 function computeRawComponents(row: VideoAggregateRow, averageSubscribers: number): RawQualityComponents {
@@ -266,106 +240,47 @@ function persistQualityScores(
     items: QualityScoreResultDTO['items'];
   },
 ): Result<void, AppError> {
-  const deleteStmt = input.db.prepare<{
-    channelId: string;
-    dateFrom: string;
-    dateTo: string;
-  }>(
-    `
-      DELETE FROM agg_quality_scores
-      WHERE channel_id = @channelId
-        AND date_from = @dateFrom
-        AND date_to = @dateTo
-    `,
-  );
+  const qualityRepository = createQualityRepository(input.db);
+  const persistResult = qualityRepository.runInTransaction(() => {
+    const deleteResult = qualityRepository.deleteScoresWindow({
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+    });
+    if (!deleteResult.ok) {
+      return deleteResult;
+    }
 
-  const insertStmt = input.db.prepare<{
-    channelId: string;
-    videoId: string;
-    dateFrom: string;
-    dateTo: string;
-    score: number;
-    velocityScore: number;
-    efficiencyScore: number;
-    engagementScore: number;
-    retentionScore: number;
-    consistencyScore: number;
-    confidence: QualityScoreConfidence;
-    activeDays: number;
-    componentsJson: string;
-    calculatedAt: string;
-  }>(
-    `
-      INSERT INTO agg_quality_scores (
-        channel_id,
-        video_id,
-        date_from,
-        date_to,
-        score,
-        velocity_score,
-        efficiency_score,
-        engagement_score,
-        retention_score,
-        consistency_score,
-        confidence,
-        active_days,
-        components_json,
-        calculated_at
-      )
-      VALUES (
-        @channelId,
-        @videoId,
-        @dateFrom,
-        @dateTo,
-        @score,
-        @velocityScore,
-        @efficiencyScore,
-        @engagementScore,
-        @retentionScore,
-        @consistencyScore,
-        @confidence,
-        @activeDays,
-        @componentsJson,
-        @calculatedAt
-      )
-    `,
-  );
-
-  try {
-    const tx = input.db.transaction(() => {
-      deleteStmt.run({
+    for (const item of input.items) {
+      const insertResult = qualityRepository.insertScore({
         channelId: input.channelId,
+        videoId: item.videoId,
         dateFrom: input.dateFrom,
         dateTo: input.dateTo,
+        score: item.score,
+        velocityScore: item.components.velocity,
+        efficiencyScore: item.components.efficiency,
+        engagementScore: item.components.engagement,
+        retentionScore: item.components.retention,
+        consistencyScore: item.components.consistency,
+        confidence: item.confidence,
+        activeDays: item.daysWithData,
+        componentsJson: JSON.stringify({
+          normalized: item.components,
+          raw: item.rawComponents,
+          weights: QUALITY_SCORE_WEIGHTS,
+        }),
+        calculatedAt: input.calculatedAt,
       });
-
-      for (const item of input.items) {
-        insertStmt.run({
-          channelId: input.channelId,
-          videoId: item.videoId,
-          dateFrom: input.dateFrom,
-          dateTo: input.dateTo,
-          score: item.score,
-          velocityScore: item.components.velocity,
-          efficiencyScore: item.components.efficiency,
-          engagementScore: item.components.engagement,
-          retentionScore: item.components.retention,
-          consistencyScore: item.components.consistency,
-          confidence: item.confidence,
-          activeDays: item.daysWithData,
-          componentsJson: JSON.stringify({
-            normalized: item.components,
-            raw: item.rawComponents,
-            weights: QUALITY_SCORE_WEIGHTS,
-          }),
-          calculatedAt: input.calculatedAt,
-        });
+      if (!insertResult.ok) {
+        return insertResult;
       }
-    });
+    }
 
-    tx();
     return ok(undefined);
-  } catch (cause) {
+  });
+
+  if (!persistResult.ok) {
     return err(
       createQualityScoringError(
         'QUALITY_SCORING_PERSIST_FAILED',
@@ -375,11 +290,14 @@ function persistQualityScores(
           dateFrom: input.dateFrom,
           dateTo: input.dateTo,
           items: input.items.length,
+          causeErrorCode: persistResult.error.code,
         },
-        cause,
+        persistResult.error,
       ),
     );
   }
+
+  return ok(undefined);
 }
 
 export function getQualityScores(input: GetQualityScoresInput): Result<QualityScoreResultDTO, AppError> {

@@ -1,4 +1,4 @@
-﻿import type { DatabaseConnection } from '@moze/core';
+﻿import { createTopicQueries, createTopicRepository, type DatabaseConnection } from '@moze/core';
 import {
   AppError,
   err,
@@ -172,7 +172,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
     return err(
       createTopicError(
         'TOPIC_INTELLIGENCE_INVALID_DATE_RANGE',
-        'Start date cannot be later than end date.',
+        'Data poczatkowa nie moze byc pozniejsza niz data koncowa.',
         { dateFrom, dateTo },
       ),
     );
@@ -335,40 +335,31 @@ function clearPersistedTopicWindow(
   dateFrom: string,
   dateTo: string,
 ): Result<void, AppError> {
-  try {
-    const deleteGapsStmt = db.prepare<{ channelId: string; dateFrom: string; dateTo: string }>(
-      `
-        DELETE FROM agg_topic_gaps
-        WHERE channel_id = @channelId
-          AND date_from = @dateFrom
-          AND date_to = @dateTo
-      `,
-    );
-    const deletePressureStmt = db.prepare<{ channelId: string; dateFrom: string; dateTo: string }>(
-      `
-        DELETE FROM fact_topic_pressure_day
-        WHERE channel_id = @channelId
-          AND date BETWEEN @dateFrom AND @dateTo
-      `,
-    );
-
-    const tx = db.transaction(() => {
-      deleteGapsStmt.run({ channelId, dateFrom, dateTo });
-      deletePressureStmt.run({ channelId, dateFrom, dateTo });
-    });
-    tx();
-
+  const topicRepository = createTopicRepository(db);
+  const cleanupResult = topicRepository.runInTransaction(() => {
+    const deleteGapsResult = topicRepository.deleteGapsWindow({ channelId, dateFrom, dateTo });
+    if (!deleteGapsResult.ok) {
+      return deleteGapsResult;
+    }
+    const deletePressureResult = topicRepository.deletePressureWindow({ channelId, dateFrom, dateTo });
+    if (!deletePressureResult.ok) {
+      return deletePressureResult;
+    }
     return ok(undefined);
-  } catch (cause) {
+  });
+
+  if (!cleanupResult.ok) {
     return err(
       createTopicError(
         'TOPIC_INTELLIGENCE_CLEANUP_FAILED',
-        'Failed to clean up persisted Topic Intelligence data.',
-        { channelId, dateFrom, dateTo },
-        cause,
+        'Nie udalo sie wyczyscic zapisanych danych Topic Intelligence.',
+        { channelId, dateFrom, dateTo, causeErrorCode: cleanupResult.error.code },
+        cleanupResult.error,
       ),
     );
   }
+
+  return ok(undefined);
 }
 
 function parseKeywordsJson(jsonText: string, context: Record<string, unknown>): Result<string[], AppError> {
@@ -378,7 +369,7 @@ function parseKeywordsJson(jsonText: string, context: Record<string, unknown>): 
       return err(
         createTopicError(
           'TOPIC_INTELLIGENCE_KEYWORDS_INVALID',
-          'Persisted topic keywords are invalid.',
+          'Zapisane slowa kluczowe topic sa nieprawidlowe.',
           context,
         ),
       );
@@ -393,7 +384,7 @@ function parseKeywordsJson(jsonText: string, context: Record<string, unknown>): 
     return err(
       createTopicError(
         'TOPIC_INTELLIGENCE_KEYWORDS_PARSE_FAILED',
-        'Failed to parse persisted topic keywords.',
+        'Nie udalo sie sparsowac zapisanych slow kluczowych topic.',
         context,
         cause,
       ),
@@ -413,94 +404,84 @@ export function runTopicIntelligence(input: RunTopicIntelligenceInput): Result<T
   }
 
   const splitDate = getSplitDate(input.dateFrom, input.dateTo);
+  const topicQueries = createTopicQueries(input.db);
   let videoRows: VideoAggregateRow[] = [];
   let videoDayRows: VideoDayRow[] = [];
   let competitorSummary: CompetitorSummaryRow = { totalViews: 0, competitorCount: 0 };
 
-  try {
-    videoRows = input.db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string; splitDate: string },
-      VideoAggregateRow
-    >(
-      `
-        SELECT
-          v.video_id AS videoId,
-          v.title AS title,
-          v.description AS description,
-          SUM(f.views) AS viewsTotal,
-          SUM(CASE WHEN f.date < @splitDate THEN f.views ELSE 0 END) AS viewsEarly,
-          SUM(CASE WHEN f.date >= @splitDate THEN f.views ELSE 0 END) AS viewsRecent
-        FROM fact_video_day AS f
-        INNER JOIN dim_video AS v
-          ON v.video_id = f.video_id
-        WHERE f.channel_id = @channelId
-          AND f.date BETWEEN @dateFrom AND @dateTo
-        GROUP BY v.video_id, v.title, v.description
-        ORDER BY v.video_id ASC
-      `,
-    ).all({
-      channelId: input.channelId,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-      splitDate,
-    });
-
-    videoDayRows = input.db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string },
-      VideoDayRow
-    >(
-      `
-        SELECT
-          video_id AS videoId,
-          date,
-          views
-        FROM fact_video_day
-        WHERE channel_id = @channelId
-          AND date BETWEEN @dateFrom AND @dateTo
-        ORDER BY video_id ASC, date ASC
-      `,
-    ).all({
-      channelId: input.channelId,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-    });
-
-    const competitorRow = input.db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string },
-      CompetitorSummaryRow
-    >(
-      `
-        SELECT
-          COALESCE(SUM(views), 0) AS totalViews,
-          COUNT(DISTINCT competitor_channel_id) AS competitorCount
-        FROM fact_competitor_day
-        WHERE channel_id = @channelId
-          AND date BETWEEN @dateFrom AND @dateTo
-      `,
-    ).get({
-      channelId: input.channelId,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-    });
-
-    competitorSummary = competitorRow ?? { totalViews: 0, competitorCount: 0 };
-  } catch (cause) {
+  const videoRowsResult = topicQueries.listVideoAggregates({
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    splitDate,
+  });
+  if (!videoRowsResult.ok) {
     return err(
       createTopicError(
         'TOPIC_INTELLIGENCE_READ_FAILED',
-        'Failed to read Topic Intelligence input data.',
-        { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
-        cause,
+        'Nie udalo sie odczytac danych wejsciowych Topic Intelligence.',
+        {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          causeErrorCode: videoRowsResult.error.code,
+        },
+        videoRowsResult.error,
       ),
     );
   }
+  videoRows = videoRowsResult.value;
+
+  const videoDayRowsResult = topicQueries.listVideoDays({
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+  });
+  if (!videoDayRowsResult.ok) {
+    return err(
+      createTopicError(
+        'TOPIC_INTELLIGENCE_READ_FAILED',
+        'Nie udalo sie odczytac danych wejsciowych Topic Intelligence.',
+        {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          causeErrorCode: videoDayRowsResult.error.code,
+        },
+        videoDayRowsResult.error,
+      ),
+    );
+  }
+  videoDayRows = videoDayRowsResult.value;
+
+  const competitorSummaryResult = topicQueries.getCompetitorSummary({
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+  });
+  if (!competitorSummaryResult.ok) {
+    return err(
+      createTopicError(
+        'TOPIC_INTELLIGENCE_READ_FAILED',
+        'Nie udalo sie odczytac danych wejsciowych Topic Intelligence.',
+        {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          causeErrorCode: competitorSummaryResult.error.code,
+        },
+        competitorSummaryResult.error,
+      ),
+    );
+  }
+  competitorSummary = competitorSummaryResult.value;
 
   for (let index = 0; index < videoRows.length; index += 1) {
     if (!VIDEO_AGGREGATE_SCHEMA.safeParse(videoRows[index]).success) {
       return err(
         createTopicError(
           'TOPIC_INTELLIGENCE_VIDEO_INVALID',
-          'Invalid video aggregate data format.',
+          'Nieprawidlowy format zagregowanych danych filmu.',
           { rowIndex: index },
         ),
       );
@@ -512,7 +493,7 @@ export function runTopicIntelligence(input: RunTopicIntelligenceInput): Result<T
       return err(
         createTopicError(
           'TOPIC_INTELLIGENCE_VIDEO_DAY_INVALID',
-          'Invalid video day data format.',
+          'Nieprawidlowy format dziennych danych filmu.',
           { rowIndex: index },
         ),
       );
@@ -702,158 +683,89 @@ export function runTopicIntelligence(input: RunTopicIntelligenceInput): Result<T
     gapLimit,
   });
 
-  try {
-    const upsertClusterStmt = input.db.prepare<{
-      channelId: string;
-      clusterId: string;
-      label: string;
-      keywordsJson: string;
-      sampleSize: number;
-      nowIso: string;
-    }>(
-      `
-        INSERT INTO dim_topic_cluster (channel_id, cluster_id, label, keywords_json, sample_size, created_at, updated_at)
-        VALUES (@channelId, @clusterId, @label, @keywordsJson, @sampleSize, @nowIso, @nowIso)
-        ON CONFLICT(channel_id, cluster_id)
-        DO UPDATE SET
-          label = excluded.label,
-          keywords_json = excluded.keywords_json,
-          sample_size = excluded.sample_size,
-          updated_at = excluded.updated_at
-      `,
-    );
-
-    const deleteGapsStmt = input.db.prepare<{ channelId: string; dateFrom: string; dateTo: string }>(
-      `
-        DELETE FROM agg_topic_gaps
-        WHERE channel_id = @channelId
-          AND date_from = @dateFrom
-          AND date_to = @dateTo
-      `,
-    );
-
-    const deletePressureStmt = input.db.prepare<{ channelId: string; dateFrom: string; dateTo: string }>(
-      `
-        DELETE FROM fact_topic_pressure_day
-        WHERE channel_id = @channelId
-          AND date BETWEEN @dateFrom AND @dateTo
-      `,
-    );
-
-    const insertGapStmt = input.db.prepare<{
-      channelId: string;
-      clusterId: string;
-      dateFrom: string;
-      dateTo: string;
-      ownerCoverage: number;
-      nichePressure: number;
-      gapScore: number;
-      cannibalizationRisk: number;
-      trendDirection: TopicTrendDirection;
-      confidence: TopicConfidence;
-      rationale: string;
-      calculatedAt: string;
-    }>(
-      `
-        INSERT INTO agg_topic_gaps (
-          channel_id, cluster_id, date_from, date_to, owner_coverage, niche_pressure, gap_score,
-          cannibalization_risk, trend_direction, confidence, rationale, calculated_at
-        )
-        VALUES (
-          @channelId, @clusterId, @dateFrom, @dateTo, @ownerCoverage, @nichePressure, @gapScore,
-          @cannibalizationRisk, @trendDirection, @confidence, @rationale, @calculatedAt
-        )
-      `,
-    );
-
-    const upsertPressureStmt = input.db.prepare<{
-      channelId: string;
-      clusterId: string;
-      date: string;
-      ownerViews: number;
-      competitorViews: number;
-      pressureScore: number;
-      trendDirection: TopicTrendDirection;
-      updatedAt: string;
-    }>(
-      `
-        INSERT INTO fact_topic_pressure_day (
-          channel_id, cluster_id, date, owner_views, competitor_views, pressure_score, trend_direction, updated_at
-        )
-        VALUES (
-          @channelId, @clusterId, @date, @ownerViews, @competitorViews, @pressureScore, @trendDirection, @updatedAt
-        )
-        ON CONFLICT(channel_id, cluster_id, date)
-        DO UPDATE SET
-          owner_views = excluded.owner_views,
-          competitor_views = excluded.competitor_views,
-          pressure_score = excluded.pressure_score,
-          trend_direction = excluded.trend_direction,
-          updated_at = excluded.updated_at
-      `,
-    );
-
-    const tx = input.db.transaction(() => {
-      deleteGapsStmt.run({
-        channelId: input.channelId,
-        dateFrom: input.dateFrom,
-        dateTo: input.dateTo,
-      });
-
-      deletePressureStmt.run({
-        channelId: input.channelId,
-        dateFrom: input.dateFrom,
-        dateTo: input.dateTo,
-      });
-
-      for (const cluster of clusters) {
-        upsertClusterStmt.run({
-          channelId: input.channelId,
-          clusterId: cluster.clusterId,
-          label: cluster.label,
-          keywordsJson: JSON.stringify(sortedKeywords(cluster.keywordsMap)),
-          sampleSize: cluster.videoIds.size,
-          nowIso: generatedAt,
-        });
-
-        insertGapStmt.run({
-          channelId: input.channelId,
-          clusterId: cluster.clusterId,
-          dateFrom: input.dateFrom,
-          dateTo: input.dateTo,
-          ownerCoverage: clamp(cluster.ownerCoverage, 0, 1),
-          nichePressure: Math.max(0, cluster.nichePressure),
-          gapScore: Math.max(0, cluster.gapScore),
-          cannibalizationRisk: clamp(cluster.cannibalizationRisk, 0, 1),
-          trendDirection: cluster.trendDirection,
-          confidence: cluster.confidence,
-          rationale: clusterRationale(cluster),
-          calculatedAt: generatedAt,
-        });
-      }
-
-      for (const row of pressureRows) {
-        upsertPressureStmt.run({
-          channelId: input.channelId,
-          clusterId: row.clusterId,
-          date: row.date,
-          ownerViews: Math.max(0, Math.round(row.ownerViews)),
-          competitorViews: Math.max(0, Math.round(row.competitorViews)),
-          pressureScore: Math.max(0, row.pressureScore),
-          trendDirection: row.trendDirection,
-          updatedAt: row.updatedAt,
-        });
-      }
+  const topicRepository = createTopicRepository(input.db);
+  const persistResult = topicRepository.runInTransaction(() => {
+    const deleteGapsResult = topicRepository.deleteGapsWindow({
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
     });
+    if (!deleteGapsResult.ok) {
+      return deleteGapsResult;
+    }
 
-    tx();
-  } catch (cause) {
+    const deletePressureResult = topicRepository.deletePressureWindow({
+      channelId: input.channelId,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+    });
+    if (!deletePressureResult.ok) {
+      return deletePressureResult;
+    }
+
+    for (const cluster of clusters) {
+      const upsertClusterResult = topicRepository.upsertCluster({
+        channelId: input.channelId,
+        clusterId: cluster.clusterId,
+        label: cluster.label,
+        keywordsJson: JSON.stringify(sortedKeywords(cluster.keywordsMap)),
+        sampleSize: cluster.videoIds.size,
+        nowIso: generatedAt,
+      });
+      if (!upsertClusterResult.ok) {
+        return upsertClusterResult;
+      }
+
+      const insertGapResult = topicRepository.insertGap({
+        channelId: input.channelId,
+        clusterId: cluster.clusterId,
+        dateFrom: input.dateFrom,
+        dateTo: input.dateTo,
+        ownerCoverage: clamp(cluster.ownerCoverage, 0, 1),
+        nichePressure: Math.max(0, cluster.nichePressure),
+        gapScore: Math.max(0, cluster.gapScore),
+        cannibalizationRisk: clamp(cluster.cannibalizationRisk, 0, 1),
+        trendDirection: cluster.trendDirection,
+        confidence: cluster.confidence,
+        rationale: clusterRationale(cluster),
+        calculatedAt: generatedAt,
+      });
+      if (!insertGapResult.ok) {
+        return insertGapResult;
+      }
+    }
+
+    for (const row of pressureRows) {
+      const upsertPressureResult = topicRepository.upsertPressure({
+        channelId: input.channelId,
+        clusterId: row.clusterId,
+        date: row.date,
+        ownerViews: Math.max(0, Math.round(row.ownerViews)),
+        competitorViews: Math.max(0, Math.round(row.competitorViews)),
+        pressureScore: Math.max(0, row.pressureScore),
+        trendDirection: row.trendDirection,
+        updatedAt: row.updatedAt,
+      });
+      if (!upsertPressureResult.ok) {
+        return upsertPressureResult;
+      }
+    }
+
+    return ok(undefined);
+  });
+
+  if (!persistResult.ok) {
     return err(
       createTopicError(
         'TOPIC_INTELLIGENCE_PERSIST_FAILED',
-        'Failed to persist Topic Intelligence results.',
-        { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
-        cause,
+        'Nie udalo sie zapisac wynikow Topic Intelligence.',
+        {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          causeErrorCode: persistResult.error.code,
+        },
+        persistResult.error,
       ),
     );
   }
@@ -873,85 +785,53 @@ export function getTopicIntelligence(input: GetTopicIntelligenceInput): Result<T
   }
 
   const splitDate = getSplitDate(input.dateFrom, input.dateTo);
+  const topicQueries = createTopicQueries(input.db);
 
-  let clusterRows: PersistedClusterRow[] = [];
-  let gapRows: PersistedGapRow[] = [];
-  try {
-    clusterRows = input.db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string; splitDate: string },
-      PersistedClusterRow
-    >(
-      `
-        SELECT
-          c.cluster_id AS clusterId,
-          c.label AS label,
-          c.keywords_json AS keywordsJson,
-          c.sample_size AS videos,
-          COALESCE(SUM(p.owner_views), 0) AS ownerViewsTotal,
-          COALESCE(SUM(CASE WHEN p.date < @splitDate THEN p.owner_views ELSE 0 END), 0) AS ownerViewsEarly,
-          COALESCE(SUM(CASE WHEN p.date >= @splitDate THEN p.owner_views ELSE 0 END), 0) AS ownerViewsRecent,
-          COALESCE(SUM(p.competitor_views), 0) AS competitorViewsTotal
-        FROM dim_topic_cluster AS c
-        LEFT JOIN fact_topic_pressure_day AS p
-          ON p.channel_id = c.channel_id
-          AND p.cluster_id = c.cluster_id
-          AND p.date BETWEEN @dateFrom AND @dateTo
-        WHERE c.channel_id = @channelId
-        GROUP BY c.cluster_id, c.label, c.keywords_json, c.sample_size
-        HAVING ownerViewsTotal > 0 OR competitorViewsTotal > 0
-        ORDER BY ownerViewsTotal DESC, c.cluster_id ASC
-      `,
-    ).all({
-      channelId: input.channelId,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-      splitDate,
-    });
-
-    gapRows = input.db.prepare<
-      { channelId: string; dateFrom: string; dateTo: string; gapLimit: number },
-      PersistedGapRow
-    >(
-      `
-        SELECT
-          g.cluster_id AS clusterId,
-          c.label AS label,
-          c.keywords_json AS keywordsJson,
-          g.owner_coverage AS ownerCoverage,
-          g.niche_pressure AS nichePressure,
-          g.gap_score AS gapScore,
-          g.cannibalization_risk AS cannibalizationRisk,
-          g.trend_direction AS trendDirection,
-          g.confidence AS confidence,
-          g.rationale AS rationale,
-          g.calculated_at AS calculatedAt
-        FROM agg_topic_gaps AS g
-        INNER JOIN dim_topic_cluster AS c
-          ON c.channel_id = g.channel_id
-          AND c.cluster_id = g.cluster_id
-        WHERE g.channel_id = @channelId
-          AND g.date_from = @dateFrom
-          AND g.date_to = @dateTo
-          AND g.gap_score > 0
-        ORDER BY g.gap_score DESC, g.cluster_id ASC
-        LIMIT @gapLimit
-      `,
-    ).all({
-      channelId: input.channelId,
-      dateFrom: input.dateFrom,
-      dateTo: input.dateTo,
-      gapLimit,
-    });
-  } catch (cause) {
+  const clusterRowsResult = topicQueries.listPersistedClusters({
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    splitDate,
+  });
+  if (!clusterRowsResult.ok) {
     return err(
       createTopicError(
         'TOPIC_INTELLIGENCE_PERSISTED_READ_FAILED',
-        'Failed to read persisted Topic Intelligence results.',
-        { channelId: input.channelId, dateFrom: input.dateFrom, dateTo: input.dateTo },
-        cause,
+        'Nie udalo sie odczytac zapisanych wynikow Topic Intelligence.',
+        {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          causeErrorCode: clusterRowsResult.error.code,
+        },
+        clusterRowsResult.error,
       ),
     );
   }
+  const clusterRows = clusterRowsResult.value;
+
+  const gapRowsResult = topicQueries.listPersistedGaps({
+    channelId: input.channelId,
+    dateFrom: input.dateFrom,
+    dateTo: input.dateTo,
+    gapLimit,
+  });
+  if (!gapRowsResult.ok) {
+    return err(
+      createTopicError(
+        'TOPIC_INTELLIGENCE_PERSISTED_READ_FAILED',
+        'Nie udalo sie odczytac zapisanych wynikow Topic Intelligence.',
+        {
+          channelId: input.channelId,
+          dateFrom: input.dateFrom,
+          dateTo: input.dateTo,
+          causeErrorCode: gapRowsResult.error.code,
+        },
+        gapRowsResult.error,
+      ),
+    );
+  }
+  const gapRows = gapRowsResult.value;
 
   const parsedClusterRows: PersistedClusterRow[] = [];
   for (let index = 0; index < clusterRows.length; index += 1) {
@@ -960,7 +840,7 @@ export function getTopicIntelligence(input: GetTopicIntelligenceInput): Result<T
       return err(
         createTopicError(
           'TOPIC_INTELLIGENCE_PERSISTED_CLUSTER_INVALID',
-          'Persisted topic cluster row has invalid format.',
+          'Zapisany wiersz klastra topic ma nieprawidlowy format.',
           {
             channelId: input.channelId,
             dateFrom: input.dateFrom,
@@ -981,7 +861,7 @@ export function getTopicIntelligence(input: GetTopicIntelligenceInput): Result<T
       return err(
         createTopicError(
           'TOPIC_INTELLIGENCE_PERSISTED_GAP_INVALID',
-          'Persisted topic gap row has invalid format.',
+          'Zapisany wiersz luki topic ma nieprawidlowy format.',
           {
             channelId: input.channelId,
             dateFrom: input.dateFrom,

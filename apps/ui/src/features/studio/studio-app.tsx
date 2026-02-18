@@ -1,6 +1,7 @@
 ﻿import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   CsvImportColumnMappingDTO,
+  CsvDelimiter,
   DataMode,
   DiagnosticsRecoveryAction,
   MlAnomalySeverity,
@@ -12,6 +13,7 @@ import type {
   SyncProgressEvent,
   TimeseriesPoint,
 } from '@moze/shared';
+import { CsvDelimiterSchema, CsvImportColumnMappingDTOSchema } from '@moze/shared';
 import {
   DEFAULT_CHANNEL_ID,
   DEFAULT_DIAGNOSTICS_RECOVERY_ACTIONS,
@@ -58,10 +60,10 @@ import {
   useStartSyncMutation,
   useTimeseriesQuery,
   useUpdateProfileSettingsMutation,
-  type CsvImportDelimiter,
   type DateRange,
   type DateRangePreset,
 } from '../../hooks/use-dashboard-data.ts';
+import { formatDateTick, formatNumber } from '../../lib/format-utils.ts';
 import { useAppStore } from '../../store/index.ts';
 
 interface ChartPoint {
@@ -173,9 +175,7 @@ const StudioForecastChart = lazy(async () => {
   return { default: module.StudioForecastChart };
 });
 
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pl-PL').format(Math.round(value));
-}
+export { formatDateTick, formatNumber } from '../../lib/format-utils.ts';
 
 export function formatPercent(value: number): string {
   return `${(value * 100).toFixed(2)}%`;
@@ -189,11 +189,6 @@ export function formatCompactNumber(value: number): string {
     return `${(value / 1_000).toFixed(1).replace('.', ',')} tys.`;
   }
   return formatNumber(value);
-}
-
-export function formatDateTick(dateIso: string): string {
-  const parsed = new Date(`${dateIso}T00:00:00`);
-  return parsed.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' });
 }
 
 function readMutationErrorMessage(error: unknown, fallback: string): string {
@@ -458,10 +453,11 @@ export function App() {
   const [authAccessToken, setAuthAccessToken] = useState('');
   const [authRefreshToken, setAuthRefreshToken] = useState('');
   const [csvSourceName, setCsvSourceName] = useState('manual-csv');
-  const [csvDelimiter, setCsvDelimiter] = useState<CsvImportDelimiter>('auto');
+  const [csvDelimiter, setCsvDelimiter] = useState<CsvDelimiter>('auto');
   const [csvHasHeader, setCsvHasHeader] = useState(true);
   const [csvText, setCsvText] = useState('date,views,subscribers,videos,likes,comments,title,description\n2026-02-01,1200,10000,150,120,15,Nowy film,Opis filmu');
   const [csvMapping, setCsvMapping] = useState<Partial<CsvImportColumnMappingDTO>>({});
+  const [csvValidationError, setCsvValidationError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [anomalySeverityFilter, setAnomalySeverityFilter] = useState<'all' | MlAnomalySeverity>('all');
   const [lastAutoAnomalyRunKey, setLastAutoAnomalyRunKey] = useState<string | null>(null);
@@ -2601,7 +2597,10 @@ export function App() {
               <select
                 value={csvDelimiter}
                 onChange={(event) => {
-                  setCsvDelimiter(event.target.value as CsvImportDelimiter);
+                  const parsedDelimiter = CsvDelimiterSchema.safeParse(event.target.value);
+                  if (parsedDelimiter.success) {
+                    setCsvDelimiter(parsedDelimiter.data);
+                  }
                 }}
                 style={{ marginLeft: 8 }}
               >
@@ -2639,6 +2638,7 @@ export function App() {
           <button
             type="button"
             onClick={() => {
+              setCsvValidationError(null);
               csvPreviewMutation.mutate({
                 channelId,
                 sourceName: csvSourceName.trim() || 'manual-csv',
@@ -2658,13 +2658,19 @@ export function App() {
               if (!canRunCsvImport) {
                 return;
               }
+              const parsedMapping = CsvImportColumnMappingDTOSchema.safeParse(csvMapping);
+              if (!parsedMapping.success) {
+                setCsvValidationError('Nieprawidłowe mapowanie CSV - spróbuj ponownie.');
+                return;
+              }
+              setCsvValidationError(null);
               csvImportMutation.mutate({
                 channelId,
                 sourceName: csvSourceName.trim() || 'manual-csv',
                 csvText,
                 delimiter: csvDelimiter,
                 hasHeader: csvHasHeader,
-                mapping: csvMapping as CsvImportColumnMappingDTO,
+                mapping: parsedMapping.data,
               });
             }}
             disabled={csvImportMutation.isPending || csvText.trim().length === 0 || !canRunCsvImport}
@@ -2675,6 +2681,7 @@ export function App() {
 
         {csvPreviewMutation.isError && <p style={{ color: STUDIO_THEME.danger }}>Nie udało się przygotować podglądu CSV.</p>}
         {csvImportMutation.isError && <p style={{ color: STUDIO_THEME.danger }}>Import CSV zakończył się błędem.</p>}
+        {csvValidationError && <p style={{ color: STUDIO_THEME.danger }}>{csvValidationError}</p>}
 
         {csvPreviewMutation.data && (
           <>
@@ -2691,6 +2698,7 @@ export function App() {
                     value={csvMapping[fieldConfig.field] ?? ''}
                     onChange={(event) => {
                       const nextValue = event.target.value;
+                      setCsvValidationError(null);
                       setCsvMapping((current) => ({
                         ...current,
                         [fieldConfig.field]: nextValue.length > 0 ? nextValue : undefined,

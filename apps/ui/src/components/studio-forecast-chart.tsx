@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { formatDateTick, formatNumber } from '../lib/format-utils.ts';
 
 interface StudioChartPoint {
   date: string;
@@ -40,15 +41,6 @@ const THEME = {
   accent: '#96c5ff',
   forecast: '#cfadff',
 };
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('pl-PL').format(Math.round(value));
-}
-
-function formatDateTick(dateIso: string): string {
-  const parsed = new Date(`${dateIso}T00:00:00`);
-  return parsed.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' });
-}
 
 function formatDateTooltip(dateIso: string): string {
   const parsed = new Date(`${dateIso}T00:00:00`);

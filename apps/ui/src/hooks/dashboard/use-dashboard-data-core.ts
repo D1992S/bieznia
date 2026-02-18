@@ -4,7 +4,8 @@ import type {
   AssistantThreadListResultDTO,
   AssistantThreadMessagesResultDTO,
   CompetitorInsightsResultDTO,
-  CsvImportColumnMappingDTO,
+  CsvImportPreviewInputDTO,
+  CsvImportRunInputDTO,
   DataMode,
   DiagnosticsHealthResultDTO,
   DiagnosticsRecoveryAction,
@@ -76,26 +77,6 @@ export type DateRangePreset = '7d' | '30d' | '90d' | 'custom';
 export interface DateRange {
   dateFrom: string;
   dateTo: string;
-}
-
-export type CsvImportDelimiter = 'auto' | 'comma' | 'semicolon' | 'tab';
-
-export interface CsvImportPreviewInput {
-  channelId: string;
-  sourceName?: string;
-  csvText: string;
-  delimiter?: CsvImportDelimiter;
-  hasHeader?: boolean;
-  previewRowsLimit?: number;
-}
-
-export interface CsvImportRunInput {
-  channelId: string;
-  sourceName?: string;
-  csvText: string;
-  delimiter?: CsvImportDelimiter;
-  hasHeader?: boolean;
-  mapping: CsvImportColumnMappingDTO;
 }
 
 export interface SearchContentInput {
@@ -302,14 +283,14 @@ export function useDisconnectAuthMutation() {
 
 export function useCsvImportPreviewMutation() {
   return useMutation({
-    mutationFn: (input: CsvImportPreviewInput) =>
+    mutationFn: (input: CsvImportPreviewInputDTO) =>
       previewCsvImport({
         channelId: input.channelId,
-        sourceName: input.sourceName ?? 'manual-csv',
+        sourceName: input.sourceName,
         csvText: input.csvText,
-        delimiter: input.delimiter ?? 'auto',
-        hasHeader: input.hasHeader ?? true,
-        previewRowsLimit: input.previewRowsLimit ?? 10,
+        delimiter: input.delimiter,
+        hasHeader: input.hasHeader,
+        previewRowsLimit: input.previewRowsLimit,
       }),
   });
 }
@@ -317,13 +298,13 @@ export function useCsvImportPreviewMutation() {
 export function useCsvImportRunMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: CsvImportRunInput) =>
+    mutationFn: (input: CsvImportRunInputDTO) =>
       runCsvImport({
         channelId: input.channelId,
-        sourceName: input.sourceName ?? 'manual-csv',
+        sourceName: input.sourceName,
         csvText: input.csvText,
-        delimiter: input.delimiter ?? 'auto',
-        hasHeader: input.hasHeader ?? true,
+        delimiter: input.delimiter,
+        hasHeader: input.hasHeader,
         mapping: input.mapping,
       }),
     onSuccess: (_result, input) => {

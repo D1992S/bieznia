@@ -1,4 +1,4 @@
-import type { DatabaseConnection } from '@moze/core';
+import { createPipelineQueries, createPipelineRepository, type DatabaseConnection } from '@moze/core';
 import { AppError, err, ok, type Result } from '@moze/shared';
 import { z } from 'zod/v4';
 
@@ -152,124 +152,91 @@ function readWarehouseSnapshot(
   db: DatabaseConnection['db'],
   channelId: string,
 ): Result<WarehouseSnapshot, AppError> {
-  try {
-    const channelRow = db
-      .prepare<{ channelId: string }, ChannelWarehouseRow>(
-        `
-          SELECT
-            channel_id AS channelId,
-            name,
-            description,
-            thumbnail_url AS thumbnailUrl,
-            published_at AS publishedAt,
-            subscriber_count AS subscriberCount,
-            video_count AS videoCount,
-            view_count AS viewCount,
-            last_sync_at AS lastSyncAt
-          FROM dim_channel
-          WHERE channel_id = @channelId
-          ORDER BY channel_id ASC
-          LIMIT 1
-        `,
-      )
-      .get({ channelId });
+  const pipelineQueries = createPipelineQueries(db);
 
-    if (!channelRow) {
-      return err(
-        createPipelineError(
-          'PIPELINE_CHANNEL_NOT_FOUND',
-          'Nie znaleziono kanalu do uruchomienia pipeline.',
-          { channelId },
-        ),
-      );
-    }
-
-    const channelParsed = ChannelWarehouseRowSchema.safeParse(channelRow);
-    if (!channelParsed.success) {
-      return err(
-        createPipelineError(
-          'PIPELINE_VALIDATION_FAILED',
-          'Walidacja danych kanalu nie powiodla sie.',
-          { channelId, issues: channelParsed.error.issues },
-        ),
-      );
-    }
-
-    const videoRows = db
-      .prepare<{ channelId: string }, VideoWarehouseRow>(
-        `
-          SELECT
-            video_id AS videoId,
-            channel_id AS channelId,
-            title,
-            description,
-            published_at AS publishedAt,
-            duration_seconds AS durationSeconds,
-            view_count AS viewCount,
-            like_count AS likeCount,
-            comment_count AS commentCount,
-            thumbnail_url AS thumbnailUrl
-          FROM dim_video
-          WHERE channel_id = @channelId
-          ORDER BY published_at ASC, video_id ASC
-        `,
-      )
-      .all({ channelId });
-
-    const channelDayRows = db
-      .prepare<{ channelId: string }, ChannelDayWarehouseRow>(
-        `
-          SELECT
-            channel_id AS channelId,
-            date,
-            subscribers,
-            views,
-            videos,
-            likes,
-            comments,
-            watch_time_minutes AS watchTimeMinutes
-          FROM fact_channel_day
-          WHERE channel_id = @channelId
-          ORDER BY date ASC
-        `,
-      )
-      .all({ channelId });
-
-    const videosResult = parseRows(videoRows, VideoWarehouseRowSchema, 'dim_video');
-    if (!videosResult.ok) {
-      return videosResult;
-    }
-
-    const channelDaysResult = parseRows(channelDayRows, ChannelDayWarehouseRowSchema, 'fact_channel_day');
-    if (!channelDaysResult.ok) {
-      return channelDaysResult;
-    }
-
-    if (channelDaysResult.value.length === 0) {
-      return err(
-        createPipelineError(
-          'PIPELINE_NO_CHANNEL_DAYS',
-          'Brak danych dziennych kanalu do przetworzenia.',
-          { channelId },
-        ),
-      );
-    }
-
-    return ok({
-      channel: channelParsed.data,
-      videos: videosResult.value,
-      channelDays: channelDaysResult.value,
-    });
-  } catch (cause) {
+  const channelResult = pipelineQueries.getChannelWarehouseRow({ channelId });
+  if (!channelResult.ok) {
     return err(
       createPipelineError(
         'PIPELINE_READ_FAILED',
         'Nie udalo sie odczytac danych wejsciowych pipeline.',
-        { channelId },
-        cause,
+        { channelId, causeErrorCode: channelResult.error.code },
+        channelResult.error,
       ),
     );
   }
+
+  const channelRow = channelResult.value;
+  if (!channelRow) {
+    return err(
+      createPipelineError(
+        'PIPELINE_CHANNEL_NOT_FOUND',
+        'Nie znaleziono kanalu do uruchomienia pipeline.',
+        { channelId },
+      ),
+    );
+  }
+
+  const channelParsed = ChannelWarehouseRowSchema.safeParse(channelRow);
+  if (!channelParsed.success) {
+    return err(
+      createPipelineError(
+        'PIPELINE_VALIDATION_FAILED',
+        'Walidacja danych kanalu nie powiodla sie.',
+        { channelId, issues: channelParsed.error.issues },
+      ),
+    );
+  }
+
+  const videosReadResult = pipelineQueries.listVideoWarehouseRows({ channelId });
+  if (!videosReadResult.ok) {
+    return err(
+      createPipelineError(
+        'PIPELINE_READ_FAILED',
+        'Nie udalo sie odczytac danych wejsciowych pipeline.',
+        { channelId, causeErrorCode: videosReadResult.error.code },
+        videosReadResult.error,
+      ),
+    );
+  }
+
+  const channelDaysReadResult = pipelineQueries.listChannelDayWarehouseRows({ channelId });
+  if (!channelDaysReadResult.ok) {
+    return err(
+      createPipelineError(
+        'PIPELINE_READ_FAILED',
+        'Nie udalo sie odczytac danych wejsciowych pipeline.',
+        { channelId, causeErrorCode: channelDaysReadResult.error.code },
+        channelDaysReadResult.error,
+      ),
+    );
+  }
+
+  const videosResult = parseRows(videosReadResult.value, VideoWarehouseRowSchema, 'dim_video');
+  if (!videosResult.ok) {
+    return videosResult;
+  }
+
+  const channelDaysResult = parseRows(channelDaysReadResult.value, ChannelDayWarehouseRowSchema, 'fact_channel_day');
+  if (!channelDaysResult.ok) {
+    return channelDaysResult;
+  }
+
+  if (channelDaysResult.value.length === 0) {
+    return err(
+      createPipelineError(
+        'PIPELINE_NO_CHANNEL_DAYS',
+        'Brak danych dziennych kanalu do przetworzenia.',
+        { channelId },
+      ),
+    );
+  }
+
+  return ok({
+    channel: channelParsed.data,
+    videos: videosResult.value,
+    channelDays: channelDaysResult.value,
+  });
 }
 
 function validateSnapshotFreshness(
@@ -535,322 +502,173 @@ function persistPipelineResults(
   sourceSyncRunId: number | null,
   generatedAt: string,
 ): Result<void, AppError> {
-  try {
-    const deleteStgVideosStmt = db.prepare<{ channelId: string }>(
-      `
-        DELETE FROM stg_videos
-        WHERE channel_id = @channelId
-      `,
-    );
-    const deleteStgChannelStmt = db.prepare<{ channelId: string }>(
-      `
-        DELETE FROM stg_channels
-        WHERE channel_id = @channelId
-      `,
-    );
-    const insertStgChannelStmt = db.prepare<{
-      channelId: string;
-      name: string;
-      description: string;
-      thumbnailUrl: string | null;
-      publishedAt: string;
-      subscriberCount: number;
-      videoCount: number;
-      viewCount: number;
-      lastSyncAt: string | null;
-      ingestedAt: string;
-    }>(
-      `
-        INSERT INTO stg_channels (
-          channel_id,
-          name,
-          description,
-          thumbnail_url,
-          published_at,
-          subscriber_count,
-          video_count,
-          view_count,
-          last_sync_at,
-          ingested_at
-        )
-        VALUES (
-          @channelId,
-          @name,
-          @description,
-          @thumbnailUrl,
-          @publishedAt,
-          @subscriberCount,
-          @videoCount,
-          @viewCount,
-          @lastSyncAt,
-          @ingestedAt
-        )
-      `,
-    );
-    const insertStgVideoStmt = db.prepare<{
-      videoId: string;
-      channelId: string;
-      title: string;
-      description: string;
-      publishedAt: string;
-      durationSeconds: number | null;
-      viewCount: number;
-      likeCount: number;
-      commentCount: number;
-      thumbnailUrl: string | null;
-      ingestedAt: string;
-    }>(
-      `
-        INSERT INTO stg_videos (
-          video_id,
-          channel_id,
-          title,
-          description,
-          published_at,
-          duration_seconds,
-          view_count,
-          like_count,
-          comment_count,
-          thumbnail_url,
-          ingested_at
-        )
-        VALUES (
-          @videoId,
-          @channelId,
-          @title,
-          @description,
-          @publishedAt,
-          @durationSeconds,
-          @viewCount,
-          @likeCount,
-          @commentCount,
-          @thumbnailUrl,
-          @ingestedAt
-        )
-      `,
-    );
+  const pipelineRepository = createPipelineRepository(db);
 
-    const deleteFeaturesStmt = db.prepare<{
-      channelId: string;
-      featureSetVersion: string;
-      dateFrom: string;
-      dateTo: string;
-    }>(
-      `
-        DELETE FROM ml_features
-        WHERE channel_id = @channelId
-          AND feature_set_version = @featureSetVersion
-          AND date >= @dateFrom
-          AND date <= @dateTo
-      `,
-    );
+  const transactionResult = pipelineRepository.runInTransaction(() => {
+    const clearStagingResult = pipelineRepository.clearStagingForChannel({
+      channelId: snapshot.channel.channelId,
+    });
+    if (!clearStagingResult.ok) {
+      return clearStagingResult;
+    }
 
-    const insertFeatureStmt = db.prepare<{
-      channelId: string;
-      date: string;
-      featureSetVersion: string;
-      views7d: number;
-      views30d: number;
-      subscriberDelta7d: number;
-      engagementRate7d: number;
-      publishFrequency30d: number;
-      daysSinceLastVideo: number | null;
-      sourceSyncRunId: number | null;
-      generatedAt: string;
-    }>(
-      `
-        INSERT INTO ml_features (
-          channel_id,
-          date,
-          feature_set_version,
-          views_7d,
-          views_30d,
-          subscriber_delta_7d,
-          engagement_rate_7d,
-          publish_frequency_30d,
-          days_since_last_video,
-          source_sync_run_id,
-          generated_at
-        )
-        VALUES (
-          @channelId,
-          @date,
-          @featureSetVersion,
-          @views7d,
-          @views30d,
-          @subscriberDelta7d,
-          @engagementRate7d,
-          @publishFrequency30d,
-          @daysSinceLastVideo,
-          @sourceSyncRunId,
-          @generatedAt
-        )
-      `,
-    );
+    const insertStagedChannelResult = pipelineRepository.insertStagedChannel({
+      channelId: snapshot.channel.channelId,
+      name: snapshot.channel.name,
+      description: snapshot.channel.description,
+      thumbnailUrl: snapshot.channel.thumbnailUrl,
+      publishedAt: snapshot.channel.publishedAt,
+      subscriberCount: snapshot.channel.subscriberCount,
+      videoCount: snapshot.channel.videoCount,
+      viewCount: snapshot.channel.viewCount,
+      lastSyncAt: snapshot.channel.lastSyncAt,
+      ingestedAt: generatedAt,
+    });
+    if (!insertStagedChannelResult.ok) {
+      return insertStagedChannelResult;
+    }
 
-    const insertLineageStmt = db.prepare<{
-      pipelineStage: string;
-      entityType: string;
-      entityKey: string;
-      sourceTable: string;
-      sourceRecordCount: number;
-      metadataJson: string;
-      sourceSyncRunId: number | null;
-      producedAt: string;
-    }>(
-      `
-        INSERT INTO data_lineage (
-          pipeline_stage,
-          entity_type,
-          entity_key,
-          source_table,
-          source_record_count,
-          metadata_json,
-          source_sync_run_id,
-          produced_at
-        )
-        VALUES (
-          @pipelineStage,
-          @entityType,
-          @entityKey,
-          @sourceTable,
-          @sourceRecordCount,
-          @metadataJson,
-          @sourceSyncRunId,
-          @producedAt
-        )
-      `,
-    );
-
-    const writeTransaction = db.transaction(() => {
-      deleteStgVideosStmt.run({ channelId: snapshot.channel.channelId });
-      deleteStgChannelStmt.run({ channelId: snapshot.channel.channelId });
-
-      insertStgChannelStmt.run({
-        channelId: snapshot.channel.channelId,
-        name: snapshot.channel.name,
-        description: snapshot.channel.description,
-        thumbnailUrl: snapshot.channel.thumbnailUrl,
-        publishedAt: snapshot.channel.publishedAt,
-        subscriberCount: snapshot.channel.subscriberCount,
-        videoCount: snapshot.channel.videoCount,
-        viewCount: snapshot.channel.viewCount,
-        lastSyncAt: snapshot.channel.lastSyncAt,
+    for (const video of snapshot.videos) {
+      const insertVideoResult = pipelineRepository.insertStagedVideo({
+        videoId: video.videoId,
+        channelId: video.channelId,
+        title: video.title,
+        description: video.description,
+        publishedAt: video.publishedAt,
+        durationSeconds: video.durationSeconds,
+        viewCount: video.viewCount,
+        likeCount: video.likeCount,
+        commentCount: video.commentCount,
+        thumbnailUrl: video.thumbnailUrl,
         ingestedAt: generatedAt,
       });
-
-      for (const video of snapshot.videos) {
-        insertStgVideoStmt.run({
-          videoId: video.videoId,
-          channelId: video.channelId,
-          title: video.title,
-          description: video.description,
-          publishedAt: video.publishedAt,
-          durationSeconds: video.durationSeconds,
-          viewCount: video.viewCount,
-          likeCount: video.likeCount,
-          commentCount: video.commentCount,
-          thumbnailUrl: video.thumbnailUrl,
-          ingestedAt: generatedAt,
-        });
+      if (!insertVideoResult.ok) {
+        return insertVideoResult;
       }
+    }
 
-      const firstFeature = features[0];
-      if (firstFeature) {
-        deleteFeaturesStmt.run({
-          channelId: firstFeature.channelId,
-          featureSetVersion: firstFeature.featureSetVersion,
-          dateFrom: featureWriteWindow.dateFrom,
-          dateTo: featureWriteWindow.dateTo,
-        });
+    const firstFeature = features[0];
+    if (firstFeature) {
+      const deleteFeatureWindowResult = pipelineRepository.deleteFeatureWindow({
+        channelId: firstFeature.channelId,
+        featureSetVersion: firstFeature.featureSetVersion,
+        dateFrom: featureWriteWindow.dateFrom,
+        dateTo: featureWriteWindow.dateTo,
+      });
+      if (!deleteFeatureWindowResult.ok) {
+        return deleteFeatureWindowResult;
       }
+    }
 
-      for (const feature of features) {
-        insertFeatureStmt.run({
-          channelId: feature.channelId,
-          date: feature.date,
-          featureSetVersion: feature.featureSetVersion,
-          views7d: feature.views7d,
-          views30d: feature.views30d,
-          subscriberDelta7d: feature.subscriberDelta7d,
-          engagementRate7d: feature.engagementRate7d,
-          publishFrequency30d: feature.publishFrequency30d,
-          daysSinceLastVideo: feature.daysSinceLastVideo,
-          sourceSyncRunId: feature.sourceSyncRunId,
-          generatedAt: feature.generatedAt,
-        });
+    for (const feature of features) {
+      const insertFeatureResult = pipelineRepository.insertFeature({
+        channelId: feature.channelId,
+        date: feature.date,
+        featureSetVersion: feature.featureSetVersion,
+        views7d: feature.views7d,
+        views30d: feature.views30d,
+        subscriberDelta7d: feature.subscriberDelta7d,
+        engagementRate7d: feature.engagementRate7d,
+        publishFrequency30d: feature.publishFrequency30d,
+        daysSinceLastVideo: feature.daysSinceLastVideo,
+        sourceSyncRunId: feature.sourceSyncRunId,
+        generatedAt: feature.generatedAt,
+      });
+      if (!insertFeatureResult.ok) {
+        return insertFeatureResult;
       }
+    }
 
-      const channelId = snapshot.channel.channelId;
-      insertLineageStmt.run({
-        pipelineStage: 'ingest',
-        entityType: 'channel',
-        entityKey: channelId,
-        sourceTable: 'dim_channel,dim_video,fact_channel_day',
-        sourceRecordCount: 1 + snapshot.videos.length + snapshot.channelDays.length,
-        metadataJson: JSON.stringify({
-          channelRows: 1,
-          videoRows: snapshot.videos.length,
-          channelDayRows: snapshot.channelDays.length,
-        }),
-        sourceSyncRunId,
-        producedAt: generatedAt,
-      });
-      insertLineageStmt.run({
-        pipelineStage: 'validation',
-        entityType: 'channel',
-        entityKey: channelId,
-        sourceTable: 'pipeline-validation',
-        sourceRecordCount: snapshot.channelDays.length,
-        metadataJson: JSON.stringify({
-          maxFreshnessDate: snapshot.channelDays[snapshot.channelDays.length - 1]?.date ?? null,
-          validatedVideos: snapshot.videos.length,
-        }),
-        sourceSyncRunId,
-        producedAt: generatedAt,
-      });
-      insertLineageStmt.run({
-        pipelineStage: 'staging',
-        entityType: 'channel',
-        entityKey: channelId,
-        sourceTable: 'stg_channels,stg_videos',
-        sourceRecordCount: 1 + snapshot.videos.length,
-        metadataJson: JSON.stringify({
-          stagedChannels: 1,
-          stagedVideos: snapshot.videos.length,
-        }),
-        sourceSyncRunId,
-        producedAt: generatedAt,
-      });
-      insertLineageStmt.run({
-        pipelineStage: 'feature-generation',
-        entityType: 'channel',
-        entityKey: channelId,
-        sourceTable: 'ml_features',
-        sourceRecordCount: features.length,
-        metadataJson: JSON.stringify({
-          generatedFeatures: features.length,
-          featureSetVersion: firstFeature?.featureSetVersion ?? DEFAULT_FEATURE_SET_VERSION,
-          incrementalDateFrom: featureWriteWindow.dateFrom,
-          incrementalDateTo: featureWriteWindow.dateTo,
-        }),
-        sourceSyncRunId,
-        producedAt: generatedAt,
-      });
+    const channelId = snapshot.channel.channelId;
+    const insertIngestLineageResult = pipelineRepository.insertLineage({
+      pipelineStage: 'ingest',
+      entityType: 'channel',
+      entityKey: channelId,
+      sourceTable: 'dim_channel,dim_video,fact_channel_day',
+      sourceRecordCount: 1 + snapshot.videos.length + snapshot.channelDays.length,
+      metadataJson: JSON.stringify({
+        channelRows: 1,
+        videoRows: snapshot.videos.length,
+        channelDayRows: snapshot.channelDays.length,
+      }),
+      sourceSyncRunId,
+      producedAt: generatedAt,
     });
+    if (!insertIngestLineageResult.ok) {
+      return insertIngestLineageResult;
+    }
 
-    writeTransaction();
+    const insertValidationLineageResult = pipelineRepository.insertLineage({
+      pipelineStage: 'validation',
+      entityType: 'channel',
+      entityKey: channelId,
+      sourceTable: 'pipeline-validation',
+      sourceRecordCount: snapshot.channelDays.length,
+      metadataJson: JSON.stringify({
+        maxFreshnessDate: snapshot.channelDays[snapshot.channelDays.length - 1]?.date ?? null,
+        validatedVideos: snapshot.videos.length,
+      }),
+      sourceSyncRunId,
+      producedAt: generatedAt,
+    });
+    if (!insertValidationLineageResult.ok) {
+      return insertValidationLineageResult;
+    }
+
+    const insertStagingLineageResult = pipelineRepository.insertLineage({
+      pipelineStage: 'staging',
+      entityType: 'channel',
+      entityKey: channelId,
+      sourceTable: 'stg_channels,stg_videos',
+      sourceRecordCount: 1 + snapshot.videos.length,
+      metadataJson: JSON.stringify({
+        stagedChannels: 1,
+        stagedVideos: snapshot.videos.length,
+      }),
+      sourceSyncRunId,
+      producedAt: generatedAt,
+    });
+    if (!insertStagingLineageResult.ok) {
+      return insertStagingLineageResult;
+    }
+
+    const insertFeatureLineageResult = pipelineRepository.insertLineage({
+      pipelineStage: 'feature-generation',
+      entityType: 'channel',
+      entityKey: channelId,
+      sourceTable: 'ml_features',
+      sourceRecordCount: features.length,
+      metadataJson: JSON.stringify({
+        generatedFeatures: features.length,
+        featureSetVersion: firstFeature?.featureSetVersion ?? DEFAULT_FEATURE_SET_VERSION,
+        incrementalDateFrom: featureWriteWindow.dateFrom,
+        incrementalDateTo: featureWriteWindow.dateTo,
+      }),
+      sourceSyncRunId,
+      producedAt: generatedAt,
+    });
+    if (!insertFeatureLineageResult.ok) {
+      return insertFeatureLineageResult;
+    }
+
     return ok(undefined);
-  } catch (cause) {
+  });
+
+  if (!transactionResult.ok) {
     return err(
       createPipelineError(
         'PIPELINE_PERSIST_FAILED',
         'Nie udalo sie zapisac wynikow pipeline.',
-        { channelId: snapshot.channel.channelId },
-        cause,
+        {
+          channelId: snapshot.channel.channelId,
+          causeErrorCode: transactionResult.error.code,
+        },
+        transactionResult.error,
       ),
     );
   }
+
+  return ok(undefined);
 }
 
 export function runDataPipeline(input: RunDataPipelineInput): Result<DataPipelineRunResult, AppError> {

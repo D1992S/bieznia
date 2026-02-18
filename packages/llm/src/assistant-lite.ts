@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { createMetricsQueries, type DatabaseConnection } from '@moze/core';
+import {
+  createAssistantQueries,
+  createAssistantRepository,
+  createMetricsQueries,
+  type DatabaseConnection,
+} from '@moze/core';
 import {
   AppError,
   AssistantAskResultDTOSchema,
@@ -19,69 +24,6 @@ import {
   type MlTargetMetric,
   type Result,
 } from '@moze/shared';
-
-interface ChannelInfoRow {
-  channelId: string;
-  name: string;
-  subscriberCount: number;
-  videoCount: number;
-}
-
-interface TopVideoRow {
-  videoId: string;
-  title: string;
-  viewCount: number;
-  publishedAt: string;
-}
-
-interface AnomalyRow {
-  anomalyId: number;
-  date: string;
-  value: number;
-  baseline: number;
-  severity: string;
-  explanation: string;
-}
-
-interface ThreadRow {
-  threadId: string;
-  channelId: string;
-  title: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface ThreadListRow {
-  threadId: string;
-  channelId: string;
-  title: string;
-  lastQuestion: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface MessageRow {
-  messageId: number;
-  threadId: string;
-  role: 'user' | 'assistant';
-  text: string;
-  confidence: AssistantConfidence | null;
-  followUpQuestionsJson: string;
-  createdAt: string;
-}
-
-interface MessageEvidenceRow {
-  evidenceId: string;
-  tool: AssistantToolName;
-  label: string;
-  value: string;
-  sourceTable: string;
-  sourceRecordId: string;
-}
-
-interface MessageEvidenceBatchRow extends MessageEvidenceRow {
-  messageId: number;
-}
 
 interface DateRange {
   dateFrom: string;
@@ -165,13 +107,6 @@ function truncateThreadTitle(question: string): string {
     return normalized;
   }
   return `${normalized.slice(0, 93)}...`;
-}
-
-function toNumber(value: number | bigint): number {
-  if (typeof value === 'bigint') {
-    return Number(value);
-  }
-  return value;
 }
 
 function formatInt(value: number): string {
@@ -264,251 +199,25 @@ function createAssistantError(
 export function createAssistantLiteService(input: AssistantLiteServiceInput): AssistantLiteService {
   const nowProvider = input.now ?? (() => new Date());
   const metricsQueries = createMetricsQueries(input.db);
-
-  const readChannelInfoStmt = input.db.prepare<{ channelId: string }, ChannelInfoRow>(
-    `
-      SELECT
-        channel_id AS channelId,
-        name,
-        subscriber_count AS subscriberCount,
-        video_count AS videoCount
-      FROM dim_channel
-      WHERE channel_id = @channelId
-      ORDER BY channel_id ASC
-      LIMIT 1
-    `,
-  );
-
-  const readTopVideosStmt = input.db.prepare<{ channelId: string; limit: number }, TopVideoRow>(
-    `
-      SELECT
-        video_id AS videoId,
-        title,
-        view_count AS viewCount,
-        published_at AS publishedAt
-      FROM dim_video
-      WHERE channel_id = @channelId
-      ORDER BY view_count DESC, published_at DESC, video_id ASC
-      LIMIT @limit
-    `,
-  );
-
-  const readAnomaliesStmt = input.db.prepare<{
-    channelId: string;
-    targetMetric: MlTargetMetric;
-    dateFrom: string;
-    dateTo: string;
-    limit: number;
-  }, AnomalyRow>(
-    `
-      SELECT
-        id AS anomalyId,
-        date,
-        metric_value AS value,
-        baseline_value AS baseline,
-        severity,
-        explanation
-      FROM ml_anomalies
-      WHERE channel_id = @channelId
-        AND target_metric = @targetMetric
-        AND date >= @dateFrom
-        AND date <= @dateTo
-      ORDER BY date DESC, id DESC
-      LIMIT @limit
-    `,
-  );
-
-  const readThreadStmt = input.db.prepare<{ threadId: string }, ThreadRow>(
-    `
-      SELECT
-        thread_id AS threadId,
-        channel_id AS channelId,
-        title,
-        created_at AS createdAt,
-        updated_at AS updatedAt
-      FROM assistant_threads
-      WHERE thread_id = @threadId
-      ORDER BY thread_id ASC
-      LIMIT 1
-    `,
-  );
-
-  const insertThreadStmt = input.db.prepare<{
-    threadId: string;
-    channelId: string;
-    title: string;
-    createdAt: string;
-    updatedAt: string;
-  }>(
-    `
-      INSERT INTO assistant_threads (
-        thread_id,
-        channel_id,
-        title,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        @threadId,
-        @channelId,
-        @title,
-        @createdAt,
-        @updatedAt
-      )
-    `,
-  );
-
-  const updateThreadStmt = input.db.prepare<{
-    threadId: string;
-    updatedAt: string;
-  }>(
-    `
-      UPDATE assistant_threads
-      SET updated_at = @updatedAt
-      WHERE thread_id = @threadId
-    `,
-  );
-
-  const insertMessageStmt = input.db.prepare<{
-    threadId: string;
-    role: 'user' | 'assistant';
-    text: string;
-    confidence: AssistantConfidence | null;
-    followUpQuestionsJson: string;
-    createdAt: string;
-  }>(
-    `
-      INSERT INTO assistant_messages (
-        thread_id,
-        role,
-        text,
-        confidence,
-        follow_up_questions_json,
-        created_at
-      )
-      VALUES (
-        @threadId,
-        @role,
-        @text,
-        @confidence,
-        @followUpQuestionsJson,
-        @createdAt
-      )
-    `,
-  );
-
-  const insertEvidenceStmt = input.db.prepare<{
-    messageId: number;
-    evidenceId: string;
-    toolName: AssistantToolName;
-    label: string;
-    value: string;
-    sourceTable: string;
-    sourceRecordId: string;
-    metadataJson: string;
-    createdAt: string;
-  }>(
-    `
-      INSERT INTO assistant_message_evidence (
-        message_id,
-        evidence_id,
-        tool_name,
-        label,
-        value,
-        source_table,
-        source_record_id,
-        metadata_json,
-        created_at
-      )
-      VALUES (
-        @messageId,
-        @evidenceId,
-        @toolName,
-        @label,
-        @value,
-        @sourceTable,
-        @sourceRecordId,
-        @metadataJson,
-        @createdAt
-      )
-    `,
-  );
-
-  const listThreadsStmt = input.db.prepare<{ channelId: string | null; limit: number }, ThreadListRow>(
-    `
-      SELECT
-        t.thread_id AS threadId,
-        t.channel_id AS channelId,
-        t.title AS title,
-        (
-          SELECT m.text
-          FROM assistant_messages m
-          WHERE m.thread_id = t.thread_id
-            AND m.role = 'user'
-          ORDER BY m.id DESC
-          LIMIT 1
-        ) AS lastQuestion,
-        t.created_at AS createdAt,
-        t.updated_at AS updatedAt
-      FROM assistant_threads t
-      WHERE (@channelId IS NULL OR t.channel_id = @channelId)
-      ORDER BY t.updated_at DESC, t.thread_id ASC
-      LIMIT @limit
-    `,
-  );
-
-  const listMessagesStmt = input.db.prepare<{ threadId: string }, MessageRow>(
-    `
-      SELECT
-        id AS messageId,
-        thread_id AS threadId,
-        role,
-        text,
-        confidence,
-        follow_up_questions_json AS followUpQuestionsJson,
-        created_at AS createdAt
-      FROM assistant_messages
-      WHERE thread_id = @threadId
-      ORDER BY id ASC
-    `,
-  );
-
-  const listEvidenceForMessages = (messageIds: readonly number[]): MessageEvidenceBatchRow[] => {
-    if (messageIds.length === 0) {
-      return [];
-    }
-
-    const placeholders = messageIds
-      .map((_, index) => `@messageId${String(index)}`)
-      .join(', ');
-    const statement = input.db.prepare<Record<string, number>, MessageEvidenceBatchRow>(
-      `
-        SELECT
-          message_id AS messageId,
-          evidence_id AS evidenceId,
-          tool_name AS tool,
-          label,
-          value,
-          source_table AS sourceTable,
-          source_record_id AS sourceRecordId
-        FROM assistant_message_evidence
-        WHERE message_id IN (${placeholders})
-        ORDER BY message_id ASC, id ASC
-      `,
-    );
-    const parameters: Record<string, number> = {};
-    for (const [index, messageId] of messageIds.entries()) {
-      parameters[`messageId${String(index)}`] = messageId;
-    }
-
-    return statement.all(parameters);
-  };
+  const assistantQueries = createAssistantQueries(input.db);
+  const assistantRepository = createAssistantRepository(input.db);
 
   const executeReadChannelInfo = (
     context: ToolExecutionContext,
   ): Result<ToolExecutionOutput, AppError> => {
     try {
-      const channel = readChannelInfoStmt.get({ channelId: context.channelId });
+      const channelResult = assistantQueries.getChannelInfo({ channelId: context.channelId });
+      if (!channelResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_READ_CHANNEL_FAILED',
+            'Nie udalo sie odczytac informacji o kanale.',
+            { channelId: context.channelId, causeErrorCode: channelResult.error.code },
+            channelResult.error,
+          ),
+        );
+      }
+      const channel = channelResult.value;
       if (!channel) {
         return err(
           createAssistantError(
@@ -609,10 +318,21 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
     context: ToolExecutionContext,
   ): Result<ToolExecutionOutput, AppError> => {
     try {
-      const topVideos = readTopVideosStmt.all({
+      const topVideosResult = assistantQueries.listTopVideos({
         channelId: context.channelId,
         limit: 3,
       });
+      if (!topVideosResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_READ_TOP_VIDEOS_FAILED',
+            'Nie udalo sie odczytac top filmow.',
+            { channelId: context.channelId, causeErrorCode: topVideosResult.error.code },
+            topVideosResult.error,
+          ),
+        );
+      }
+      const topVideos = topVideosResult.value;
 
       if (topVideos.length === 0) {
         return ok({
@@ -655,13 +375,30 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
     context: ToolExecutionContext,
   ): Result<ToolExecutionOutput, AppError> => {
     try {
-      const anomalies = readAnomaliesStmt.all({
+      const anomaliesResult = assistantQueries.listAnomalies({
         channelId: context.channelId,
         targetMetric: context.targetMetric,
         dateFrom: context.dateRange.dateFrom,
         dateTo: context.dateRange.dateTo,
         limit: 3,
       });
+      if (!anomaliesResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_READ_ANOMALIES_FAILED',
+            'Nie udalo sie odczytac anomalii.',
+            {
+              channelId: context.channelId,
+              targetMetric: context.targetMetric,
+              dateFrom: context.dateRange.dateFrom,
+              dateTo: context.dateRange.dateTo,
+              causeErrorCode: anomaliesResult.error.code,
+            },
+            anomaliesResult.error,
+          ),
+        );
+      }
+      const anomalies = anomaliesResult.value;
 
       if (anomalies.length === 0) {
         return ok({
@@ -757,7 +494,22 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         ? assistantInput.threadId.trim()
         : randomUUID();
       const threadTitle = truncateThreadTitle(assistantInput.question);
-      const existingThread = readThreadStmt.get({ threadId });
+      const existingThreadResult = assistantQueries.getThreadById({ threadId });
+      if (!existingThreadResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_PERSIST_FAILED',
+            'Nie udalo sie zapisac rozmowy asystenta.',
+            {
+              channelId: assistantInput.channelId,
+              threadId: assistantInput.threadId ?? null,
+              causeErrorCode: existingThreadResult.error.code,
+            },
+            existingThreadResult.error,
+          ),
+        );
+      }
+      const existingThread = existingThreadResult.value;
       if (existingThread && existingThread.channelId !== assistantInput.channelId) {
         return err(
           createAssistantError(
@@ -772,23 +524,29 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         );
       }
 
-      const persistTransaction = input.db.transaction(() => {
+      const persistResult = assistantRepository.runInTransaction(() => {
         if (!existingThread) {
-          insertThreadStmt.run({
+          const insertThreadResult = assistantRepository.insertThread({
             threadId,
             channelId: assistantInput.channelId,
             title: threadTitle,
             createdAt,
             updatedAt: createdAt,
           });
+          if (!insertThreadResult.ok) {
+            return insertThreadResult;
+          }
         } else {
-          updateThreadStmt.run({
+          const updateThreadResult = assistantRepository.updateThreadTimestamp({
             threadId,
             updatedAt: createdAt,
           });
+          if (!updateThreadResult.ok) {
+            return updateThreadResult;
+          }
         }
 
-        insertMessageStmt.run({
+        const userMessageInsertResult = assistantRepository.insertMessage({
           threadId,
           role: 'user',
           text: assistantInput.question,
@@ -796,8 +554,11 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
           followUpQuestionsJson: '[]',
           createdAt,
         });
+        if (!userMessageInsertResult.ok) {
+          return userMessageInsertResult;
+        }
 
-        const assistantMessageInsert = insertMessageStmt.run({
+        const assistantMessageInsertResult = assistantRepository.insertMessage({
           threadId,
           role: 'assistant',
           text: answer,
@@ -805,11 +566,14 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
           followUpQuestionsJson: JSON.stringify(followUpQuestions),
           createdAt,
         });
+        if (!assistantMessageInsertResult.ok) {
+          return assistantMessageInsertResult;
+        }
 
-        const assistantMessageId = toNumber(assistantMessageInsert.lastInsertRowid);
+        const assistantMessageId = assistantMessageInsertResult.value;
 
         for (const evidenceItem of evidence) {
-          insertEvidenceStmt.run({
+          const insertEvidenceResult = assistantRepository.insertEvidence({
             messageId: assistantMessageId,
             evidenceId: evidenceItem.evidenceId,
             toolName: evidenceItem.tool,
@@ -820,21 +584,41 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
             metadataJson: '{}',
             createdAt,
           });
+          if (!insertEvidenceResult.ok) {
+            return insertEvidenceResult;
+          }
         }
 
-        updateThreadStmt.run({
+        const touchThreadResult = assistantRepository.updateThreadTimestamp({
           threadId,
           updatedAt: createdAt,
         });
+        if (!touchThreadResult.ok) {
+          return touchThreadResult;
+        }
 
-        return {
+        return ok({
           threadId,
           messageId: assistantMessageId,
           createdAt,
-        };
+        });
       });
 
-      const persisted = persistTransaction();
+      if (!persistResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_PERSIST_FAILED',
+            'Nie udalo sie zapisac rozmowy asystenta.',
+            {
+              channelId: assistantInput.channelId,
+              threadId: assistantInput.threadId ?? null,
+              causeErrorCode: persistResult.error.code,
+            },
+            persistResult.error,
+          ),
+        );
+      }
+      const persisted = persistResult.value;
       const resultPayload: AssistantAskResultDTO = {
         threadId: persisted.threadId,
         messageId: persisted.messageId,
@@ -877,10 +661,25 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
     listInput: AssistantThreadListInputDTO,
   ): Result<AssistantThreadListResultDTO, AppError> => {
     try {
-      const rows = listThreadsStmt.all({
+      const rowsResult = assistantQueries.listThreads({
         channelId: listInput.channelId ?? null,
         limit: listInput.limit,
       });
+      if (!rowsResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_THREADS_READ_FAILED',
+            'Nie udalo sie odczytac listy watkow.',
+            {
+              channelId: listInput.channelId ?? null,
+              limit: listInput.limit,
+              causeErrorCode: rowsResult.error.code,
+            },
+            rowsResult.error,
+          ),
+        );
+      }
+      const rows = rowsResult.value;
 
       const payload: AssistantThreadListResultDTO = {
         items: rows.map((row) => ({
@@ -924,7 +723,18 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
     threadInput: AssistantThreadMessagesInputDTO,
   ): Result<AssistantThreadMessagesResultDTO, AppError> => {
     try {
-      const thread = readThreadStmt.get({ threadId: threadInput.threadId });
+      const threadResult = assistantQueries.getThreadById({ threadId: threadInput.threadId });
+      if (!threadResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_THREAD_MESSAGES_READ_FAILED',
+            'Nie udalo sie odczytac wiadomosci watku.',
+            { threadId: threadInput.threadId, causeErrorCode: threadResult.error.code },
+            threadResult.error,
+          ),
+        );
+      }
+      const thread = threadResult.value;
       if (!thread) {
         return err(
           createAssistantError(
@@ -935,9 +745,31 @@ export function createAssistantLiteService(input: AssistantLiteServiceInput): As
         );
       }
 
-      const messageRows = listMessagesStmt.all({ threadId: threadInput.threadId });
+      const messageRowsResult = assistantQueries.listMessages({ threadId: threadInput.threadId });
+      if (!messageRowsResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_THREAD_MESSAGES_READ_FAILED',
+            'Nie udalo sie odczytac wiadomosci watku.',
+            { threadId: threadInput.threadId, causeErrorCode: messageRowsResult.error.code },
+            messageRowsResult.error,
+          ),
+        );
+      }
+      const messageRows = messageRowsResult.value;
       const messageIds = messageRows.map((row) => row.messageId);
-      const evidenceRows = listEvidenceForMessages(messageIds);
+      const evidenceRowsResult = assistantQueries.listEvidenceForMessages({ messageIds });
+      if (!evidenceRowsResult.ok) {
+        return err(
+          createAssistantError(
+            'LLM_ASSISTANT_THREAD_MESSAGES_READ_FAILED',
+            'Nie udalo sie odczytac wiadomosci watku.',
+            { threadId: threadInput.threadId, causeErrorCode: evidenceRowsResult.error.code },
+            evidenceRowsResult.error,
+          ),
+        );
+      }
+      const evidenceRows = evidenceRowsResult.value;
       const evidenceByMessageId = new Map<number, AssistantEvidenceItemDTO[]>();
       for (const item of evidenceRows) {
         const evidenceItem: AssistantEvidenceItemDTO = {
