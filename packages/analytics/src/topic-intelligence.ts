@@ -405,10 +405,6 @@ export function runTopicIntelligence(input: RunTopicIntelligenceInput): Result<T
 
   const splitDate = getSplitDate(input.dateFrom, input.dateTo);
   const topicQueries = createTopicQueries(input.db);
-  let videoRows: VideoAggregateRow[] = [];
-  let videoDayRows: VideoDayRow[] = [];
-  let competitorSummary: CompetitorSummaryRow = { totalViews: 0, competitorCount: 0 };
-
   const videoRowsResult = topicQueries.listVideoAggregates({
     channelId: input.channelId,
     dateFrom: input.dateFrom,
@@ -430,7 +426,7 @@ export function runTopicIntelligence(input: RunTopicIntelligenceInput): Result<T
       ),
     );
   }
-  videoRows = videoRowsResult.value;
+  const videoRows: VideoAggregateRow[] = videoRowsResult.value;
 
   const videoDayRowsResult = topicQueries.listVideoDays({
     channelId: input.channelId,
@@ -452,7 +448,7 @@ export function runTopicIntelligence(input: RunTopicIntelligenceInput): Result<T
       ),
     );
   }
-  videoDayRows = videoDayRowsResult.value;
+  const videoDayRows: VideoDayRow[] = videoDayRowsResult.value;
 
   const competitorSummaryResult = topicQueries.getCompetitorSummary({
     channelId: input.channelId,
@@ -474,7 +470,7 @@ export function runTopicIntelligence(input: RunTopicIntelligenceInput): Result<T
       ),
     );
   }
-  competitorSummary = competitorSummaryResult.value;
+  const competitorSummary: CompetitorSummaryRow = competitorSummaryResult.value;
 
   for (let index = 0; index < videoRows.length; index += 1) {
     if (!VIDEO_AGGREGATE_SCHEMA.safeParse(videoRows[index]).success) {

@@ -627,7 +627,6 @@ export function getPlanningPlan(input: GetPlanningPlanInput): Result<PlanningPla
   }
 
   const planningQueries = createPlanningQueries(input.db);
-  let persistedPlanRow: PersistedPlanRow | null = null;
   let persistedRecommendationRows: PersistedRecommendationRow[] = [];
   const planRowResult = planningQueries.getLatestPlanHeader({
     channelId: input.channelId,
@@ -649,7 +648,7 @@ export function getPlanningPlan(input: GetPlanningPlanInput): Result<PlanningPla
       ),
     );
   }
-  persistedPlanRow = planRowResult.value;
+  const persistedPlanRow: PersistedPlanRow | null = planRowResult.value;
 
   if (persistedPlanRow) {
     const recommendationRowsResult = planningQueries.listRecommendationsByPlanId({ planId: persistedPlanRow.planId });

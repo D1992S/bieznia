@@ -637,7 +637,7 @@ export function createSyncOrchestrator(input: CreateSyncOrchestratorInput): Sync
     startFromStage: SyncStage;
   }): Promise<Result<SyncCommandResultData, AppError>> => {
     let targetChannelId = params.channelId;
-    let currentStage: SyncStage = params.startFromStage;
+    let currentStage: SyncStage;
     let recordsProcessed = 0;
     let pipelineFeatures: number | null = null;
     let persistedBatchAlreadyProcessed = false;
