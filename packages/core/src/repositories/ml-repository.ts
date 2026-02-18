@@ -85,8 +85,16 @@ function toError(cause: unknown): Error {
 }
 
 function toNumberId(value: number | bigint): number {
+  const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
+  const minSafe = BigInt(Number.MIN_SAFE_INTEGER);
   if (typeof value === 'bigint') {
+    if (value > maxSafe || value < minSafe) {
+      throw new RangeError(`ML row id ${value.toString()} exceeds JavaScript safe integer range.`);
+    }
     return Number(value);
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new RangeError(`ML row id ${value} is not a safe JavaScript integer.`);
   }
   return value;
 }

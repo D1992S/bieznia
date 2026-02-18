@@ -167,7 +167,7 @@ function validateDateRange(dateFrom: string, dateTo: string): Result<void, AppEr
     return err(
       createCompetitorError(
         'COMPETITOR_INVALID_DATE_RANGE',
-        'Data poczatkowa nie moze byc pozniejsza niz koncowa.',
+        'Start date cannot be later than end date.',
         { dateFrom, dateTo },
       ),
     );
@@ -340,7 +340,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
     return err(
       createCompetitorError(
         'COMPETITOR_SYNC_SOURCE_EMPTY',
-        'Brak danych kanalu w wybranym zakresie do synchronizacji konkurencji.',
+        'No channel data available in the selected range for competitor synchronization.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -399,8 +399,17 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
 
           const parsedSnapshot = COMPETITOR_SNAPSHOT_ROW_SCHEMA.safeParse(snapshot);
           if (!parsedSnapshot.success) {
-            throw new Error(
-              `COMPETITOR_SNAPSHOT_INVALID: channelId=${input.channelId}; competitorChannelId=${profile.competitorChannelId}; date=${ownerRow.date}; issues=${JSON.stringify(parsedSnapshot.error.issues)}`,
+            return err(
+              createCompetitorError(
+                'COMPETITOR_SNAPSHOT_INVALID',
+                'Generated competitor snapshot has an invalid format.',
+                {
+                  channelId: input.channelId,
+                  competitorChannelId: profile.competitorChannelId,
+                  date: ownerRow.date,
+                  issues: parsedSnapshot.error.issues,
+                },
+              ),
             );
           }
 
@@ -473,7 +482,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
       return err(
         createCompetitorError(
           'COMPETITOR_SYNC_FAILED',
-          'Nie udalo sie zsynchronizowac danych konkurencji.',
+          'Failed to synchronize competitor data.',
           {
             channelId: input.channelId,
             dateFrom: input.dateFrom,
@@ -501,7 +510,7 @@ export function syncCompetitorSnapshots(input: SyncCompetitorSnapshotsInput): Re
     return err(
       createCompetitorError(
         'COMPETITOR_SYNC_FAILED',
-        'Nie udalo sie zsynchronizowac danych konkurencji.',
+        'Failed to synchronize competitor data.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -533,7 +542,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     return err(
       createCompetitorError(
         'COMPETITOR_INSIGHTS_SOURCE_EMPTY',
-        'Brak danych kanalu w wybranym zakresie do porownania z konkurencja.',
+        'No channel data available for the selected range to compare with competitors.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -549,7 +558,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     return err(
       createCompetitorError(
         'COMPETITOR_OWNER_RANGE_INVALID',
-        'Nie udalo sie policzyc benchmarku kanalu dla konkurencji.',
+        'Failed to compute competitor channel benchmark.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -561,7 +570,8 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
 
   const ownerTotalViews = ownerRowsResult.value.reduce((sum, row) => sum + row.views, 0);
   const ownerGrowthRate = calculateGrowthRate(ownerFirst.views, ownerLast.views);
-  const ownerUploadsPerWeek = calculateUploadsPerWeek(ownerFirst.videos, ownerLast.videos, ownerRowsResult.value.length);  const competitorQueries = createCompetitorQueries(input.db);
+  const ownerUploadsPerWeek = calculateUploadsPerWeek(ownerFirst.videos, ownerLast.videos, ownerRowsResult.value.length);
+  const competitorQueries = createCompetitorQueries(input.db);
   const snapshotRowsResult = competitorQueries.listSnapshotsInRange({
     channelId: input.channelId,
     dateFrom: input.dateFrom,
@@ -571,7 +581,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
     return err(
       createCompetitorError(
         'COMPETITOR_INSIGHTS_READ_FAILED',
-        'Nie udalo sie odczytac danych konkurencji.',
+        'Failed to read competitor snapshot data.',
         {
           channelId: input.channelId,
           dateFrom: input.dateFrom,
@@ -592,7 +602,7 @@ export function getCompetitorInsights(input: GetCompetitorInsightsInput): Result
       return err(
         createCompetitorError(
           'COMPETITOR_INSIGHTS_ROW_INVALID',
-          'Dane konkurencji maja niepoprawny format.',
+          'Competitor snapshot row has an invalid format.',
           {
             channelId: input.channelId,
             dateFrom: input.dateFrom,
