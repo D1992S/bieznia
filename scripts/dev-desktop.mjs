@@ -136,6 +136,7 @@ async function main() {
     DEV_SERVER_HOST,
     '--port',
     String(DEV_SERVER_PORT),
+    '--strictPort',
   ]);
 
   uiProcess.on('exit', (code) => {

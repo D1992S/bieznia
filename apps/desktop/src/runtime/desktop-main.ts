@@ -128,7 +128,7 @@ const logger = createLogger({ baseContext: { module: 'desktop-main' } });
 const IS_DEV = process.env.NODE_ENV !== 'production';
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173';
 const UI_ENTRY_PATH = path.join(__dirname, '../../../ui/dist/index.html');
-const REPO_ROOT_PATH = path.resolve(__dirname, '../../../../');
+const REPO_ROOT_PATH = path.resolve(__dirname, '../../..');
 const PROFILE_RUNTIME_DIRNAME = 'profiles-runtime';
 const DEFAULT_FAKE_FIXTURE_PATH = path.join(REPO_ROOT_PATH, 'fixtures', 'seed-data.json');
 const DEFAULT_RECORDING_PATH = path.join(REPO_ROOT_PATH, 'fixtures', 'recordings', 'latest-provider-recording.json');
@@ -1842,11 +1842,13 @@ const ipcBackend: DesktopIpcBackend = {
 };
 
 function createWindow(): BrowserWindow {
+  const preloadPath = path.join(__dirname, 'preload.js');
+
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, '..', 'preload.js'),
+      preload: preloadPath,
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
