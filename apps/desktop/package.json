@@ -1,0 +1,30 @@
+{
+  "name": "@moze/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "pnpm run build && pnpm run start",
+    "start": "electron .",
+    "typecheck": "tsc --noEmit",
+    "build": "node scripts/build-desktop.mjs",
+    "build:watch": "node scripts/build-desktop.mjs --watch"
+  },
+  "dependencies": {
+    "@moze/analytics": "workspace:*",
+    "@moze/core": "workspace:*",
+    "@moze/data-pipeline": "workspace:*",
+    "@moze/diagnostics": "workspace:*",
+    "@moze/llm": "workspace:*",
+    "@moze/ml": "workspace:*",
+    "@moze/reports": "workspace:*",
+    "@moze/shared": "workspace:*",
+    "@moze/sync": "workspace:*",
+    "better-sqlite3": "^12.6.2"
+  },
+  "devDependencies": {
+    "electron": "^40.4.1",
+    "esbuild": "^0.27.3"
+  }
+}
