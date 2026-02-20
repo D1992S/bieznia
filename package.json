@@ -21,7 +21,8 @@
     "fixtures:golden": "node --experimental-strip-types scripts/generate-insight-golden-db.ts",
     "dev": "node scripts/dev-desktop.mjs",
     "dev:ui": "pnpm --filter @moze/ui exec vite --host localhost --port 5173",
-    "dev:desktop": "pnpm --filter @moze/desktop run dev"
+    "dev:desktop": "pnpm --filter @moze/desktop run dev",
+    "dev:treadmill": "pnpm --filter treadmill-tracker exec vite --host localhost --port 5174"
   },
   "engines": {
     "node": ">=22.0.0",

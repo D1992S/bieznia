@@ -10,6 +10,7 @@ export default tseslint.config(
       '**/*.mjs',
       'vitest.config.ts',
       'apps/ui/vite.config.ts',
+      'apps/treadmill/vite.config.ts',
     ],
   },
   js.configs.recommended,
