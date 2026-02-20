@@ -1,0 +1,1201 @@
+import { describe, it, expect } from 'vitest';
+import {
+  AppStatusDTOSchema,
+  DataModeProbeInputDTOSchema,
+  DataModeProbeResultDTOSchema,
+  DataModeSchema,
+  DataModeStatusDTOSchema,
+  MlForecastQueryInputDTOSchema,
+  MlForecastResultDTOSchema,
+  MlDetectAnomaliesInputDTOSchema,
+  MlDetectAnomaliesResultDTOSchema,
+  MlAnomalyQueryInputDTOSchema,
+  MlAnomalyListResultDTOSchema,
+  MlTrendQueryInputDTOSchema,
+  MlTrendResultDTOSchema,
+  QualityScoreQueryInputDTOSchema,
+  QualityScoreResultDTOSchema,
+  CompetitorSyncInputDTOSchema,
+  CompetitorSyncResultDTOSchema,
+  CompetitorInsightsQueryInputDTOSchema,
+  CompetitorInsightsResultDTOSchema,
+  TopicIntelligenceRunInputDTOSchema,
+  TopicIntelligenceQueryInputDTOSchema,
+  TopicIntelligenceResultDTOSchema,
+  PlanningGenerateInputDTOSchema,
+  PlanningGetPlanInputDTOSchema,
+  PlanningPlanResultDTOSchema,
+  DiagnosticsGetHealthInputDTOSchema,
+  DiagnosticsHealthResultDTOSchema,
+  DiagnosticsRunRecoveryInputDTOSchema,
+  DiagnosticsRunRecoveryResultDTOSchema,
+  MlRunBaselineInputDTOSchema,
+  MlRunBaselineResultDTOSchema,
+  AuthConnectInputDTOSchema,
+  AuthStatusDTOSchema,
+  ProfileCreateInputDTOSchema,
+  ProfileListResultDTOSchema,
+  ProfileSettingsDTOSchema,
+  ProfileSetActiveInputDTOSchema,
+  ReportExportInputDTOSchema,
+  ReportExportResultDTOSchema,
+  ReportGenerateInputDTOSchema,
+  ReportGenerateResultDTOSchema,
+  CsvImportPreviewInputDTOSchema,
+  CsvImportPreviewResultDTOSchema,
+  CsvImportRunInputDTOSchema,
+  CsvImportRunResultDTOSchema,
+  SearchContentInputDTOSchema,
+  SearchContentResultDTOSchema,
+  AssistantAskInputDTOSchema,
+  AssistantAskResultDTOSchema,
+  AssistantThreadListInputDTOSchema,
+  AssistantThreadListResultDTOSchema,
+  AssistantThreadMessagesInputDTOSchema,
+  AssistantThreadMessagesResultDTOSchema,
+  MlTargetMetricSchema,
+  SyncCommandResultDTOSchema,
+  SyncResumeInputDTOSchema,
+  SyncStartInputDTOSchema,
+  SetDataModeInputDTOSchema,
+  KpiQueryDTOSchema,
+  KpiResultDTOSchema,
+  TimeseriesQueryDTOSchema,
+  TimeseriesResultDTOSchema,
+  ChannelInfoDTOSchema,
+  IPC_CHANNELS,
+  IPC_EVENTS,
+} from './contracts.ts';
+
+describe('IPC Contracts', () => {
+  describe('AppStatusDTO', () => {
+    it('validates correct data', () => {
+      const data = {
+        version: '0.0.1',
+        dbReady: true,
+        profileId: null,
+        syncRunning: false,
+        lastSyncAt: null,
+      };
+      expect(AppStatusDTOSchema.parse(data)).toEqual(data);
+    });
+
+    it('rejects invalid data', () => {
+      expect(() => AppStatusDTOSchema.parse({ version: 123 })).toThrow();
+    });
+  });
+
+  describe('KpiQueryDTO', () => {
+    it('validates date range', () => {
+      const data = {
+        channelId: 'UC123',
+        dateFrom: '2025-01-01',
+        dateTo: '2025-01-31',
+      };
+      expect(KpiQueryDTOSchema.parse(data)).toEqual(data);
+    });
+  });
+
+  describe('KpiResultDTO', () => {
+    it('validates KPI result', () => {
+      const data = {
+        subscribers: 10000,
+        subscribersDelta: 500,
+        views: 50000,
+        viewsDelta: 5000,
+        videos: 100,
+        videosDelta: 5,
+        avgViewsPerVideo: 500,
+        engagementRate: 0.05,
+      };
+      expect(KpiResultDTOSchema.parse(data)).toEqual(data);
+    });
+  });
+
+  describe('TimeseriesQueryDTO', () => {
+    it('applies default granularity', () => {
+      const data = {
+        channelId: 'UC123',
+        metric: 'views' as const,
+        dateFrom: '2025-01-01',
+        dateTo: '2025-01-31',
+      };
+      const parsed = TimeseriesQueryDTOSchema.parse(data);
+      expect(parsed.granularity).toBe('day');
+    });
+
+    it('accepts explicit granularity', () => {
+      const data = {
+        channelId: 'UC123',
+        metric: 'subscribers' as const,
+        dateFrom: '2025-01-01',
+        dateTo: '2025-03-01',
+        granularity: 'week' as const,
+      };
+      expect(TimeseriesQueryDTOSchema.parse(data).granularity).toBe('week');
+    });
+
+    it('rejects invalid metric', () => {
+      const data = {
+        channelId: 'UC123',
+        metric: 'invalid',
+        dateFrom: '2025-01-01',
+        dateTo: '2025-01-31',
+      };
+      expect(() => TimeseriesQueryDTOSchema.parse(data)).toThrow();
+    });
+  });
+
+  describe('TimeseriesResultDTO', () => {
+    it('validates result with prediction data', () => {
+      const data = {
+        metric: 'views',
+        granularity: 'day',
+        points: [
+          { date: '2025-01-01', value: 100, predicted: null },
+          { date: '2025-01-02', value: 120, predicted: 115, confidenceLow: 100, confidenceHigh: 130 },
+        ],
+      };
+      expect(TimeseriesResultDTOSchema.parse(data)).toEqual(data);
+    });
+  });
+
+  describe('ChannelInfoDTO', () => {
+    it('validates channel data', () => {
+      const data = {
+        channelId: 'UC123',
+        name: 'Test Channel',
+        description: 'A test channel',
+        thumbnailUrl: 'https://example.com/thumb.jpg',
+        subscriberCount: 10000,
+        videoCount: 100,
+        viewCount: 500000,
+        createdAt: '2020-01-01T00:00:00Z',
+        lastSyncAt: null,
+      };
+      expect(ChannelInfoDTOSchema.parse(data)).toEqual(data);
+    });
+  });
+
+  describe('DataModeDTO', () => {
+    it('validates data mode status', () => {
+      const data = {
+        mode: 'fake' as const,
+        availableModes: ['fake', 'real', 'record'] as const,
+        source: 'desktop-runtime',
+      };
+      expect(DataModeStatusDTOSchema.parse(data)).toEqual(data);
+    });
+
+    it('validates set mode input', () => {
+      const data = { mode: 'real' as const };
+      expect(SetDataModeInputDTOSchema.parse(data)).toEqual(data);
+    });
+
+    it('applies defaults for probe input', () => {
+      const parsed = DataModeProbeInputDTOSchema.parse({ channelId: 'UC123' });
+      expect(parsed.videoIds).toEqual(['VID-001']);
+      expect(parsed.recentLimit).toBe(5);
+    });
+
+    it('validates probe output', () => {
+      const data = {
+        mode: 'record' as const,
+        providerName: 'real-youtube-provider',
+        channelId: 'UC123',
+        recentVideos: 5,
+        videoStats: 2,
+        recordFilePath: 'fixtures/recordings/latest-provider-recording.json',
+      };
+      expect(DataModeProbeResultDTOSchema.parse(data)).toEqual(data);
+    });
+
+    it('rejects invalid data mode', () => {
+      expect(() => DataModeSchema.parse('invalid')).toThrow();
+    });
+  });
+
+  describe('Sync DTO', () => {
+    it('applies default recentLimit for sync start input', () => {
+      const parsed = SyncStartInputDTOSchema.parse({
+        channelId: 'UC123',
+      });
+
+      expect(parsed.recentLimit).toBe(20);
+      expect(parsed.profileId).toBeUndefined();
+    });
+
+    it('validates sync resume input', () => {
+      const parsed = SyncResumeInputDTOSchema.parse({
+        syncRunId: 12,
+        channelId: 'UC123',
+      });
+      expect(parsed.syncRunId).toBe(12);
+      expect(parsed.channelId).toBe('UC123');
+      expect(parsed.recentLimit).toBe(20);
+    });
+
+    it('validates sync command result payload', () => {
+      const parsed = SyncCommandResultDTOSchema.parse({
+        syncRunId: 9,
+        status: 'completed',
+        stage: 'completed',
+        recordsProcessed: 55,
+        pipelineFeatures: 90,
+      });
+
+      expect(parsed.status).toBe('completed');
+    });
+  });
+
+  describe('ML DTO', () => {
+    it('applies defaults for ml run baseline input', () => {
+      const parsed = MlRunBaselineInputDTOSchema.parse({
+        channelId: 'UC123',
+      });
+
+      expect(parsed.targetMetric).toBe('views');
+      expect(parsed.horizonDays).toBe(7);
+    });
+
+    it('validates ml run baseline result payload', () => {
+      const parsed = MlRunBaselineResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        status: 'completed',
+        reason: null,
+        activeModelType: 'holt-winters',
+        trainedAt: '2026-02-12T22:00:00.000Z',
+        predictionsGenerated: 7,
+        models: [
+          {
+            modelId: 1,
+            modelType: 'holt-winters',
+            status: 'active',
+            metrics: {
+              mae: 12,
+              smape: 0.08,
+              mase: 0.95,
+              sampleSize: 45,
+            },
+          },
+        ],
+      });
+
+      expect(parsed.models[0]?.status).toBe('active');
+    });
+
+    it('validates ml forecast query and result', () => {
+      const query = MlForecastQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+      });
+      expect(query.targetMetric).toBe('views');
+
+      const result = MlForecastResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        modelType: 'linear-regression',
+        trainedAt: '2026-02-12T22:00:00.000Z',
+        points: [
+          {
+            date: '2026-02-13',
+            horizonDays: 1,
+            predicted: 100,
+            p10: 90,
+            p50: 100,
+            p90: 110,
+          },
+        ],
+      });
+
+      expect(result.points).toHaveLength(1);
+    });
+
+    it('validates anomaly detection payloads', () => {
+      const detectInput = MlDetectAnomaliesInputDTOSchema.parse({
+        channelId: 'UC123',
+      });
+      expect(detectInput.targetMetric).toBe('views');
+
+      const detectResult = MlDetectAnomaliesResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        analyzedPoints: 90,
+        anomaliesDetected: 4,
+        changePointsDetected: 2,
+        generatedAt: '2026-02-15T10:00:00.000Z',
+      });
+      expect(detectResult.anomaliesDetected).toBe(4);
+
+      const anomaliesQuery = MlAnomalyQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        severities: ['high', 'critical'],
+      });
+      expect(anomaliesQuery.severities).toHaveLength(2);
+
+      const anomaliesResult = MlAnomalyListResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        total: 1,
+        items: [
+          {
+            id: 1,
+            channelId: 'UC123',
+            targetMetric: 'views',
+            date: '2026-01-11',
+            value: 9500,
+            baseline: 3200,
+            deviationRatio: 1.96,
+            zScore: 4.2,
+            method: 'consensus',
+            confidence: 'high',
+            severity: 'critical',
+            explanation: 'Wyswietlenia wzrosly znaczaco wzgledem bazowej sredniej.',
+            detectedAt: '2026-02-15T10:00:00.000Z',
+          },
+        ],
+      });
+      expect(anomaliesResult.items[0]?.method).toBe('consensus');
+    });
+
+    it('validates trend query and result payloads', () => {
+      const trendQuery = MlTrendQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(trendQuery.seasonalityPeriodDays).toBe(7);
+
+      const trendResult = MlTrendResultDTOSchema.parse({
+        channelId: 'UC123',
+        targetMetric: 'views',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        seasonalityPeriodDays: 7,
+        summary: {
+          trendDirection: 'up',
+          trendDelta: 420,
+        },
+        points: [
+          {
+            date: '2026-01-01',
+            value: 1200,
+            trend: 1180,
+            seasonal: 30,
+            residual: -10,
+            isChangePoint: false,
+          },
+          {
+            date: '2026-01-16',
+            value: 2100,
+            trend: 1750,
+            seasonal: 200,
+            residual: 150,
+            isChangePoint: true,
+          },
+        ],
+        changePoints: [
+          {
+            date: '2026-01-16',
+            direction: 'up',
+            magnitude: 620,
+            score: 4.7,
+          },
+        ],
+      });
+      expect(trendResult.changePoints[0]?.direction).toBe('up');
+    });
+
+    it('rejects invalid target metric', () => {
+      expect(() => MlTargetMetricSchema.parse('likes')).toThrow();
+    });
+  });
+
+  describe('Quality scoring DTO', () => {
+    it('applies defaults and validates quality scoring payloads', () => {
+      const query = QualityScoreQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+
+      expect(query.limit).toBe(20);
+
+      const result = QualityScoreResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        total: 1,
+        calculatedAt: '2026-02-17T12:00:00.000Z',
+        items: [
+          {
+            videoId: 'VID-001',
+            channelId: 'UC123',
+            title: 'Film testowy',
+            publishedAt: '2026-01-01T12:00:00.000Z',
+            score: 87.5,
+            confidence: 'high',
+            daysWithData: 31,
+            components: {
+              velocity: 0.95,
+              efficiency: 0.85,
+              engagement: 0.9,
+              retention: 0.7,
+              consistency: 0.8,
+            },
+            rawComponents: {
+              velocity: 2100,
+              efficiency: 0.45,
+              engagement: 0.12,
+              retention: 0.64,
+              consistency: 0.73,
+            },
+            calculatedAt: '2026-02-17T12:00:00.000Z',
+          },
+        ],
+      });
+
+      expect(result.items[0]?.confidence).toBe('high');
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        QualityScoreQueryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+    });
+  });
+
+  describe('Competitor intelligence DTO', () => {
+    it('applies defaults for competitor sync/query and validates payloads', () => {
+      const syncInput = CompetitorSyncInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(syncInput.competitorCount).toBe(3);
+
+      const queryInput = CompetitorInsightsQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(queryInput.limit).toBe(10);
+
+      const syncResult = CompetitorSyncResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        competitorsSynced: 3,
+        snapshotsProcessed: 93,
+        inserted: 93,
+        updated: 0,
+        unchanged: 0,
+        generatedAt: '2026-02-17T12:00:00.000Z',
+      });
+      expect(syncResult.competitorsSynced).toBe(3);
+
+      const insightsResult = CompetitorInsightsResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        totalCompetitors: 3,
+        generatedAt: '2026-02-17T12:00:00.000Z',
+        ownerBenchmark: {
+          totalViews: 100000,
+          avgViewsPerDay: 3225.8,
+          growthRate: 0.12,
+          uploadsPerWeek: 2.3,
+        },
+        items: [
+          {
+            competitorChannelId: 'UC-COMP-001',
+            name: 'Konkurent 1',
+            handle: '@konkurent1',
+            daysWithData: 31,
+            totalViews: 120000,
+            avgViewsPerDay: 3870.9,
+            marketShare: 0.54,
+            relativeGrowth: 0.08,
+            uploadsPerWeek: 2.9,
+            uploadFrequencyDelta: 0.6,
+            momentumScore: 77.4,
+            hitCount: 1,
+            lastHitDate: '2026-01-29',
+          },
+        ],
+        hits: [
+          {
+            competitorChannelId: 'UC-COMP-001',
+            competitorName: 'Konkurent 1',
+            date: '2026-01-29',
+            views: 12000,
+            threshold: 6000,
+            zScore: 4.2,
+          },
+        ],
+      });
+      expect(insightsResult.items[0]?.momentumScore).toBeGreaterThan(0);
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        CompetitorSyncInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+
+      expect(() =>
+        CompetitorInsightsQueryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+    });
+  });
+
+  describe('Topic intelligence DTO', () => {
+    it('applies defaults and validates topic intelligence payloads', () => {
+      const runInput = TopicIntelligenceRunInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(runInput.clusterLimit).toBe(12);
+      expect(runInput.gapLimit).toBe(10);
+
+      const queryInput = TopicIntelligenceQueryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(queryInput.clusterLimit).toBe(12);
+      expect(queryInput.gapLimit).toBe(10);
+
+      const result = TopicIntelligenceResultDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        totalClusters: 2,
+        generatedAt: '2026-02-18T10:00:00.000Z',
+        clusters: [
+          {
+            clusterId: 'topic-ai',
+            label: 'ai',
+            keywords: ['ai', 'analiza', 'trend'],
+            videos: 4,
+            ownerViewsTotal: 12000,
+            competitorViewsTotal: 18000,
+            ownerShare: 0.3,
+            nicheShare: 0.45,
+            trendDirection: 'rising',
+            trendDelta: 0.2,
+          },
+        ],
+        gaps: [
+          {
+            clusterId: 'topic-ai',
+            label: 'ai',
+            keywords: ['ai', 'analiza', 'trend'],
+            ownerCoverage: 0.2,
+            nichePressure: 580,
+            gapScore: 4200,
+            cannibalizationRisk: 0.3,
+            trendDirection: 'rising',
+            confidence: 'medium',
+            rationale: 'Temat ma wyzsze cisnienie niszowe niz aktualne pokrycie kanalu.',
+          },
+        ],
+      });
+
+      expect(result.gaps[0]?.clusterId).toBe('topic-ai');
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        TopicIntelligenceRunInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+
+      expect(() =>
+        TopicIntelligenceQueryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+    });
+  });
+
+  describe('Planning system DTO', () => {
+    it('applies defaults and validates planning payloads', () => {
+      const generateInput = PlanningGenerateInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-02-20',
+        dateTo: '2026-02-28',
+      });
+
+      expect(generateInput.maxRecommendations).toBe(7);
+      expect(generateInput.clusterLimit).toBe(12);
+      expect(generateInput.gapLimit).toBe(10);
+
+      const getInput = PlanningGetPlanInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-02-20',
+        dateTo: '2026-02-28',
+      });
+      expect(getInput.channelId).toBe('UC123');
+
+      const result = PlanningPlanResultDTOSchema.parse({
+        planId: 'plan-UC123-2026-02-20-2026-02-28',
+        channelId: 'UC123',
+        dateFrom: '2026-02-20',
+        dateTo: '2026-02-28',
+        generatedAt: '2026-02-17T18:00:00.000Z',
+        totalRecommendations: 1,
+        items: [
+          {
+            recommendationId: 'rec-001',
+            slotDate: '2026-02-20',
+            slotOrder: 1,
+            topicClusterId: 'topic-ai',
+            topicLabel: 'AI',
+            suggestedTitle: 'AI w praktyce: 3 błędy i jak ich uniknąć',
+            priorityScore: 84.5,
+            confidence: 'high',
+            rationale: 'Wysokie ciśnienie niszy, dobra jakość historyczna i aktywność konkurencji.',
+            evidence: [
+              {
+                evidenceId: 'ev-1',
+                source: 'topic_intelligence',
+                label: 'Wynik luki',
+                value: '7200.50',
+                context: 'topic-overlaptopic',
+              },
+            ],
+            warnings: ['Wysokie ryzyko kanibalizacji. Zachowaj odstęp od podobnych publikacji.'],
+          },
+        ],
+      });
+
+      expect(result.items[0]?.confidence).toBe('high');
+      expect(result.items[0]?.evidence.length).toBeGreaterThan(0);
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        PlanningGenerateInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-03-01',
+          dateTo: '2026-02-28',
+        })).toThrow();
+
+      expect(() =>
+        PlanningGetPlanInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-03-01',
+          dateTo: '2026-02-28',
+        })).toThrow();
+    });
+  });
+
+  describe('Reports DTO', () => {
+    it('applies defaults for report generate input', () => {
+      const parsed = ReportGenerateInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+
+      expect(parsed.targetMetric).toBe('views');
+    });
+
+    it('applies defaults for report export input', () => {
+      const parsed = ReportExportInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+
+      expect(parsed.targetMetric).toBe('views');
+      expect(parsed.formats).toEqual(['json', 'csv']);
+    });
+
+    it('validates report generate and export results', () => {
+      const generated = ReportGenerateResultDTOSchema.parse({
+        generatedAt: '2026-02-12T23:00:00.000Z',
+        channel: {
+          channelId: 'UC123',
+          name: 'Kanał testowy',
+        },
+        range: {
+          dateFrom: '2026-01-01',
+          dateTo: '2026-01-31',
+          days: 31,
+        },
+        kpis: {
+          subscribers: 10000,
+          subscribersDelta: 250,
+          views: 500000,
+          viewsDelta: 40000,
+          videos: 100,
+          videosDelta: 4,
+          avgViewsPerVideo: 5000,
+          engagementRate: 0.06,
+        },
+        timeseries: {
+          metric: 'views',
+          granularity: 'day',
+          points: [
+            { date: '2026-01-01', value: 12345 },
+          ],
+        },
+        forecast: {
+          channelId: 'UC123',
+          targetMetric: 'views',
+          modelType: 'holt-winters',
+          trainedAt: '2026-02-12T22:00:00.000Z',
+          points: [
+            {
+              date: '2026-02-13',
+              horizonDays: 1,
+              predicted: 14000,
+              p10: 12000,
+              p50: 14000,
+              p90: 16000,
+            },
+          ],
+        },
+        topVideos: [
+          {
+            videoId: 'VID-001',
+            title: 'Top film',
+            publishedAt: '2025-12-01T12:00:00.000Z',
+            viewCount: 123456,
+            likeCount: 7000,
+            commentCount: 800,
+          },
+        ],
+        insights: [
+          {
+            code: 'INSIGHT_VIEWS_GROWTH',
+            title: 'Wyświetlenia rosną',
+            description: 'Kanał zanotował dodatnią zmianę wyświetleń.',
+            severity: 'good',
+          },
+        ],
+      });
+      expect(generated.range.days).toBe(31);
+
+      const exported = ReportExportResultDTOSchema.parse({
+        generatedAt: '2026-02-12T23:00:00.000Z',
+        exportDir: 'C:/reports/export-001',
+        files: [
+          {
+            kind: 'kpi_summary.json',
+            path: 'C:/reports/export-001/kpi_summary.json',
+            sizeBytes: 120,
+          },
+        ],
+      });
+
+      expect(exported.files).toHaveLength(1);
+    });
+  });
+
+  describe('Diagnostics DTO', () => {
+    it('applies defaults and validates diagnostics health payloads', () => {
+      const healthInput = DiagnosticsGetHealthInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+      });
+      expect(healthInput.windowHours).toBe(24);
+
+      const healthResult = DiagnosticsHealthResultDTOSchema.parse({
+        generatedAt: '2026-02-17T20:00:00.000Z',
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        windowHours: 24,
+        overallStatus: 'warning',
+        checks: [
+          {
+            checkId: 'db.integrity',
+            module: 'db',
+            status: 'ok',
+            message: 'Integralnosc bazy danych jest poprawna.',
+            durationMs: 3,
+            details: { quickCheck: 'ok', foreignKeyViolations: 0 },
+          },
+          {
+            checkId: 'cache.snapshot',
+            module: 'cache',
+            status: 'warning',
+            message: 'Cache analityki ma niski hit-rate.',
+            durationMs: 2,
+            details: { hitRate: 0.12 },
+          },
+        ],
+      });
+      expect(healthResult.checks).toHaveLength(2);
+    });
+
+    it('validates recovery payloads', () => {
+      const recoveryInput = DiagnosticsRunRecoveryInputDTOSchema.parse({
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        actions: ['invalidate_analytics_cache', 'rerun_data_pipeline', 'integrity_check'],
+      });
+      expect(recoveryInput.actions).toHaveLength(3);
+
+      const recoveryResult = DiagnosticsRunRecoveryResultDTOSchema.parse({
+        generatedAt: '2026-02-17T20:05:00.000Z',
+        channelId: 'UC123',
+        dateFrom: '2026-01-01',
+        dateTo: '2026-01-31',
+        requestedActions: ['invalidate_analytics_cache', 'rerun_data_pipeline', 'integrity_check'],
+        overallStatus: 'ok',
+        steps: [
+          {
+            action: 'invalidate_analytics_cache',
+            status: 'ok',
+            message: 'Zainwalidowano cache analityki.',
+            durationMs: 1,
+            details: { revision: 3, invalidatedEntries: 7 },
+          },
+          {
+            action: 'integrity_check',
+            status: 'ok',
+            message: 'Szybki check integralnosci zakonczyl sie powodzeniem.',
+            durationMs: 2,
+            details: { quickCheck: 'ok', foreignKeyViolations: 0 },
+          },
+        ],
+      });
+      expect(recoveryResult.overallStatus).toBe('ok');
+    });
+
+    it('rejects invalid date range', () => {
+      expect(() =>
+        DiagnosticsGetHealthInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+        })).toThrow();
+
+      expect(() =>
+        DiagnosticsRunRecoveryInputDTOSchema.parse({
+          channelId: 'UC123',
+          dateFrom: '2026-02-01',
+          dateTo: '2026-01-31',
+          actions: ['integrity_check'],
+        })).toThrow();
+    });
+  });
+
+  describe('Profile/Auth/Settings DTO', () => {
+    it('validates profile create/list/set-active payloads', () => {
+      const createInput = ProfileCreateInputDTOSchema.parse({
+        name: 'Profil testowy',
+      });
+      expect(createInput.setActive).toBe(true);
+
+      const setActiveInput = ProfileSetActiveInputDTOSchema.parse({
+        profileId: 'PROFILE-TEST-001',
+      });
+      expect(setActiveInput.profileId).toBe('PROFILE-TEST-001');
+
+      const listResult = ProfileListResultDTOSchema.parse({
+        activeProfileId: 'PROFILE-TEST-001',
+        profiles: [
+          {
+            id: 'PROFILE-TEST-001',
+            name: 'Profil testowy',
+            isActive: true,
+            createdAt: '2026-02-12T23:30:00.000Z',
+            updatedAt: '2026-02-12T23:30:00.000Z',
+          },
+        ],
+      });
+      expect(listResult.profiles).toHaveLength(1);
+    });
+
+    it('validates settings defaults and auth payloads', () => {
+      const settings = ProfileSettingsDTOSchema.parse({});
+      expect(settings.defaultDatePreset).toBe('30d');
+      expect(settings.preferredForecastMetric).toBe('views');
+      expect(settings.language).toBe('pl');
+
+      const authConnectInput = AuthConnectInputDTOSchema.parse({
+        provider: 'youtube',
+        accountLabel: 'Kanał Testowy',
+        accessToken: 'token-value',
+      });
+      expect(authConnectInput.provider).toBe('youtube');
+
+      const authStatus = AuthStatusDTOSchema.parse({
+        connected: true,
+        provider: 'youtube',
+        accountLabel: 'Kanał Testowy',
+        connectedAt: '2026-02-12T23:30:00.000Z',
+        storage: 'safeStorage',
+      });
+      expect(authStatus.connected).toBe(true);
+    });
+  });
+
+  describe('CSV import and search DTO', () => {
+    it('applies defaults and validates CSV import preview payloads', () => {
+      const previewInput = CsvImportPreviewInputDTOSchema.parse({
+        channelId: 'UC123',
+        csvText: 'date,views,subscribers,videos\n2026-01-01,100,10,1',
+      });
+      expect(previewInput.sourceName).toBe('manual-csv');
+      expect(previewInput.delimiter).toBe('auto');
+      expect(previewInput.hasHeader).toBe(true);
+      expect(previewInput.previewRowsLimit).toBe(10);
+
+      const previewResult = CsvImportPreviewResultDTOSchema.parse({
+        channelId: 'UC123',
+        sourceName: 'manual-csv',
+        detectedDelimiter: 'comma',
+        headers: ['date', 'views', 'subscribers', 'videos'],
+        rowsTotal: 1,
+        sampleRows: [
+          {
+            date: '2026-01-01',
+            views: '100',
+            subscribers: '10',
+            videos: '1',
+          },
+        ],
+        suggestedMapping: {
+          date: 'date',
+          views: 'views',
+          subscribers: 'subscribers',
+          videos: 'videos',
+        },
+      });
+      expect(previewResult.rowsTotal).toBe(1);
+    });
+
+    it('validates CSV import run and search payloads', () => {
+      const runInput = CsvImportRunInputDTOSchema.parse({
+        channelId: 'UC123',
+        csvText: 'date,views,subscribers,videos\n2026-01-01,100,10,1',
+        mapping: {
+          date: 'date',
+          views: 'views',
+          subscribers: 'subscribers',
+          videos: 'videos',
+        },
+      });
+      expect(runInput.sourceName).toBe('manual-csv');
+
+      const runResult = CsvImportRunResultDTOSchema.parse({
+        importId: 1,
+        channelId: 'UC123',
+        sourceName: 'manual-csv',
+        rowsTotal: 2,
+        rowsValid: 1,
+        rowsInvalid: 1,
+        importedDateFrom: '2026-01-01',
+        importedDateTo: '2026-01-01',
+        pipelineFeatures: 90,
+        latestFeatureDate: '2026-01-01',
+        validationIssues: [
+          {
+            rowNumber: 3,
+            column: 'views',
+            code: 'CSV_IMPORT_INVALID_NUMBER',
+            message: 'Wartosc metryki nie jest liczba nieujemna.',
+            value: 'abc',
+          },
+        ],
+      });
+      expect(runResult.validationIssues).toHaveLength(1);
+
+      const searchInput = SearchContentInputDTOSchema.parse({
+        channelId: 'UC123',
+        query: 'test',
+      });
+      expect(searchInput.limit).toBe(20);
+      expect(searchInput.offset).toBe(0);
+
+      const searchResult = SearchContentResultDTOSchema.parse({
+        channelId: 'UC123',
+        query: 'test',
+        total: 1,
+        items: [
+          {
+            documentId: 'video:VID-001',
+            videoId: 'VID-001',
+            title: 'Testowy film',
+            publishedAt: '2026-01-01T00:00:00.000Z',
+            snippet: '... <mark>test</mark> ...',
+            source: 'title',
+            score: -2.5,
+          },
+        ],
+      });
+      expect(searchResult.items).toHaveLength(1);
+    });
+  });
+
+  describe('Assistant DTO', () => {
+    it('applies defaults for assistant ask input and validates result payload', () => {
+      const askInput = AssistantAskInputDTOSchema.parse({
+        channelId: 'UC123',
+        question: 'Jak szly moje filmy w ostatnim miesiacu?',
+      });
+
+      expect(askInput.targetMetric).toBe('views');
+
+      const askResult = AssistantAskResultDTOSchema.parse({
+        threadId: 'thread-001',
+        messageId: 2,
+        answer: 'W analizowanym okresie kanal utrzymal stabilny wzrost.',
+        confidence: 'high',
+        followUpQuestions: ['Czy chcesz porownanie z poprzednim okresem?'],
+        evidence: [
+          {
+            evidenceId: 'ev-1',
+            tool: 'read_kpis',
+            label: 'Suma wyswietlen',
+            value: '50000',
+            sourceTable: 'fact_channel_day',
+            sourceRecordId: 'channel=UC123;date=2026-01-01..2026-01-31',
+          },
+        ],
+        usedStub: true,
+        createdAt: '2026-02-16T00:40:00.000Z',
+      });
+
+      expect(askResult.evidence).toHaveLength(1);
+      expect(askResult.usedStub).toBe(true);
+    });
+
+    it('validates assistant thread listing and message history payloads', () => {
+      const listInput = AssistantThreadListInputDTOSchema.parse({});
+      expect(listInput.limit).toBe(20);
+
+      const listResult = AssistantThreadListResultDTOSchema.parse({
+        items: [
+          {
+            threadId: 'thread-001',
+            channelId: 'UC123',
+            title: 'Jak szly moje filmy w ostatnim miesiacu?',
+            lastQuestion: 'Jak szly moje filmy w ostatnim miesiacu?',
+            updatedAt: '2026-02-16T00:41:00.000Z',
+            createdAt: '2026-02-16T00:40:00.000Z',
+          },
+        ],
+      });
+      expect(listResult.items).toHaveLength(1);
+
+      const messagesInput = AssistantThreadMessagesInputDTOSchema.parse({
+        threadId: 'thread-001',
+      });
+      expect(messagesInput.threadId).toBe('thread-001');
+
+      const messagesResult = AssistantThreadMessagesResultDTOSchema.parse({
+        threadId: 'thread-001',
+        channelId: 'UC123',
+        title: 'Jak szly moje filmy w ostatnim miesiacu?',
+        messages: [
+          {
+            messageId: 1,
+            threadId: 'thread-001',
+            role: 'user',
+            text: 'Jak szly moje filmy w ostatnim miesiacu?',
+            confidence: null,
+            followUpQuestions: [],
+            evidence: [],
+            createdAt: '2026-02-16T00:40:00.000Z',
+          },
+          {
+            messageId: 2,
+            threadId: 'thread-001',
+            role: 'assistant',
+            text: 'W analizowanym okresie kanal utrzymal stabilny wzrost.',
+            confidence: 'high',
+            followUpQuestions: ['Czy chcesz porownanie z poprzednim okresem?'],
+            evidence: [
+              {
+                evidenceId: 'ev-1',
+                tool: 'read_kpis',
+                label: 'Suma wyswietlen',
+                value: '50000',
+                sourceTable: 'fact_channel_day',
+                sourceRecordId: 'channel=UC123;date=2026-01-01..2026-01-31',
+              },
+            ],
+            createdAt: '2026-02-16T00:40:01.000Z',
+          },
+        ],
+      });
+
+      expect(messagesResult.messages).toHaveLength(2);
+    });
+  });
+
+  describe('Channel constants', () => {
+    it('IPC_CHANNELS has expected keys', () => {
+      expect(IPC_CHANNELS.APP_GET_STATUS).toBe('app:getStatus');
+      expect(IPC_CHANNELS.APP_GET_DATA_MODE).toBe('app:getDataMode');
+      expect(IPC_CHANNELS.APP_SET_DATA_MODE).toBe('app:setDataMode');
+      expect(IPC_CHANNELS.APP_PROBE_DATA_MODE).toBe('app:probeDataMode');
+      expect(IPC_CHANNELS.IMPORT_CSV_PREVIEW).toBe('import:previewCsv');
+      expect(IPC_CHANNELS.IMPORT_CSV_RUN).toBe('import:runCsv');
+      expect(IPC_CHANNELS.SEARCH_CONTENT).toBe('search:content');
+      expect(IPC_CHANNELS.PROFILE_LIST).toBe('profile:list');
+      expect(IPC_CHANNELS.PROFILE_CREATE).toBe('profile:create');
+      expect(IPC_CHANNELS.PROFILE_SET_ACTIVE).toBe('profile:setActive');
+      expect(IPC_CHANNELS.SETTINGS_GET).toBe('settings:get');
+      expect(IPC_CHANNELS.SETTINGS_UPDATE).toBe('settings:update');
+      expect(IPC_CHANNELS.AUTH_GET_STATUS).toBe('auth:getStatus');
+      expect(IPC_CHANNELS.AUTH_CONNECT).toBe('auth:connect');
+      expect(IPC_CHANNELS.AUTH_DISCONNECT).toBe('auth:disconnect');
+      expect(IPC_CHANNELS.SYNC_START).toBe('sync:start');
+      expect(IPC_CHANNELS.SYNC_RESUME).toBe('sync:resume');
+      expect(IPC_CHANNELS.ML_RUN_BASELINE).toBe('ml:runBaseline');
+      expect(IPC_CHANNELS.ML_GET_FORECAST).toBe('ml:getForecast');
+      expect(IPC_CHANNELS.ML_DETECT_ANOMALIES).toBe('ml:detectAnomalies');
+      expect(IPC_CHANNELS.ML_GET_ANOMALIES).toBe('ml:getAnomalies');
+      expect(IPC_CHANNELS.ML_GET_TREND).toBe('ml:getTrend');
+      expect(IPC_CHANNELS.REPORTS_GENERATE).toBe('reports:generate');
+      expect(IPC_CHANNELS.REPORTS_EXPORT).toBe('reports:export');
+      expect(IPC_CHANNELS.ANALYTICS_GET_QUALITY_SCORES).toBe('analytics:getQualityScores');
+      expect(IPC_CHANNELS.ANALYTICS_SYNC_COMPETITORS).toBe('analytics:syncCompetitors');
+      expect(IPC_CHANNELS.ANALYTICS_GET_COMPETITOR_INSIGHTS).toBe('analytics:getCompetitorInsights');
+      expect(IPC_CHANNELS.ANALYTICS_RUN_TOPIC_INTELLIGENCE).toBe('analytics:runTopicIntelligence');
+      expect(IPC_CHANNELS.ANALYTICS_GET_TOPIC_INTELLIGENCE).toBe('analytics:getTopicIntelligence');
+      expect(IPC_CHANNELS.PLANNING_GENERATE_PLAN).toBe('planning:generatePlan');
+      expect(IPC_CHANNELS.PLANNING_GET_PLAN).toBe('planning:getPlan');
+      expect(IPC_CHANNELS.DIAGNOSTICS_GET_HEALTH).toBe('diagnostics:getHealth');
+      expect(IPC_CHANNELS.DIAGNOSTICS_RUN_RECOVERY).toBe('diagnostics:runRecovery');
+      expect(IPC_CHANNELS.DB_GET_KPIS).toBe('db:getKpis');
+      expect(IPC_CHANNELS.DB_GET_TIMESERIES).toBe('db:getTimeseries');
+      expect(IPC_CHANNELS.DB_GET_CHANNEL_INFO).toBe('db:getChannelInfo');
+      expect(IPC_CHANNELS.ASSISTANT_ASK).toBe('assistant:ask');
+      expect(IPC_CHANNELS.ASSISTANT_LIST_THREADS).toBe('assistant:listThreads');
+      expect(IPC_CHANNELS.ASSISTANT_GET_THREAD_MESSAGES).toBe('assistant:getThreadMessages');
+    });
+
+    it('IPC_EVENTS has expected keys', () => {
+      expect(IPC_EVENTS.SYNC_PROGRESS).toBe('sync:progress');
+      expect(IPC_EVENTS.SYNC_COMPLETE).toBe('sync:complete');
+      expect(IPC_EVENTS.SYNC_ERROR).toBe('sync:error');
+    });
+  });
+});

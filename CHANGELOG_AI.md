@@ -1,0 +1,1792 @@
+﻿# CHANGELOG_AI
+
+Dziennik zmian wykonywanych przez modele AI.
+
+## Template wpisu
+
+- Data:
+- Autor (model):
+- Zakres plików:
+- Co zmieniono:
+- Dlaczego:
+- Ryzyko/regresja:
+- Jak zweryfikowano:
+- Następny krok:
+
+## 2026-02-18 (v49)
+
+- Data: 2026-02-18
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `package.json`
+  - `apps/desktop/package.json`
+  - `pnpm-lock.yaml`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Wykonano S3 (pierwsze okno maintenance) end-to-end.
+  - Audit/outdated:
+    - odczytano `pnpm audit` oraz `pnpm outdated -r`,
+    - wykonano bezpieczny batch update (bez major upgrade):
+      - `typescript-eslint` -> `8.56.0`,
+      - `electron` -> `40.4.1`.
+  - Zaktualizowano `NEXT_STEP.md`:
+    - S3 oznaczono jako DONE (cykl 1, 2026-02-18),
+    - dodano wynik cyklu i pozostale ryzyka.
+- Dlaczego:
+  - Realizacja planu solo wymaga regularnego, niskiego ryzyka maintenance zamiast rzadkich, duzych aktualizacji.
+- Ryzyko/regresja:
+  - Niskie: aktualizacje patch/minor tylko w narzedziach dev/runtime desktop.
+  - Pozostaje 1 advisory `moderate` (`ajv` przez `eslint`), do domkniecia przy kontrolowanym upgrade `eslint` major.
+- Jak zweryfikowano:
+  - `pnpm audit --json`
+  - `pnpm outdated -r`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm check:perf`
+  - `pnpm check:boundaries`
+  - `pnpm check:loc`
+- Następny krok:
+  - Kontynuowac prace produktowe oraz zaplanowac kolejne okno S3 za 2-4 tygodnie (z osobnym planem dla major update toolchainu).
+
+## 2026-02-18 (v48)
+
+- Data: 2026-02-18
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `NEXT_STEP.md`
+  - `scripts/check-loc-budget.mjs`
+  - `docs/runbooks/smoke-regression-solo.md`
+  - `docs/runbooks/test-plan-faza-0-8.md`
+  - `SYSTEM_NOTES.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto S1, S2 i S5 w modelu solo.
+  - S1:
+    - skrocono `NEXT_STEP.md` do wersji operacyjnej,
+    - ustanowiono jeden aktualny runbook: `docs/runbooks/smoke-regression-solo.md`,
+    - stary runbook 0-8 oznaczono jako archiwalny.
+  - S2:
+    - `check:loc` przeniesiono z cienkich wrapperow na realne hotspoty:
+      - `apps/ui/src/features/studio/studio-app.tsx`
+      - `apps/desktop/src/runtime/desktop-main.ts`
+      - `apps/desktop/src/ipc-handlers.ts`
+      - `apps/ui/src/hooks/dashboard/use-dashboard-data-core.ts`
+  - S5:
+    - dodano `SYSTEM_NOTES.md` jako minimalna dokumentacje operacyjna dla jednej osoby.
+- Dlaczego:
+  - Uzytkownik potwierdzil utrzymanie aplikacji w trybie solo i poprosil o dopasowanie planu i procesu do pojedynczego wlasciciela.
+- Ryzyko/regresja:
+  - Niskie: zmiany w dokumentacji i skryptach quality gate.
+  - Potencjalne ryzyko operacyjne: `check:loc` moze teraz czesciej sygnalizowac przekroczenia na faktycznych hotspotach (celowe zachowanie).
+- Jak zweryfikowano:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm check:perf`
+  - `pnpm check:boundaries`
+  - `pnpm check:loc`
+- Następny krok:
+  - Rozpoczac S3: pierwsze okno maintenance (`pnpm audit`, `pnpm outdated -r`, bezpieczny batch update).
+
+## 2026-02-18 (v47)
+
+- Data: 2026-02-18
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Dodano nowy plan dalszych prac w trybie solo do `NEXT_STEP.md`.
+  - Plan zostal przestawiony z podejscia "zespolowego" na "single-owner":
+    - etapy obowiazkowe: S1 (porzadek operacyjny), S2 (realne bramki), S3 (cykliczny maintenance),
+    - etapy opcjonalne: S4 (refaktor przy okazji), S5 (minimalna dokumentacja modulow).
+  - Dodano sekcje "Co robimy teraz (najblizsza sesja)" z konkretnym kolejnym ruchem.
+- Dlaczego:
+  - Uzytkownik potwierdzil, ze aplikacja bedzie utrzymywana solo i poprosil o dostosowanie planu do takiego modelu pracy.
+  - Celem jest maksymalny efekt przy minimalnym koszcie utrzymania.
+- Ryzyko/regresja:
+  - Niskie: zmiany tylko dokumentacyjne.
+  - Ryzyko operacyjne: przy zbyt duzym upraszczaniu mozna pominac potrzebne porzadki; dlatego utrzymano obowiazkowe etapy S1-S3.
+- Jak zweryfikowano:
+  - Przeglad spojnosci wpisu i kolejnosci etapow w `NEXT_STEP.md`.
+  - Brak zmian runtime/kontraktow.
+- Następny krok:
+  - Zrealizowac S2: poprawic `check:loc`, aby pilnowal realnych hotspotow kodu.
+
+## 2026-02-17 (v46)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/ui/src/App.tsx`
+  - `apps/ui/src/features/studio/studio-app.tsx`
+  - `apps/ui/src/features/studio/studio-app-helpers.test.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/hooks/dashboard/use-dashboard-data-core.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/runtime/desktop-main.ts`
+  - `apps/desktop/src/ipc-parity.integration.test.ts`
+  - `.github/workflows/ci.yml`
+  - `package.json`
+  - `scripts/check-dependency-boundaries.mjs`
+  - `scripts/check-loc-budget.mjs`
+  - `scripts/check-ui-performance-budget.mjs`
+  - `docs/adr/011-stack-selection.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 20 (refactor stabilizacyjny) bez zmiany funkcjonalnej.
+  - Przeniesiono ciężkie entrypointy do modułów:
+    - `App.tsx` -> `features/studio/studio-app.tsx` (cienki wrapper),
+    - `main.ts` -> `runtime/desktop-main.ts` (cienki wrapper),
+    - `use-dashboard-data.ts` -> `hooks/dashboard/use-dashboard-data-core.ts` (cienki wrapper).
+  - Dodano test parity IPC: `apps/desktop/src/ipc-parity.integration.test.ts`.
+  - Dodano 13 testów UI helperów Studio.
+  - Dodano nowe gate'y CI:
+    - granice zależności (`check:boundaries`),
+    - budżet LOC dla plików brzegowych (`check:loc`),
+    - budżet wydajności UI po buildzie (`check:perf`).
+  - Dodano ADR stacku technologicznego: `docs/adr/011-stack-selection.md`.
+  - Zaktualizowano dokumentację statusową (README/NEXT_STEP/PLAN).
+- Dlaczego:
+  - Celem było zredukowanie długu technicznego i utrwalenie jakości przez twarde gate'y, bez łamania kompatybilności IPC.
+- Ryzyko/regresja:
+  - Niskie: refaktor organizacyjny i testowy, brak zmian kontraktów IPC.
+  - Umiarkowane: duże pliki przeniesiono do nowych lokalizacji, co zwiększa wagę poprawnych ścieżek importu.
+- Jak zweryfikowano:
+  - `corepack pnpm check:boundaries` - PASS
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (130/130)
+  - `corepack pnpm build` - PASS
+  - `corepack pnpm check:perf` - PASS
+- Następny krok:
+  - Tryb utrzymania: małe PR-y z poprawkami UX/copy i dalszą dekompozycją dużych modułów bez zmiany kontraktów.
+
+## 2026-02-17 (v45)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/010-polish-local-ux.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 19 (Polish + Local UX).
+  - W UI (`App.tsx`) dodano:
+    - onboarding first-run z lokalnym zapisem stanu,
+    - skróty klawiszowe (Ctrl+1..5, Ctrl+Enter, Alt+S),
+    - one-click „przebieg tygodniowy” (sync → analiza → plan → raport),
+    - spójne akcje retry dla kluczowych paneli,
+    - poprawki copy PL i responsywności (układ asystenta na mniejszych ekranach).
+  - Dodano ADR `docs/adr/010-polish-local-ux.md` z decyzją i scope freeze.
+  - Zaktualizowano statusy dokumentacji:
+    - `NEXT_STEP.md`: Faza 19 oznaczona jako DONE,
+    - `docs/PLAN_REALIZACJI.md`: checklista uzupełniona o DONE Faza 19,
+    - `README.md`: odświeżony status projektu i instrukcja uruchomienia.
+- Dlaczego:
+  - Celem było domknięcie ergonomii codziennej pracy single-user i przygotowanie aplikacji do wygodnego używania oraz testów manualnych/regresyjnych.
+- Ryzyko/regresja:
+  - Umiarkowane: nowy one-click flow uruchamia kilka mutacji sekwencyjnie, więc przy niestabilnych danych wejściowych może kończyć się wcześniej na pierwszym błędzie.
+  - Niskie: zmiany nie łamią kontraktów IPC i nie wprowadzają migracji DB.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Tryb utrzymania: manual QA na głównych flow oraz małe poprawki UX/copy wg zgłoszeń.
+
+## 2026-02-17 (v44)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/diagnostics/src/diagnostics-service.ts`
+  - `packages/diagnostics/src/diagnostics-service.integration.test.ts`
+  - `packages/diagnostics/src/index.ts`
+  - `apps/desktop/package.json`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/009-diagnostics-recovery.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `pnpm-lock.yaml`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 18 (Diagnostics + Recovery) end-to-end.
+  - Dodano kontrakty IPC/DTO:
+    - `diagnostics:getHealth`,
+    - `diagnostics:runRecovery`.
+  - Wdrożono pakiet `@moze/diagnostics`:
+    - health checks: DB integrity, cache snapshot, pipeline freshness, IPC bridge,
+    - recovery actions: `integrity_check`, `invalidate_analytics_cache`, `rerun_data_pipeline`, `reindex_fts`, `vacuum_database`.
+  - Podłączono desktop runtime + IPC + preload dla `diagnostics:*` wraz z tracingiem.
+  - Dodano panel UI `Diagnostyka i recovery (Faza 18)` z odświeżaniem health check i uruchamianiem recovery.
+  - Dodano/rozszerzono testy integracyjne (diagnostics/shared/desktop).
+  - Dodano ADR `docs/adr/009-diagnostics-recovery.md`.
+  - Zaktualizowano statusy dokumentacji (README/NEXT_STEP/PLAN).
+- Dlaczego:
+  - Celem było dostarczenie jawnej warstwy diagnostyki technicznej i kontrolowanego recovery, aby utrzymać stabilność analityki po domknięciu faz 10-16.
+- Ryzyko/regresja:
+  - Niskie: nowe endpointy są addytywne i nie łamią istniejących kontraktów.
+  - Umiarkowane: akcja `vacuum_database` może trwać dłużej przy większych bazach danych.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (116/116)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 19 (Polish + Local UX) z utrzymaniem Fazy 17 jako `SKIP (solo)`.
+
+## 2026-02-17 (v43)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/012-planning-system-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/analytics/src/planning-system.ts`
+  - `packages/analytics/src/planning-system.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/008-planning-system.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Fazę 16 (Planning System) end-to-end.
+  - Dodano kontrakty IPC/DTO i kanały:
+    - `planning:generatePlan`,
+    - `planning:getPlan`.
+  - Dodano migrację `012-planning-system-schema`:
+    - `planning_plans`,
+    - `planning_recommendations`.
+  - W `@moze/analytics` dodano serwis planera:
+    - `generatePlanningPlan(...)`,
+    - `getPlanningPlan(...)`,
+    - deterministyczny ranking z sygnałów quality + competitor + topic,
+    - conflict resolution (deduplikacja tematów + kara za kanibalizację),
+    - persystencja i read-only odczyt planu.
+  - W runtime desktop + IPC + preload podłączono nowe komendy `planning:*` z tracingiem.
+  - W UI dodano panel `System planowania (Faza 16)`:
+    - generowanie planu publikacji,
+    - lista rekomendacji ze slotami, confidence, rationale i evidence,
+    - ostrzeżenia o ryzyku kanibalizacji.
+  - Dodano ADR `docs/adr/008-planning-system.md` oraz zaktualizowano statusy:
+    - Faza 16 = DONE,
+    - Faza 17 = SKIP (solo),
+    - następna Faza 18.
+- Dlaczego:
+  - Celem było zamknięcie etapu planowania publikacji na bazie istniejących sygnałów analitycznych i przygotowanie wejścia do Fazy 18 (Diagnostics + Recovery), przy zachowaniu decyzji że Faza 17 jest skipowana.
+- Ryzyko/regresja:
+  - Umiarkowane: heurystyczne wagi i progi planera mogą wymagać strojenia na danych produkcyjnych.
+  - Niskie: ścieżka IPC/UI i kontrakty są pokryte testami integracyjnymi i walidacją Zod.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (110/110)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 18 (Diagnostics + Recovery) i utrzymać Faza 17 jako SKIP (solo) bez implementacji plugin runtime.
+
+## 2026-02-17 (v42)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/analytics/src/topic-intelligence.ts`
+  - `packages/analytics/src/topic-intelligence.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/007-topic-intelligence.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Fazę 15 (Topic Intelligence) end-to-end.
+  - `@moze/analytics`:
+    - dodano i dopracowano `runTopicIntelligence(...)` oraz `getTopicIntelligence(...)`,
+    - dodano persystencję do `dim_topic_cluster`, `fact_topic_pressure_day`, `agg_topic_gaps`,
+    - dopracowano tokenizację/stemming i trend/gap scoring.
+  - Dodano test integracyjny `packages/analytics/src/topic-intelligence.integration.test.ts`:
+    - scenariusz deterministyczny (clusters/gaps + persystencja),
+    - scenariusz overlap/cannibalization.
+  - Desktop runtime + IPC + preload:
+    - nowe kanały i handlery:
+      - `analytics:runTopicIntelligence`,
+      - `analytics:getTopicIntelligence`,
+    - tracing + invalidacja cache po udanym `runTopicIntelligence`.
+  - UI:
+    - podłączono API i hooki React Query dla Topic Intelligence,
+    - dodano panel `Analiza tematów (Faza 15)` w zakładce `Statystyki`,
+    - lista luk tematycznych + lista klastrów i trendów.
+  - Dokumentacja:
+    - dodano ADR `docs/adr/007-topic-intelligence.md`,
+    - zaktualizowano statusy w `README.md` i `NEXT_STEP.md` (Faza 15 = DONE, kolejna Faza 16).
+- Dlaczego:
+  - Celem było domknięcie analizy tematów i wykrywania luk contentowych względem niszy oraz przygotowanie fundamentu pod Fazę 16 (Planning System).
+- Ryzyko/regresja:
+  - Umiarkowane: heurystyczna klasteryzacja tokenowa może wymagać strojenia na realnych danych.
+  - Niskie: kontrakty IPC i integracje są pokryte testami; walidacja E2E przeszła.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (106/106)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 16 (Planning System) zgodnie ze scope freeze w `NEXT_STEP.md`.
+
+## 2026-02-17 (v41)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/desktop/src/main.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/006-competitor-intelligence.md`
+  - `packages/analytics/src/competitor-intelligence.integration.test.ts`
+  - `packages/analytics/src/competitor-intelligence.ts`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Poprawiono invalidację cache po udanym `syncCompetitorSnapshots` w `syncCompetitorsCommand`:
+    - po sukcesie wywoływane jest `invalidateAnalyticsCache('competitor-sync', ...)`.
+  - Zabezpieczono przycisk synchronizacji konkurencji w UI:
+    - dodano flagę `isCompetitorSyncDisabled`,
+    - przycisk jest blokowany dla niepoprawnego kontekstu,
+    - `onClick` ma guard i nie wysyła mutacji przy niepoprawnych danych.
+  - Poprawiono literówki/gramatykę w ADR 006:
+    - `sa robione` -> `są robione`,
+    - `radar chart wizualnego` -> `wizualny wykres radarowy`.
+  - W teście integracyjnym competitor:
+    - zmieniono komunikat błędu fixture na angielski (`No data in fixture channelDaily.`),
+    - usunięto zbędne `ORDER BY ... LIMIT 1` z zapytania `COUNT(*)`.
+  - W `getCompetitorInsights` zmieniono liczenie `marketShare` na udział w pełnym rynku:
+    - denominator uwzględnia `ownerTotalViews + totalCompetitorsViews`.
+- Dlaczego:
+  - Celem było domknięcie review: świeżość cache po sync, brak invalid payloadów z UI, czystość testów i poprawna semantyka market share.
+- Ryzyko/regresja:
+  - Niskie: zmiany punktowe, pokryte lint/typecheck/test.
+  - Umiarkowane: zmiana definicji `marketShare` może nieznacznie zmienić wartości prezentowane w UI.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test -- packages/analytics/src/competitor-intelligence.integration.test.ts apps/desktop/src/ipc-handlers.integration.test.ts packages/shared/src/ipc/contracts.test.ts` - PASS
+- Następny krok:
+  - Dodać te poprawki do istniejącego PR #18 i kontynuować review bez merge automatycznego.
+
+## 2026-02-17 (v40)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/010-competitor-intelligence-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/analytics/src/competitor-intelligence.ts`
+  - `packages/analytics/src/competitor-intelligence.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/006-competitor-intelligence.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 14 (Competitor Intelligence) end-to-end.
+  - Dodano kontrakty IPC/DTO i kanały:
+    - `analytics:syncCompetitors`,
+    - `analytics:getCompetitorInsights`.
+  - Dodano migrację `010-competitor-intelligence-schema`:
+    - `dim_competitor`,
+    - `fact_competitor_day`,
+    - indeksy pod odczyty porównawcze.
+  - Wdrożono nowy serwis `@moze/analytics`:
+    - `syncCompetitorSnapshots(...)` z delta detection (`inserted/updated/unchanged`),
+    - `getCompetitorInsights(...)` (relative growth, market share, content frequency, hit detection > 3 sigma, momentum ranking).
+  - Podłączono desktop backend + IPC + preload + UI API + hooki React Query.
+  - Dodano panel "Analiza konkurencji (Faza 14)" w zakładce `Statystyki`:
+    - synchronizacja konkurencji,
+    - ranking momentum,
+    - lista wykrytych hitów.
+  - Dodano testy integracyjne (analytics/shared/desktop/core) oraz ADR `006-competitor-intelligence.md`.
+  - Zaktualizowano statusy i następne kroki w `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`.
+- Dlaczego:
+  - Celem było dostarczenie systemowej analizy konkurencji i sygnałów "hit" konkurentów w tej samej ścieżce IPC/UI co pozostała analityka.
+- Ryzyko/regresja:
+  - Umiarkowane: nowa logika generowania snapshotów konkurencji bazuje na deterministicznym local-stub, więc nie odzwierciedla jeszcze realnego API providerów.
+  - Niskie: kontrakty są backward-compatible, a nowy zakres jest pokryty testami integracyjnymi.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (102/102)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 15 (Topic Intelligence): schema topic clusters, pipeline TF-IDF + clustering i panel gap detection w UI.
+
+## 2026-02-17 (v38)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/009-quality-scoring-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/analytics/src/quality-scoring.ts`
+  - `packages/analytics/src/quality-scoring.integration.test.ts`
+  - `packages/analytics/src/index.ts`
+  - `apps/desktop/package.json`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `docs/adr/005-quality-scoring.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `pnpm-lock.yaml`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknięto Fazę 13 (Quality Scoring) end-to-end.
+  - Dodano kontrakty IPC/DTO dla quality scoring oraz kanał `analytics:getQualityScores`.
+  - Dodano migrację `009-quality-scoring-schema` z tabelą `agg_quality_scores`.
+  - Wdrożono `@moze/analytics/getQualityScores(...)`:
+    - komponenty velocity/efficiency/engagement/retention/consistency,
+    - normalizacja percentile rank w kanale,
+    - confidence labels na podstawie dni historii,
+    - zapis breakdown do SQLite.
+  - Podłączono desktop backend + IPC + preload + UI API + hooki React Query.
+  - Dodano panel "Quality scoring (Faza 13)" w zakładce `Statystyki`.
+  - Dodano i rozszerzono testy integracyjne (analytics/shared/desktop/core).
+  - Dodano ADR `005-quality-scoring.md` oraz zaktualizowano statusy dokumentacji (README/NEXT_STEP/PLAN).
+- Dlaczego:
+  - Celem było dostarczenie wielowymiarowego rankingu jakości contentu z jawną wiarygodnością wyniku i pełną ścieżką IPC/UI.
+- Ryzyko/regresja:
+  - Score jest relatywny (percentile wewnątrz kanału), więc zmienia się wraz z rozkładem danych.
+  - Każde odświeżenie rankingu wykonuje przeliczenie i persystencję `agg_quality_scores` dla zakresu.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (98/98)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Rozpocząć Fazę 14 (Competitor Intelligence): schemat konkurencji, ingestion snapshotów i hit detection z integracją UI/IPC.
+
+## 2026-02-17 (v39)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `packages/analytics/src/quality-scoring.integration.test.ts`
+  - `apps/ui/src/App.tsx`
+  - `packages/core/src/migrations/009-quality-scoring-schema.ts`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Usunięto przyczynę błędu ESLint (`@typescript-eslint/no-unnecessary-condition`) w teście quality scoring:
+    - zastąpiono zbędny warunek logiczny mapowaniem do typowanej tablicy `confidences`.
+  - Dokończono polonizację sekcji jakości treści w UI:
+    - nagłówki, komunikaty loading/error/empty-state i nazwy komponentów metryk.
+  - Rozszerzono migrację `009-quality-scoring-schema` o CHECK constraints:
+    - `score` w zakresie `0..100`,
+    - składowe `velocity/efficiency/engagement/retention/consistency` w zakresie `0..1`,
+    - zakres dat `date_from <= date_to`.
+  - Poprawiono diakrytykę i spójność językową wpisu v38 w `CHANGELOG_AI.md`.
+- Dlaczego:
+  - Celem było usunięcie faila CI oraz domknięcie uwag review dotyczących lokalizacji i walidacji schematu na poziomie bazy.
+- Ryzyko/regresja:
+  - Niskie: zmiany obejmują test, teksty UI i dodatkowe ograniczenia schematu.
+  - Umiarkowane: nowe CHECK constraints mogą odrzucić niepoprawne dane przy przyszłych zmianach zapisu.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm test packages/analytics/src/quality-scoring.integration.test.ts apps/desktop/src/ipc-handlers.integration.test.ts packages/shared/src/ipc/contracts.test.ts` - PASS
+- Następny krok:
+  - Kontynuować Fazę 14 (Competitor Intelligence) na branchu po merge PR #17.
+
+## 2026-02-17 (v37)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - apps/desktop/src/main.ts
+  - packages/core/src/migrations/008-analytics-query-cache-schema.ts
+  - packages/core/src/migrations/index.ts
+  - packages/core/src/observability/analytics-query-cache.ts
+  - packages/core/src/queries/metrics-queries.ts
+  - packages/core/src/queries/channel-queries.ts
+  - packages/core/src/index.ts
+  - packages/core/src/analytics-query-cache.integration.test.ts
+  - packages/core/src/data-core.integration.test.ts
+  - packages/reports/src/report-service.ts
+  - packages/data-pipeline/src/pipeline-runner.ts
+  - packages/data-pipeline/src/pipeline-runner.integration.test.ts
+  - packages/sync/src/sync-orchestrator.ts
+  - docs/adr/004-performance-cache-incremental-pipeline.md
+  - NEXT_STEP.md
+  - README.md
+  - docs/PLAN_REALIZACJI.md
+  - CHANGELOG_AI.md
+- Co zmieniono:
+  - Domknieto Faze 12 (Performance i stabilnosc) end-to-end.
+  - Dodano cache analityki w SQLite (analytics_query_cache, analytics_cache_events) z TTL, hit/miss/stale/set/invalidate i snapshotem p50/p95 + hit-rate.
+  - Podlaczono cache do kluczowych query pathow (metrics, channel, reports) oraz desktop runtime.
+  - Dodano inwalidacje cache po sync i import oraz logowanie snapshotu wydajnosci.
+  - Wdrozono inkrementalne przeliczanie ml_features w pipeline (changedDateFrom/changedDateTo, bufor rolling 29 dni) i przekazywanie zakresu zmian przez sync/import.
+  - Dodano testy integracyjne cache i incremental pipeline.
+  - Zaktualizowano dokumentacje statusu: Faza 12 = DONE, nastepna Faza 13.
+- Dlaczego:
+  - Celem bylo przyspieszenie odpowiedzi analitycznych i ograniczenie kosztu ponownych przeliczen bez utraty spojnosci danych.
+- Ryzyko/regresja:
+  - Umiarkowane: nowy mechanizm cache/revision i incremental window zwieksza zlozonosc runtime.
+  - Niskie: pokryte testami integracyjnymi i pelna regresja projektu.
+- Jak zweryfikowano:
+  - corepack pnpm lint - PASS
+  - corepack pnpm typecheck - PASS
+  - corepack pnpm test - PASS (93/93)
+  - corepack pnpm build - PASS
+- Nastepny krok:
+  - Rozpoczac Faze 13 (Quality Scoring): schema agg_quality_scores, silnik score + confidence i integracja IPC/UI.
+
+## 2026-02-17 (v36)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/ui/src/App.tsx`
+  - `packages/llm/src/assistant-lite.ts`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Ujednolicono diakrytyke w user-facing tekstach zakladki Asystent AI (naglowki, opisy, stany ladowania/bledow, placeholder, CTA "Nowy watek").
+  - Usunieto N+1 query w `getThreadMessages`: evidence jest pobierane jednym zapytaniem batchowym dla wszystkich `messageId`, a potem grupowane per wiadomosc.
+- Dlaczego:
+  - Celem bylo domkniecie uwag review dotyczacych lokalizacji UI oraz wydajnosci odczytu historii watku.
+- Ryzyko/regresja:
+  - Niskie: zmiany obejmuja teksty UI i warstwe odczytu evidence bez modyfikacji kontraktow DTO/IPC.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (91/91)
+- Nastepny krok:
+  - Zaktualizowac PR #15 o ten commit i przejrzec diff pod katem copy w zakladce Asystent AI.
+
+## 2026-02-17 (v35)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plików:
+  - `apps/ui/src/App.tsx`
+  - `packages/llm/src/assistant-lite.ts`
+  - `docs/adr/003-llm-assistant-lite-whitelist-localstub.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Naprawiono flow "Nowy watek", aby auto-select pierwszego watku nie nadpisywal intencji utworzenia nowej rozmowy.
+  - Spolszczono user-facing etykiety w panelu asystenta (`Dowody`, `pewnosc`).
+  - Spolszczono komunikaty `createAssistantError(...)` zwracane przez warstwe `@moze/llm` do UI.
+  - Poprawiono diakrytyke w ADR 003 (`WdraĹĽa siÄ™ ...`) oraz naprawiono mojibake w template changeloga.
+  - Zapisano `CHANGELOG_AI.md` jako UTF-8 bez BOM.
+- Dlaczego:
+  - Celem bylo usuniecie regresji UX w watkach asystenta oraz domkniecie wymogu polskiej lokalizacji dla tekstow UI i bledow widocznych dla uzytkownika.
+- Ryzyko/regresja:
+  - Niskie: zmiany obejmuja glownie stringi i logike wyboru aktywnego watku.
+  - Umiarkowane: nowa flaga `isCreatingNewThread` steruje momentem auto-selekcji watku.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS
+  - `corepack pnpm typecheck` - PASS
+  - `corepack pnpm test` - PASS (91/91)
+  - `corepack pnpm build` - PASS
+- Następny krok:
+  - Zrobic review PR #15 pod katem copy i zachowania zakladki Asystent AI na istniejacych danych.
+
+## 2026-02-17 (v34)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - packages/shared/src/ipc/contracts.ts
+  - packages/shared/src/ipc/contracts.test.ts
+  - packages/shared/src/dto/index.ts
+  - packages/shared/src/index.ts
+  - packages/core/src/migrations/007-assistant-lite-schema.ts
+  - packages/core/src/migrations/index.ts
+  - packages/core/src/data-core.integration.test.ts
+  - packages/llm/src/assistant-lite.ts
+  - packages/llm/src/assistant-lite.integration.test.ts
+  - packages/llm/src/index.ts
+  - apps/desktop/package.json
+  - apps/desktop/src/main.ts
+  - apps/desktop/src/ipc-handlers.ts
+  - apps/desktop/src/ipc-handlers.integration.test.ts
+  - apps/desktop/src/preload.ts
+  - apps/ui/src/lib/electron-api.types.ts
+  - apps/ui/src/lib/electron-api.ts
+  - apps/ui/src/hooks/use-dashboard-data.ts
+  - apps/ui/src/App.tsx
+  - README.md
+  - NEXT_STEP.md
+  - docs/PLAN_REALIZACJI.md
+  - CHANGELOG_AI.md
+- Co zmieniono:
+  - Domknieto Faze 11 (LLM Assistant Lite) end-to-end.
+  - Dodano nowe kontrakty IPC/DTO:
+    - assistant:ask,
+    - assistant:listThreads,
+    - assistant:getThreadMessages,
+    - structured response: answer, evidence[], confidence, followUpQuestions[], usedStub.
+  - Dodano migracje 007-assistant-lite-schema:
+    - assistant_threads,
+    - assistant_messages,
+    - assistant_message_evidence.
+  - Wdrozono @moze/llm:
+    - deterministyczny LocalStub,
+    - whitelist narzedzi read-only (read_channel_info, read_kpis, read_top_videos, read_anomalies),
+    - persystencja rozmow i evidence w SQLite.
+  - Zintegrowano desktop runtime + preload + UI:
+    - nowa zakladka Asystent AI,
+    - lista watkow, historia wiadomosci, viewer evidence, status confidence, follow-up questions.
+  - Dodano/rozszerzono testy integracyjne dla shared/llm/desktop/core.
+  - Zaktualizowano dokumentacje statusow: Faza 11 = DONE, nastepna faza = 12.
+- Dlaczego:
+  - Celem bylo uruchomienie evidence-first asystenta dzialajacego offline, bez dowolnego SQL i bez naruszenia granic architektury.
+- Ryzyko/regresja:
+  - LocalStub ma deterministyczna logike heurystyczna; jakosc odpowiedzi zalezy od pokrycia whitelisty narzedzi.
+  - Dodatkowe zapisy do SQLite (historia/evidence) zwiekszaja liczbe operacji I/O przy intensywnym czacie.
+- Jak zweryfikowano:
+  - corepack pnpm lint - PASS
+  - corepack pnpm typecheck - PASS
+  - corepack pnpm test - PASS (91/91)
+  - corepack pnpm build - PASS
+- Nastepny krok:
+  - Rozpoczac Faze 12: cache wynikow analitycznych + invalidacja po sync/import + metryki p50/p95 i hit-rate.
+## 2026-02-15 (v33)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w:
+  - `.github/workflows/ci.yml`
+  - `.gitignore`
+  - `package.json`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/analytics-snapshots.integration.test.ts`
+  - `apps/desktop/src/__snapshots__/analytics-snapshots.integration.test.ts.snap`
+  - `packages/core/src/migrations/006-analytics-trace-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/observability/analytics-tracing.ts`
+  - `packages/core/src/semantic/index.ts`
+  - `packages/core/src/semantic/metrics-semantic-layer.ts`
+  - `packages/core/src/queries/metrics-queries.ts`
+  - `packages/core/src/queries/channel-queries.ts`
+  - `packages/core/src/index.ts`
+  - `packages/core/src/analytics-tracing.integration.test.ts`
+  - `packages/core/src/semantic-metrics.integration.test.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/reports/src/report-service.ts`
+  - `scripts/generate-insight-golden-db.ts`
+  - `scripts/tsconfig.json`
+  - `fixtures/insight_golden.db`
+  - `docs/adr/000-template.md`
+  - `docs/adr/001-evidence-lineage-trace.md`
+  - `docs/adr/002-semantic-metrics-catalog.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - DomkniĂ„â„˘to FazĂ„â„˘ 10.5 (Hardening) end-to-end.
+  - Dodano golden fixture DB i generator danych (`fixtures/insight_golden.db`).
+  - Dodano snapshot tests analityki (23 snapshoty) i krok snapshotÄ‚Ĺ‚w w CI.
+  - Dodano trwaÄąâ€še trace + lineage (`analytics_trace_runs`, `analytics_trace_lineage`) oraz wrapper `runWithAnalyticsTrace(...)`.
+  - Dodano Semantic Layer z katalogiem 20 metryk i wspÄ‚Ĺ‚lnym API odczytu.
+  - PrzepiĂ„â„˘to krytyczne Äąâ€şcieÄąÄ˝ki (KPI/timeseries/channel/report/ML) pod trace i semantic layer.
+  - Dodano ADR template + 2 ADR dla evidence/lineage i semantic catalog.
+  - Zaktualizowano dokumentacjĂ„â„˘ statusÄ‚Ĺ‚w: 10.5 = DONE, nastĂ„â„˘pna faza = 11.
+- Dlaczego:
+  - Celem byÄąâ€šo ustabilizowanie liczb, wykrywanie regresji i przygotowanie foundation pod FazĂ„â„˘ 11 (LLM Assistant Lite) w modelu evidence-first.
+- Ryzyko/regresja:
+  - KaÄąÄ˝de zapytanie z trace dodaje minimalny narzut I/O do SQLite.
+  - Golden DB to fixture deterministyczny, ale trzeba go Äąâ€şwiadomie regenerowaĂ„â€ˇ przy zmianach modelu danych.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS
+  - `pnpm build` - PASS
+- NastĂ„â„˘pny krok:
+  - RozpoczĂ„â€¦Ă„â€ˇ FazĂ„â„˘ 11: LLM Assistant Lite (whitelist tooli read-only, structured answer + evidence, LocalStub, UI chat).
+
+## 2026-02-15 (v32)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5.2-Codex
+- Zakres plikÄ‚Ĺ‚w:
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Wprowadzono nowĂ„â€¦ fazĂ„â„˘ `10.5` (Hardening) pomiĂ„â„˘dzy FazĂ„â€¦ 10 i 11.
+  - Doprecyzowano zakres Fazy 10.5: Golden DB, snapshot tests, trace_id + lineage, Semantic Layer (step 1), ADR mini + scope freeze.
+  - Zmieniono FazĂ„â„˘ 11 na `LLM Assistant (Lite)` z whitelist tooli, evidence-first i LocalStub deterministycznym.
+  - Zmieniono FazĂ„â„˘ 12 na `Performance i stabilnoÄąâ€şĂ„â€ˇ` (cache + inkrementalnoÄąâ€şĂ„â€ˇ po stabilizacji metryk).
+  - Dodano staÄąâ€šĂ„â€¦ zasadĂ„â„˘ procesu: mini ADR + 10-min scope freeze przed kaÄąÄ˝dĂ„â€¦ nowĂ„â€¦ fazĂ„â€¦.
+  - Zsynchronizowano status i mapĂ„â„˘ faz w `NEXT_STEP.md` oraz tabelĂ„â„˘ postĂ„â„˘pu w `README.md` (nastĂ„â„˘pna faza = 10.5).
+- Dlaczego:
+  - Celem byÄąâ€šo utrzymanie spÄ‚Ĺ‚jnoÄąâ€şci roadmapy po domkniĂ„â„˘ciu Faz 0-10 i dodanie minimalnych, praktycznych zabezpieczeÄąâ€ž przed wdraÄąÄ˝aniem asystenta LLM.
+- Ryzyko/regresja:
+  - Zmiany sĂ„â€¦ dokumentacyjne; brak ryzyka runtime.
+  - Ryzyko organizacyjne: bez pilnowania scope freeze faza 10.5 moÄąÄ˝e nadmiernie rozrosnĂ„â€¦Ă„â€ˇ zakres.
+- Jak zweryfikowano:
+  - Odczyt i porÄ‚Ĺ‚wnanie sekcji faz w `docs/PLAN_REALIZACJI.md`, `NEXT_STEP.md`, `README.md`.
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS
+  - `pnpm build` - PASS
+- NastĂ„â„˘pny krok:
+  - RozpoczĂ„â€¦Ă„â€ˇ implementacjĂ„â„˘ Fazy 10.5 zgodnie z DoD i zamknĂ„â€¦Ă„â€ˇ ADR/evidence baseline przed startem Fazy 11 Lite.
+
+## 2026-02-15 (v31)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w:
+  - `packages/core/src/migrations/005-ml-anomaly-trend-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/ml/src/anomaly-trend.ts`
+  - `packages/ml/src/anomaly-trend.integration.test.ts`
+  - `packages/ml/src/index.ts`
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `apps/desktop/src/main.ts`, `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/components/studio-forecast-chart.tsx`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - DomkniĂ„â„˘to FazĂ„â„˘ 10 end-to-end:
+    - detekcja anomalii (`Z-score + IQR`, severity/confidence) z persystencjĂ„â€¦ do `ml_anomalies`,
+    - analiza trendu (trend/seasonality/residual) + wykrywanie change points przez CUSUM,
+    - nowe komendy IPC: `ml:detectAnomalies`, `ml:getAnomalies`, `ml:getTrend`,
+    - integracja desktop/preload/UI i nowe hooki danych,
+    - overlay anomalii/change points na wykresie + feed anomalii z filtrem + panel trendu,
+    - testy planted outliers i planted change points.
+  - UzupeÄąâ€šniono dokumentacjĂ„â„˘ faz 9/10 i przesuniĂ„â„˘to Ă˘â‚¬ĹľnastĂ„â„˘pny krokĂ˘â‚¬ĹĄ na FazĂ„â„˘ 11.
+- Dlaczego:
+  - Celem byÄąâ€šo peÄąâ€šne dowiezienie DoD Fazy 10: automatyczne wykrywanie anomalii i zmian trendu, czytelna prezentacja w UI oraz peÄąâ€šna Äąâ€şcieÄąÄ˝ka danych przez IPC.
+- Ryzyko/regresja:
+  - Dekompozycja trendu jest implementacjĂ„â€¦ STL-like (LOESS + sezonowoÄąâ€şĂ„â€ˇ okresowa), nie peÄąâ€šnym klasycznym STL.
+  - Auto-uruchamianie analizy anomalii w zakÄąâ€šadce statystyk zwiĂ„â„˘ksza liczbĂ„â„˘ zapytaÄąâ€ž DB przy czĂ„â„˘stych zmianach zakresu.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS (84/84)
+  - `pnpm build` - PASS
+- NastĂ„â„˘pny krok:
+  - RozpoczĂ„â€¦Ă„â€ˇ FazĂ„â„˘ 11 (LLM Assistant): orchestrator planner/executor/summarizer, evidence attachment i LocalStub.
+
+## 2026-02-12
+
+- Data: 2026-02-12
+- Autor (model): GPT-5.2-Codex
+- Zakres plikÄ‚Ĺ‚w: `docs/PLAN_REALIZACJI.md`, `README.md`, `CHANGELOG_AI.md`
+- Co zmieniono: Dodano formalnĂ„â€¦ sekcjĂ„â„˘ 3.3 z obowiĂ„â€¦zkowym logowaniem zmian dla PR/commit oraz doprecyzowano to w README.
+- Dlaczego: UÄąÄ˝ytkownik chciaÄąâ€š jednoznacznego wymogu, aby kaÄąÄ˝da ingerencja byÄąâ€ša opisana tak, by inny model mÄ‚Ĺ‚gÄąâ€š bazowaĂ„â€ˇ na historii zmian.
+- Ryzyko/regresja: Brak ryzyka runtime (zmiany wyÄąâ€šĂ„â€¦cznie w dokumentacji).
+- Jak zweryfikowano: Sprawdzenie diff i odczyt plikÄ‚Ĺ‚w.
+- NastĂ„â„˘pny krok: WymusiĂ„â€ˇ template PR i checklistĂ„â„˘ w repo (np. `.github/pull_request_template.md`).
+
+## 2026-02-12 (v2)
+
+- Data: 2026-02-12
+- Autor (model): Claude Opus 4.6
+- Zakres plikÄ‚Ĺ‚w: `docs/PLAN_REALIZACJI.md`, `AGENTS.md`, `docs/architecture/overview.md`, `docs/architecture/data-flow.md`, `README.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Gruntowna przebudowa PLAN_REALIZACJI.md (496 Ă˘â€ â€™ 834 linii):
+    - Dodano 2 nowe zasady: Performance budgets (#7) i Data quality first (#8).
+    - Dodano sekcjĂ„â„˘ 4: Architektura danych (model warstwowy RAWĂ˘â€ â€™STAGINGĂ˘â€ â€™DIM/FACTĂ˘â€ â€™ANALYTICSĂ˘â€ â€™ML, pipeline ETL, feature engineering, strategia brakujĂ„â€¦cych danych).
+    - Zreorganizowano kolejnoÄąâ€şĂ„â€ˇ faz: ML Framework przesuniĂ„â„˘ty z Fazy 10 do Fazy 6.
+    - Dodano nowĂ„â€¦ FazĂ„â„˘ 4 (Data Pipeline + Feature Engineering) i FazĂ„â„˘ 10 (Anomaly Detection + Trend Analysis).
+    - Rozszerzono fazy ML o konkretne algorytmy (Holt-Winters, ARIMA, LightGBM roadmap), confidence intervals, shadow mode, graceful degradation.
+    - Usprawniono Quality Scoring: percentile rank zamiast sigmoid, confidence levels, szczegÄ‚Ĺ‚Äąâ€šowe formuÄąâ€šy.
+    - Dodano nowe pakiety: data-pipeline, analytics, top-level fixtures.
+    - Dodano UI stack: Zustand + TanStack Query.
+    - Dodano sekcje: Risk Register, Milestone'y, mierzalne KPI targets.
+  - Stworzono AGENTS.md: peÄąâ€šne zasady modyfikacji kodu, graf zaleÄąÄ˝noÄąâ€şci, konwencje, rytuaÄąâ€š zakoÄąâ€žczenia sesji.
+  - Stworzono docs/architecture/overview.md: diagram moduÄąâ€šÄ‚Ĺ‚w, dependency graph, wzorce (IPC, data flow, error handling, state management).
+  - Stworzono docs/architecture/data-flow.md: szczegÄ‚Ĺ‚Äąâ€šowy pipeline 7-etapowy, feature engineering formulas, data lineage schema.
+  - Zaktualizowano README.md: opis projektu, tabela dokumentÄ‚Ĺ‚w, stack technologiczny.
+- Dlaczego: Oryginalny plan miaÄąâ€š krytyczne braki: brak data pipeline, ML za pÄ‚Ĺ‚ÄąĹźno (Faza 10/18), brak feature engineering, brak strategii state management, brak performance budgets, za pÄąâ€šytkie ML (brak konkretnych algorytmÄ‚Ĺ‚w), brak anomaly detection, brak obsÄąâ€šugi brakujĂ„â€¦cych danych.
+- Ryzyko/regresja: Brak (zmiany tylko w dokumentacji, zero kodu).
+- Jak zweryfikowano: Review struktury dokumentÄ‚Ĺ‚w, spÄ‚Ĺ‚jnoÄąâ€şĂ„â€ˇ miĂ„â„˘dzy PLAN_REALIZACJI Ă˘â€ â€ť AGENTS.md Ă˘â€ â€ť overview.md Ă˘â€ â€ť data-flow.md.
+- NastĂ„â„˘pny krok: RozpoczĂ„â€¦Ă„â€ˇ implementacjĂ„â„˘ Fazy 0 (Foundation) Ă˘â‚¬â€ť monorepo setup, TS strict, shared package, Electron shell.
+
+## 2026-02-12 (v3)
+
+- Data: 2026-02-12
+- Autor (model): Claude Opus 4.6
+- Zakres plikÄ‚Ĺ‚w:
+  - `package.json`, `pnpm-workspace.yaml`, `tsconfig.base.json`, `.prettierrc.json`, `.gitignore`
+  - `eslint.config.js`, `vitest.config.ts`
+  - `packages/shared/` (package.json, tsconfig.json, src/index.ts, src/types/result.ts, src/errors/app-error.ts, src/ipc/contracts.ts, src/events/index.ts, src/dto/index.ts)
+  - `packages/shared/src/types/result.test.ts`, `packages/shared/src/errors/app-error.test.ts`, `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/{core,data-pipeline,sync,reports,llm,ml,analytics,plugins,diagnostics}/` (package.json, tsconfig.json, src/index.ts)
+  - `apps/desktop/` (package.json, tsconfig.json, src/main.ts, src/preload.ts)
+  - `apps/ui/` (package.json, tsconfig.json, index.html, vite.config.ts, src/main.tsx, src/App.tsx, src/store/index.ts, src/env.d.ts)
+- Co zmieniono:
+  - Kompletna implementacja Fazy 0 (Foundation):
+    - Monorepo pnpm workspaces z 10 pakietami + 2 aplikacjami.
+    - TypeScript 5.9 strict (noUncheckedIndexedAccess, verbatimModuleSyntax).
+    - ESLint 9 flat config z typescript-eslint strictTypeChecked.
+    - Prettier config.
+    - Vitest 4 setup (unit tests).
+    - Pakiet `shared`: Result<T,E> type, AppError class z factory methods i serializacjĂ„â€¦, IPC contracts (4 komendy + 3 eventy), Zod 4 schemas, DTO types.
+    - Electron shell z security hardening (contextIsolation, sandbox, no nodeIntegration, single instance lock).
+    - Preload bridge z channel allowlisting.
+    - React 19 + Zustand 5 + TanStack Query 5 app skeleton.
+    - Vite 6 build config.
+    - 26 testÄ‚Ĺ‚w unit (Result type, AppError, IPC contracts validation).
+    - Wszystkie pakiety z poprawnymi workspace dependencies wg grafu zaleÄąÄ˝noÄąâ€şci z AGENTS.md.
+- Dlaczego: Faza 0 jest fundamentem Ă˘â‚¬â€ť bez niej ÄąÄ˝aden kolejny moduÄąâ€š nie moÄąÄ˝e byĂ„â€ˇ implementowany. Daje dziaÄąâ€šajĂ„â€¦cy szkielet z toolingiem, typami i architekturĂ„â€¦.
+- Ryzyko/regresja:
+  - Zod 4 (nie 3) Ă˘â‚¬â€ť API zmieniÄąâ€šo siĂ„â„˘ (z.iso.date() zamiast z.string().date()). Kolejne AI muszĂ„â€¦ uÄąÄ˝ywaĂ„â€ˇ Zod 4 API.
+  - ESLint 9 (nie 10) Ă˘â‚¬â€ť typescript-eslint nie wspiera jeszcze ESLint 10.
+  - Brak composite TS project references Ă˘â‚¬â€ť uÄąÄ˝ywamy prostego noEmit + bundler resolution. WystarczajĂ„â€¦ce dla typechecku, ale gdyby ktoÄąâ€ş chciaÄąâ€š tsc build, trzeba bĂ„â„˘dzie to zmieniĂ„â€ˇ.
+- Jak zweryfikowano:
+  - `pnpm lint` Ă˘â‚¬â€ť 0 errors.
+  - `pnpm typecheck` Ă˘â‚¬â€ť 12/12 pakietÄ‚Ĺ‚w pass.
+  - `pnpm test` Ă˘â‚¬â€ť 26/26 testÄ‚Ĺ‚w pass.
+- NastĂ„â„˘pny krok: Faza 1 (Data Core) Ă˘â‚¬â€ť SQLite setup z better-sqlite3, system migracji, tabele RAW/STAGING/DIM/FACT, warstwa query/mutation w pakiecie `core`.
+
+## 2026-02-12 (v4)
+
+- Data: 2026-02-12
+- Autor (model): Claude Opus 4.6
+- Zakres plikÄ‚Ĺ‚w: `AGENTS.md`, `docs/PLAN_REALIZACJI.md`, `apps/ui/src/App.tsx`, `apps/desktop/src/preload.ts`, `packages/shared/src/types/result.ts`, `packages/shared/src/types/result.test.ts`, `package.json`
+- Co zmieniono:
+  - Dodano zasadĂ„â„˘ #9 w PLAN_REALIZACJI.md: **JĂ„â„˘zyk aplikacji Ă˘â‚¬â€ť POLSKI**.
+  - Dodano sekcjĂ„â„˘ Ă˘â‚¬ĹľJĂ„â„˘zyk aplikacji Ă˘â‚¬â€ť POLSKI" w AGENTS.md z jasnymi reguÄąâ€šami: UI po polsku, komendy bÄąâ€šĂ„â„˘dÄ‚Ĺ‚w widoczne w UI po polsku, kod/zmienne po angielsku, komentarze po angielsku.
+  - PrzetÄąâ€šumaczono wszystkie user-facing stringi: App.tsx, preload.ts error messages, Result unwrap message.
+  - Zaktualizowano description w root package.json.
+  - Zaktualizowano test oczekujĂ„â€¦cy polskiego komunikatu bÄąâ€šĂ„â„˘du.
+- Dlaczego: Wymaganie uÄąÄ˝ytkownika Ă˘â‚¬â€ť caÄąâ€ša aplikacja ma byĂ„â€ˇ po polsku. Musi byĂ„â€ˇ jawnie zapisane jako zasada, ÄąÄ˝eby kolejne AI nie dodawaÄąâ€šy angielskich stringÄ‚Ĺ‚w.
+- Ryzyko/regresja: Brak (zmiany w stringach + docs, istniejĂ„â€¦ce testy zaktualizowane).
+- Jak zweryfikowano:
+  - `pnpm lint` Ă˘â‚¬â€ť 0 errors.
+  - `pnpm typecheck` Ă˘â‚¬â€ť 12/12 pass.
+  - `pnpm test` Ă˘â‚¬â€ť 26/26 pass.
+- NastĂ„â„˘pny krok: Faza 1 (Data Core) Ă˘â‚¬â€ť SQLite setup z better-sqlite3, system migracji, tabele RAW/STAGING/DIM/FACT, warstwa query/mutation w pakiecie `core`. PamiĂ„â„˘taj: wszelkie user-facing komunikaty po polsku.
+
+## 2026-02-12 (v5)
+
+- Data: 2026-02-12
+- Autor (model): Claude Opus 4.6
+- Zakres plikÄ‚Ĺ‚w: `NEXT_STEP.md` (nowy), `AGENTS.md`, `README.md`, `docs/PLAN_REALIZACJI.md`
+- Co zmieniono:
+  - Stworzono `NEXT_STEP.md` Ă˘â‚¬â€ť dedykowany plik handoff dla kolejnego AI. Zawiera: aktualny status, co dokÄąâ€šadnie robiĂ„â€ˇ w nastĂ„â„˘pnej fazie, pliki do stworzenia, DoD, krytyczne zasady.
+  - Zaktualizowano AGENTS.md:
+    - `NEXT_STEP.md` jako punkt #1 w Ă˘â‚¬ĹľPrzed rozpoczĂ„â„˘ciem pracy".
+    - Rozbudowano rytuaÄąâ€š zakoÄąâ€žczenia sesji o obowiĂ„â€¦zkowĂ„â€¦ aktualizacjĂ„â„˘ NEXT_STEP.md, README.md (tabela postĂ„â„˘pu), PLAN_REALIZACJI.md (checklista).
+  - Dodano tabelĂ„â„˘ Ă˘â‚¬ĹľPostĂ„â„˘p realizacji" w README.md Ă˘â‚¬â€ť widaĂ„â€ˇ od razu ktÄ‚Ĺ‚re fazy sĂ„â€¦ DONE.
+  - Odhaczono ukoÄąâ€žczone pozycje w checkliÄąâ€şcie startowej (sekcja 14 planu).
+- Dlaczego: Kolejne AI muszĂ„â€¦ wiedzieĂ„â€ˇ dokÄąâ€šadnie co robiĂ„â€ˇ bez czytania caÄąâ€šego repo. NEXT_STEP.md to single point of truth. Tabela w README daje szybki przeglĂ„â€¦d statusu.
+- Ryzyko/regresja: Brak (zmiany dokumentacyjne).
+- Jak zweryfikowano: Review plikÄ‚Ĺ‚w, spÄ‚Ĺ‚jnoÄąâ€şĂ„â€ˇ miĂ„â„˘dzy NEXT_STEP.md Ă˘â€ â€ť CHANGELOG_AI Ă˘â€ â€ť README Ă˘â€ â€ť PLAN_REALIZACJI.
+- NastĂ„â„˘pny krok: Faza 1 (Data Core) Ă˘â‚¬â€ť patrz `NEXT_STEP.md`.
+
+## 2026-02-12 (v6)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w:
+  - `package.json`
+  - `scripts/dev-desktop.mjs`
+  - `apps/desktop/package.json`, `apps/desktop/tsconfig.build.json`, `apps/desktop/src/main.ts`
+  - `packages/shared/src/logger/index.ts`, `packages/shared/src/logger/index.test.ts`, `packages/shared/src/index.ts`
+  - `.github/workflows/ci.yml`
+  - `docs/PLAN_REALIZACJI.md`, `README.md`, `NEXT_STEP.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - DomkniĂ„â„˘to brakujĂ„â€¦ce elementy Fazy 0 bez wchodzenia w kolejne fazy.
+  - Dopracowano uruchamianie desktopa:
+    - `@moze/desktop` buduje runtime JS do `dist` (`tsconfig.build.json`, `build` script),
+    - `pnpm dev` uruchamia UI i Electron przez nowy skrypt `scripts/dev-desktop.mjs`,
+    - naprawiono Äąâ€şcieÄąÄ˝kĂ„â„˘ produkcyjnĂ„â€¦ renderer (`apps/ui/dist/index.html`) i focus dla single-instance.
+  - Dodano foundation logger w `shared` (`createLogger`, structured JSON, severity levels, context) + testy.
+  - Dodano CI GitHub Actions: `lint`, `typecheck`, `test`, `build`.
+  - Uaktualniono checklistĂ„â„˘ planu i README/NEXT_STEP pod nowy stan Fazy 0.
+- Dlaczego:
+  - Poprzednia implementacja miaÄąâ€ša luki wzglĂ„â„˘dem DoD Fazy 0 (brak CI, niespÄ‚Ĺ‚jny desktop build/dev, brak loggera).
+- Ryzyko/regresja:
+  - Desktop `dev` robi jednorazowy build runtime przed startem Electron (bez auto-rebuild watch).
+  - Lokalne uruchomienie nadal wymaga Äąâ€şrodowiska zgodnego z `node >= 22`.
+- Jak zweryfikowano:
+  - `pnpm install` (workspace install zakoÄąâ€žczony powodzeniem; ostrzeÄąÄ˝enie engines: Node 20 vs wymagane 22).
+  - `pnpm lint` Ă˘â‚¬â€ť PASS.
+  - `pnpm typecheck` Ă˘â‚¬â€ť PASS (wszystkie pakiety).
+  - `pnpm test` Ă˘â‚¬â€ť PASS (4 pliki testowe, 29 testÄ‚Ĺ‚w).
+  - `pnpm build` Ă˘â‚¬â€ť PASS (w tym `apps/desktop` z `tsconfig.build.json` i `apps/ui` build Vite).
+  - Smoke-check artefaktÄ‚Ĺ‚w runtime: `apps/desktop/dist/main.js`, `apps/desktop/dist/preload.js`, `apps/ui/dist/index.html` istniejĂ„â€¦.
+- NastĂ„â„˘pny krok:
+  - RozpoczĂ„â€¦Ă„â€ˇ FazĂ„â„˘ 1 (Data Core) zgodnie z `NEXT_STEP.md`.
+
+## 2026-02-12 (v7)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w: `README.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Rozszerzono tabelĂ„â„˘ Ă˘â‚¬ĹľPostĂ„â„˘p realizacjiĂ˘â‚¬ĹĄ w `README.md` o kolumnĂ„â„˘:
+    - **Ă˘â‚¬ĹľCo powinno dziaÄąâ€šaĂ„â€ˇ (prosty opis)Ă˘â‚¬ĹĄ**.
+  - Dla kaÄąÄ˝dej fazy (0Ă˘â‚¬â€ś19) dodano zrozumiaÄąâ€šy, nietechniczny opis efektu dla uÄąÄ˝ytkownika.
+- Dlaczego:
+  - UÄąÄ˝ytkownik chciaÄąâ€š, aby na stronie repo (GitHub) byÄąâ€šo od razu jasne dla laika, co oznacza kaÄąÄ˝dy etap i czego moÄąÄ˝na siĂ„â„˘ spodziewaĂ„â€ˇ po aplikacji.
+- Ryzyko/regresja:
+  - Brak ryzyka runtime (zmiana wyÄąâ€šĂ„â€¦cznie dokumentacyjna).
+- Jak zweryfikowano:
+  - Odczyt `README.md` po zmianie i kontrola, ÄąÄ˝e kaÄąÄ˝da faza ma opis w prostym jĂ„â„˘zyku.
+- NastĂ„â„˘pny krok:
+  - KontynuowaĂ„â€ˇ FazĂ„â„˘ 1 (Data Core) zgodnie z `NEXT_STEP.md`.
+
+## 2026-02-12 (v8)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w: `scripts/dev-desktop.mjs`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Naprawiono uruchamianie `pnpm dev` na Windows:
+    - dodano `shell: true` przy `spawn` dla procesu `pnpm`,
+    - ujednolicono adres dev servera na `http://localhost:5173`.
+- Dlaczego:
+  - `pnpm dev` koÄąâ€žczyÄąâ€šo siĂ„â„˘ bÄąâ€šĂ„â„˘dem `spawn EINVAL` i miaÄąâ€šo potencjalny rozjazd adresÄ‚Ĺ‚w (`127.0.0.1` vs `::1`).
+- Ryzyko/regresja:
+  - Niskie; zmiana dotyczy tylko lokalnego skryptu developerskiego.
+- Jak zweryfikowano:
+  - `pnpm dev` startuje poprawnie (UI + Electron).
+  - `http://localhost:5173` zwraca poprawny HTML.
+- NastĂ„â„˘pny krok:
+  - KontynuowaĂ„â€ˇ FazĂ„â„˘ 1 (Data Core) zgodnie z `NEXT_STEP.md`.
+
+## 2026-02-12 (v9)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w:
+  - `packages/core/package.json`
+  - `packages/core/src/index.ts`
+  - `packages/core/src/database.ts`
+  - `packages/core/src/migrations/types.ts`
+  - `packages/core/src/migrations/001-initial-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/repositories/types.ts`
+  - `packages/core/src/repositories/core-repository.ts`
+  - `packages/core/src/repositories/index.ts`
+  - `packages/core/src/queries/metrics-queries.ts`
+  - `packages/core/src/queries/index.ts`
+  - `packages/core/src/fixtures/types.ts`
+  - `packages/core/src/fixtures/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `fixtures/seed-data.json`
+  - `pnpm-workspace.yaml`
+  - `pnpm-lock.yaml`
+  - `README.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Zaimplementowano FazĂ„â„˘ 1 (Data Core) w `packages/core`:
+    - SQLite connection manager (`better-sqlite3`) z `Result<T, AppError>`.
+    - System migracji forward-only z trackingiem (`schema_migrations`) i migracjĂ„â€¦ `001-initial-schema`.
+    - Tabele warstw: RAW/Operational/Dimension/Fact zgodnie z planem fazy.
+    - Typed repository/mutation layer (upserts + operacje sync/raw).
+    - Query layer: `getKpis()` i `getTimeseries()` z deterministycznym `ORDER BY`.
+    - ModuÄąâ€š fixture: odczyt `fixtures/seed-data.json` oraz seedowanie bazy.
+  - Dodano integracyjne testy DB (in-memory SQLite):
+    - idempotentnoÄąâ€şĂ„â€ˇ migracji,
+    - seed fixture i odczyt KPI/timeseries.
+  - Dodano realistyczny fixture: 90 dni danych, 1 kanaÄąâ€š, 50 filmÄ‚Ĺ‚w.
+  - UzupeÄąâ€šniono `pnpm-workspace.yaml` o `better-sqlite3` w `onlyBuiltDependencies`, aby build native dziaÄąâ€šaÄąâ€š lokalnie/CI.
+  - Zaktualizowano statusy dokumentacji: Faza 1 = DONE, Faza 2 = nastĂ„â„˘pna.
+- Dlaczego:
+  - Celem byÄąâ€šo domkniĂ„â„˘cie Fazy 1 zgodnie z DoD i przygotowanie stabilnej warstwy danych pod IPC/backend w Fazie 2.
+- Ryzyko/regresja:
+  - `better-sqlite3` jest natywnym moduÄąâ€šem i wymaga build/prebuild dla lokalnego Äąâ€şrodowiska.
+  - Lokalnie nadal jest ostrzeÄąÄ˝enie engines (`node >=22` wymagane, aktualnie `20.x`), ale walidacja projektu przechodzi.
+- Jak zweryfikowano:
+  - `pnpm install --force` (w tym build `better-sqlite3`).
+  - `pnpm lint` Ă˘â‚¬â€ť PASS.
+  - `pnpm typecheck` Ă˘â‚¬â€ť PASS.
+  - `pnpm test` Ă˘â‚¬â€ť PASS (`31/31`, w tym testy integracyjne Data Core).
+  - `pnpm build` Ă˘â‚¬â€ť PASS.
+- NastĂ„â„˘pny krok:
+  - Faza 2: Desktop Backend + IPC (podÄąâ€šĂ„â€¦czenie `core` do `apps/desktop`, handlery IPC, adapter UI przez TanStack Query).
+
+## 2026-02-12 (v10)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w:
+  - `docs/PLAN_REALIZACJI.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - UspÄ‚Ĺ‚jniono dokumentacjĂ„â„˘ statusu po Fazie 1:
+    - doprecyzowano, ÄąÄ˝e `perf_events` nie wchodziÄąâ€šo do zakresu Fazy 1 (pozostaje w Fazie 18),
+    - w checklistcie planu rozdzielono "fixture data" od "fake mode", aby odzwierciedliĂ„â€ˇ aktualny stan repo,
+    - ujednolicono status Fazy 2 na `NASTĂ„ÂPNA` w `NEXT_STEP.md`,
+    - ujednolicono komendy regresji (`lint + typecheck + test + build`) w `NEXT_STEP.md`,
+    - doprecyzowano komunikat statusu w `README.md`.
+- Dlaczego:
+  - W dokumentacji byÄąâ€šy niespÄ‚Ĺ‚jnoÄąâ€şci miĂ„â„˘dzy planem faz a faktycznie zaimplementowanym schema/data core.
+- Ryzyko/regresja:
+  - Brak ryzyka runtime (zmiany wyÄąâ€šĂ„â€¦cznie dokumentacyjne).
+- Jak zweryfikowano:
+  - Manualny przeglĂ„â€¦d spÄ‚Ĺ‚jnoÄąâ€şci `README.md` Ă˘â€ â€ť `NEXT_STEP.md` Ă˘â€ â€ť `docs/PLAN_REALIZACJI.md`.
+  - Potwierdzono brak rozjazdu z aktualnym kodem `packages/core`.
+- NastĂ„â„˘pny krok:
+  - Implementacja Fazy 2: inicjalizacja DB i handlery IPC w `apps/desktop`, nastĂ„â„˘pnie adaptery zapytaÄąâ€ž IPC po stronie `apps/ui`.
+
+## 2026-02-12 (v11)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikÄ‚Ĺ‚w:
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/index.ts`
+  - `packages/core/src/queries/channel-queries.ts`, `packages/core/src/queries/index.ts`, `packages/core/src/index.ts`
+  - `apps/desktop/src/main.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/package.json`, `apps/desktop/scripts/build-desktop.mjs`
+  - `apps/ui/src/env.d.ts`, `apps/ui/src/App.tsx`, `apps/ui/src/store/index.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Zaimplementowano FazĂ„â„˘ 2 (Desktop Backend + IPC) end-to-end:
+    - inicjalizacja DB + migracje w `apps/desktop` przy starcie app,
+    - IPC handlery dla `app:getStatus`, `db:getKpis`, `db:getTimeseries`, `db:getChannelInfo`,
+    - walidacja kontraktÄ‚Ĺ‚w Zod po obu stronach granicy IPC (main + preload),
+    - serializacja bÄąâ€šĂ„â„˘dÄ‚Ĺ‚w jako `AppError` bez crashy procesu.
+  - Dodano realny `app:getStatus` oparty o stan DB (aktywny profil, sync status, last sync).
+  - Dodano query `getChannelInfo()` w `@moze/core` i stabilne eksporty w `core/index`.
+  - UI pobiera status/KPI/timeseries/channel info wyÄąâ€šĂ„â€¦cznie przez `window.electronAPI` + hooki TanStack Query.
+  - Dodano testy integracyjne IPC: happy path, invalid payload, core error.
+  - Usprawniono build desktop runtime:
+    - przejÄąâ€şcie z `tsc` emit na bundling `esbuild`,
+    - umoÄąÄ˝liwia runtime uÄąÄ˝ycie `@moze/core`/`@moze/shared` (workspace TS sources).
+  - Zaktualizowano status dokumentacji: Faza 2 = DONE, Faza 3 = NASTĂ„ÂPNA.
+- Dlaczego:
+  - Celem byÄąâ€šo domkniĂ„â„˘cie M1 i uruchomienie bezpiecznego, typowanego mostu UI Ă˘â€ â€ť backend na dziaÄąâ€šajĂ„â€¦cym Data Core.
+- Ryzyko/regresja:
+  - Desktop build opiera siĂ„â„˘ teraz o bundling `esbuild` (inny pipeline niÄąÄ˝ wczeÄąâ€şniej).
+  - W Äąâ€şrodowisku lokalnym nadal widoczny warning engines (Node 20 vs wymagane >=22).
+- Jak zweryfikowano:
+  - `pnpm lint` Ă˘â‚¬â€ť PASS.
+  - `pnpm typecheck` Ă˘â‚¬â€ť PASS.
+  - `pnpm test` Ă˘â‚¬â€ť PASS (34/34, w tym IPC integration tests).
+  - `pnpm build` Ă˘â‚¬â€ť PASS (w tym `apps/desktop` przez `esbuild`).
+- NastĂ„â„˘pny krok:
+  - Faza 3: Data Modes + Fixtures (fake/real/record mode, provider interface, cache TTL, rate limiter, runtime toggle).
+
+## 2026-02-12 (v12)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `packages/data-pipeline/src/provider-fixture.ts`, `packages/data-pipeline/src/index.ts`
+  - `packages/sync/src/data-provider.ts`, `packages/sync/src/fake-provider.ts`, `packages/sync/src/real-provider.ts`, `packages/sync/src/record-provider.ts`, `packages/sync/src/cache-provider.ts`, `packages/sync/src/rate-limiter.ts`, `packages/sync/src/data-mode-manager.ts`, `packages/sync/src/data-modes.integration.test.ts`, `packages/sync/src/index.ts`
+  - `apps/desktop/src/main.ts`, `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/package.json`
+  - `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `CHANGELOG_AI.md`
+  - `pnpm-lock.yaml`
+- Co zmieniono:
+  - Domknieto Faze 3 (Data Modes + Fixtures) end-to-end.
+  - Dodano kontrakty IPC i DTO dla trybow danych:
+    - `app:getDataMode`, `app:setDataMode`, `app:probeDataMode`.
+  - Dodano warstwe fixture provider w `data-pipeline` (load/save provider fixture + fallback do seed fixture).
+  - Dodano pelny stack `sync`:
+    - interfejs `DataProvider`,
+    - provider `fake`,
+    - provider `real` (adapter/fixture fallback),
+    - provider `record` (zapis replayowalnych fixture),
+    - cache TTL per endpoint,
+    - rate limiter token bucket,
+    - `DataModeManager` (runtime toggle + probe).
+  - Podlaczono tryby danych do desktop runtime:
+    - inicjalizacja managera w `main.ts`,
+    - env override (`MOZE_DATA_MODE`, `MOZE_FAKE_FIXTURE_PATH`, `MOZE_REAL_FIXTURE_PATH`, `MOZE_RECORDING_OUTPUT_PATH`),
+    - nowe handlery IPC w `ipc-handlers.ts` i walidacja preload.
+  - UI rozszerzone o sekcje "Tryb danych (Faza 3)" + mutacje/query przez TanStack Query.
+  - Dodano testy integracyjne:
+    - `packages/sync/src/data-modes.integration.test.ts`,
+    - rozszerzenie `apps/desktop/src/ipc-handlers.integration.test.ts`.
+  - Domknieto poprawki jakosciowe po implementacji:
+    - fix lint dla `App.tsx` (`no-confusing-void-expression`),
+    - fix typing cache provider (`TS2322`, usuniecie zbednych generykow),
+    - usuniecie non-null assertions w real provider.
+  - Uaktualniono dokumentacje statusu:
+    - Faza 3 = DONE,
+    - Faza 4 = NASTEPNA.
+- Dlaczego:
+  - Celem bylo wdrozenie szybkich i powtarzalnych trybow pracy na danych (fake/real/record) bez zmiany kontraktu po stronie UI oraz przygotowanie fundamentu pod Faze 4/5.
+- Ryzyko/regresja:
+  - `real` provider jest na razie spiety przez fixture/adapter contract (brak jeszcze produkcyjnego adaptera YouTube API).
+  - Lokalnie pozostaje ostrzezenie engines (`node >=22`, aktualnie `20.x`), mimo ze checki przechodza.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`43/43`, w tym nowe integracje sync i IPC data mode).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 4: Data Pipeline + Feature Engineering (ETL orchestration, validation, staging, feature generation, data lineage).
+
+## 2026-02-12 (v13)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `docs/architecture/overview.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Usunieto z planu produktu elementy niepotrzebne w trybie single-user:
+    - plugin runtime (Faza 17 -> SKIP w trybie solo),
+    - packaging pod dystrybucje (usuniete z Fazy 19),
+    - telemetry opt-in (usuniete z Fazy 19).
+  - Zaktualizowano roadmape i opisy faz:
+    - README: Faza 17 oznaczona jako `SKIP (solo)`, Faza 19 zmieniona na lokalne dopracowanie UX bez dystrybucji.
+    - NEXT_STEP: mapa faz zaktualizowana o `SKIP (solo)` dla pluginow oraz `bez packaging/telemetry` dla Fazy 19.
+    - PLAN_REALIZACJI: przebudowano opisy Fazy 17 i 19, zaktualizowano Milestone 6 pod scope solo.
+    - architecture/overview: doprecyzowano, ze warstwa plugins jest out-of-scope w trybie solo.
+- Dlaczego:
+  - Aplikacja bedzie uzywana przez jednego uzytkownika, bez potrzeby dystrybucji, telemetry i plugin architecture.
+- Ryzyko/regresja:
+  - Brak ryzyka runtime (zmiany dokumentacyjne).
+  - Mniejsza rozszerzalnosc w przyszlosci: ewentualny powrot do plugin runtime i packagingu bedzie wymagac osobnego planu.
+- Jak zweryfikowano:
+  - Przeglad diffow dokumentacji i spojnosc opisow miedzy README, NEXT_STEP, PLAN_REALIZACJI i architecture/overview.
+- Nastepny krok:
+  - Kontynuowac Faze 4 wedlug nowego scope solo.
+
+## 2026-02-12 (v14)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/core/src/migrations/002-data-pipeline-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/data-pipeline/src/pipeline-runner.ts`
+  - `packages/data-pipeline/src/pipeline-runner.integration.test.ts`
+  - `packages/data-pipeline/src/index.ts`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `docs/architecture/data-flow.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Zaimplementowano Faze 4 (Data Pipeline + Feature Engineering) bez wychodzenia poza zakres faz 1-4.
+  - Dodano migracje `002-data-pipeline-schema` tworzĂ„â€¦ca tabele:
+    - `stg_channels`
+    - `stg_videos`
+    - `ml_features`
+    - `data_lineage`
+  - Dodano runner ETL `runDataPipeline()` w `data-pipeline`:
+    - ingestion z `dim_channel`/`dim_video`/`fact_channel_day`,
+    - validation (schema + range + freshness),
+    - staging do `stg_*`,
+    - feature generation do `ml_features`,
+    - zapis lineage dla etapow `ingest`, `validation`, `staging`, `feature-generation`.
+  - Dodano testy integracyjne pipeline:
+    - end-to-end na `fixtures/seed-data.json`,
+    - deterministycznosc kolejnych uruchomien,
+    - reject dla niepoprawnego range,
+    - reject dla stale data.
+  - Zaktualizowano dokumentacje statusu:
+    - Faza 4 = DONE,
+    - Faza 5 = NASTEPNA,
+    - data-flow dopasowany do faktycznie zaimplementowanego schematu lineage/staging.
+- Dlaczego:
+  - Celem bylo domkniecie Fazy 4 i przygotowanie technicznego punktu pod post-sync pipeline z Fazy 5.
+- Ryzyko/regresja:
+  - Runner pipeline aktualnie operuje na jednym `channelId` na uruchomienie.
+  - Integracja automatycznego wywolania po sync pozostaje na FazĂ„â„˘ 5 (celowo).
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`47/47`, w tym nowe testy integracyjne data-pipeline).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 5: Sync Orchestrator (checkpointy, retry/backoff, mutex, eventy progress i wywolanie `runDataPipeline()` po sync).
+
+## 2026-02-12 (v15)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `packages/core/src/repositories/types.ts`, `packages/core/src/repositories/core-repository.ts`, `packages/core/src/repositories/index.ts`, `packages/core/src/index.ts`
+  - `packages/sync/src/data-mode-manager.ts`, `packages/sync/src/sync-orchestrator.ts`, `packages/sync/src/sync-orchestrator.integration.test.ts`, `packages/sync/src/index.ts`
+  - `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/main.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Faze 5 (Sync Orchestrator) end-to-end.
+  - Dodano komendy IPC:
+    - `sync:start`
+    - `sync:resume`
+    - DTO wyniku komendy sync.
+  - Rozszerzono `core` repository dla `sync_runs`:
+    - checkpoint update,
+    - resume run (reset finished/error),
+    - odczyt run po ID,
+    - odczyt najnowszego aktywnego run.
+  - Zaimplementowano `createSyncOrchestrator()`:
+    - stage machine (`collect-provider-data` -> `persist-warehouse` -> `run-pipeline` -> `completed`),
+    - checkpointy w `sync_runs` + resume,
+    - mutex blokujacy rownolegly sync,
+    - retry/backoff dla bledow providera,
+    - zapis do `raw_api_responses` i warehouse tables,
+    - automatyczne `runDataPipeline()` po sync.
+  - Podlaczono orchestrator do Electron main i eventow:
+    - `sync:progress`, `sync:complete`, `sync:error`.
+  - UI rozszerzone o sekcje Fazy 5:
+    - uruchamianie sync,
+    - wznowienie ostatniego nieudanego sync,
+    - podglad postepu/bledu/zakonczenia.
+  - Dodano testy integracyjne orchestratora:
+    - happy path,
+    - blokada rownoleglego uruchomienia,
+    - fail na pipeline + resume z checkpointu `run-pipeline`.
+  - Zaktualizowano dokumentacje statusu:
+    - Faza 5 = DONE,
+    - Faza 6 = NASTEPNA.
+- Dlaczego:
+  - Celem bylo zamkniecie warstwy resilient sync i spiecie jej z pipeline danych, aby M2 mial kompletny przeplyw sync -> ETL -> features.
+- Ryzyko/regresja:
+  - Retry/backoff w orchestratorze obejmuje klasy bledow providers zdefiniowane kodami (`SYNC_PROVIDER_*`, `SYNC_RATE_LIMIT_EXCEEDED`).
+  - Resume wymaga jawnego `channelId` w komendzie `sync:resume` (celowo, zeby uniknac ukrytego stanu procesu).
+  - Lokalnie nadal widoczny warning engines (`node >=22`, aktualnie `20.x`), mimo ze checki przechodza.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`53/53`, w tym nowe testy sync orchestratora).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 6: Bazowy ML Framework (registry modeli, baseline trening, backtesting i quality gate).
+
+## 2026-02-12 (v16)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/core/src/migrations/003-ml-framework-schema.ts`, `packages/core/src/migrations/index.ts`, `packages/core/src/data-core.integration.test.ts`
+  - `packages/ml/src/ml-baseline.ts`, `packages/ml/src/ml-baseline.integration.test.ts`, `packages/ml/src/index.ts`, `packages/ml/package.json`
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/main.ts`, `apps/desktop/package.json`
+  - `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Faze 6 (Bazowy ML Framework) end-to-end.
+  - Dodano migracje `003-ml-framework-schema`:
+    - `ml_models` (registry modeli),
+    - `ml_backtests`,
+    - `ml_predictions` (predictions + confidence levels).
+  - Zaimplementowano pipeline ML w `@moze/ml`:
+    - `runMlBaseline()`:
+      - modele: `holt-winters` (double exponential smoothing) i `linear-regression`,
+      - rolling backtesting,
+      - metryki: `MAE`, `sMAPE`, `MASE`,
+      - quality gate (`active`/`shadow`/`rejected`),
+      - confidence bands `p10/p50/p90`,
+      - graceful degradation dla historii < 30 dni (`insufficient_data`).
+    - `getLatestMlForecast()`:
+      - odczyt prognozy aktywnego modelu.
+  - Dodano IPC kontrakty i handlery ML:
+    - `ml:runBaseline`,
+    - `ml:getForecast`.
+  - UI rozszerzone o sekcje Fazy 6:
+    - uruchamianie treningu baseline,
+    - podglad aktywnego modelu i punktow prognozy.
+  - Dodano testy integracyjne ML:
+    - trening i zapis predictions/backtests,
+    - quality gate z blokada aktywacji przy ostrych progach,
+    - graceful degradation dla zbyt krotkiej historii.
+  - Zaktualizowano dokumentacje statusu:
+    - Faza 6 = DONE,
+    - Faza 7 = NASTEPNA.
+- Dlaczego:
+  - Celem bylo domkniecie warstwy ML baseline, aby dane z pipeline i sync mialy od razu pierwszy, praktyczny forecast oraz fundament pod dashboard z predykcjami.
+- Ryzyko/regresja:
+  - Implementacja `holt-winters` w tej fazie to wariant double exponential smoothing (bez sezonowosci) jako baseline.
+  - Aktywacja modelu zalezy od quality gate; przy slabszych danych aktywny model moze pozostac `null`.
+  - Lokalnie nadal widoczny warning engines (`node >=22`, aktualnie `20.x`), mimo ze checki przechodza.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`60/60`, w tym nowe testy ML baseline).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 7: Dashboard + Raporty + Eksport (overlay prognoz ML na wykresach + eksport raportow).
+
+## 2026-02-12 (v17)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`, `packages/shared/src/ipc/contracts.test.ts`, `packages/shared/src/dto/index.ts`, `packages/shared/src/index.ts`
+  - `packages/reports/src/report-service.ts`, `packages/reports/src/report-service.integration.test.ts`, `packages/reports/src/index.ts`
+  - `apps/desktop/src/ipc-handlers.ts`, `apps/desktop/src/ipc-handlers.integration.test.ts`, `apps/desktop/src/preload.ts`, `apps/desktop/src/main.ts`, `apps/desktop/package.json`
+  - `apps/ui/src/lib/electron-api.ts`, `apps/ui/src/lib/electron-api.types.ts`, `apps/ui/src/hooks/use-dashboard-data.ts`, `apps/ui/src/hooks/use-dashboard-data.test.ts`, `apps/ui/src/App.tsx`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Faze 7 (Dashboard + Raporty + Eksport) end-to-end.
+  - Dodano kontrakty IPC dla raportow:
+    - `reports:generate`
+    - `reports:export`
+  - Zaimplementowano pakiet `@moze/reports`:
+    - `generateDashboardReport()` (KPI + timeseries + prognoza + top videos + insighty),
+    - `exportDashboardReport()` (lokalny eksport `JSON/CSV/HTML`),
+    - `renderDashboardReportHtml()`.
+  - Podlaczono raporty do desktop runtime i preload bridge.
+  - Rozbudowano UI dashboard:
+    - karty KPI z delta/trendem,
+    - wykres szeregu czasowego z overlay prognozy (`p10/p50/p90`),
+    - zakres dat `7d/30d/90d/custom`,
+    - sekcja raportu (insighty + top videos) oraz eksport raportu.
+  - Dodano testy:
+    - integracyjne `reports` (generowanie raportu, walidacja zakresu dat, eksport plikow),
+    - helpery zakresu dat w UI,
+    - rozszerzone integracje IPC desktop dla raportow.
+  - Zaktualizowano status dokumentacji:
+    - Faza 7 = DONE,
+    - Faza 8 = NASTEPNA.
+- Dlaczego:
+  - Celem Fazy 7 bylo dowiezienie pierwszej duzej wartosci biznesowej: czytelny dashboard i lokalny eksport raportow.
+- Ryzyko/regresja:
+  - Eksport aktualnie obejmuje `JSON/CSV/HTML`; PDF pozostaje opcjonalny i nie jest jeszcze implementowany.
+  - Lokalny warning engines nadal wystepuje (`node >=22`, aktualnie `20.x`), mimo ze checki przechodza.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`68/68`, w tym nowe testy reports i UI helper).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 8: Auth + Profile + Settings (connect/disconnect/status, multi-profile, settings per profil, safeStorage dla sekretow).
+
+## 2026-02-12 (v18)
+
+- Data: 2026-02-12
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/desktop/package.json`
+  - `pnpm-lock.yaml`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Hotfix uruchamiania `pnpm dev`:
+    - dodano `better-sqlite3` do runtime dependencies `@moze/desktop`.
+  - Powod:
+    - Electron runtime nie mogl znalezc pakietu `better-sqlite3` (`ERR_MODULE_NOT_FOUND`) przy starcie `apps/desktop/dist/main.js`.
+- Dlaczego:
+  - Bez tej zaleznosci aplikacja desktop nie startowala lokalnie mimo poprawnego buildu.
+- Ryzyko/regresja:
+  - Niskie; zmiana tylko w deklaracji dependency + lockfile.
+- Jak zweryfikowano:
+  - `pnpm install` Ă˘â‚¬â€ť PASS.
+  - `pnpm dev` Ă˘â‚¬â€ť Electron i UI startuja poprawnie.
+  - `http://localhost:5173` Ă˘â‚¬â€ť HTTP 200.
+- Nastepny krok:
+  - Kontynuowac Faze 8 zgodnie z `NEXT_STEP.md`.
+
+## 2026-02-13 (v19)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/profile-manager.ts`
+  - `apps/desktop/src/profile-manager.integration.test.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `packages/core/src/queries/settings-queries.ts`
+  - `packages/core/src/queries/index.ts`
+  - `packages/core/src/index.ts`
+  - `packages/core/src/data-core.integration.test.ts`
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `README.md`, `NEXT_STEP.md`, `docs/PLAN_REALIZACJI.md`, `docs/architecture/data-flow.md`, `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Domknieto Faze 8 (Auth + Profile + Settings) end-to-end.
+  - Podlaczono profile manager do desktop runtime:
+    - oddzielna baza SQLite per profil,
+    - przelaczanie aktywnego profilu z przeladowaniem backendu,
+    - synchronizacja aktywnego profilu do tabeli `profiles` w aktywnej DB.
+  - Dodano query layer ustawien (`createSettingsQueries`) i komendy IPC settings/auth/profile.
+  - Rozszerzono preload + UI API + hooki React Query o profile/settings/auth.
+  - Rozszerzono UI o sekcje:
+    - profile (lista, utworz, aktywuj),
+    - konto YouTube (status/connect/disconnect),
+    - ustawienia per profil.
+  - Dodano testy integracyjne profile managera (persistencja po restarcie, izolacja ustawien per profil, brak plaintext sekretu).
+  - Rozszerzono testy integracyjne IPC desktop o nowe handlery fazy 8.
+  - Ujednolicono dokumentacje: Faza 8 = DONE, Faza 9 = NASTEPNA.
+- Dlaczego:
+  - Celem bylo dostarczenie kompletnej separacji danych per profil i bezpiecznego przechowywania auth, zgodnie z DoD Fazy 8.
+- Ryzyko/regresja:
+  - Lokalnie nadal wystepuje warning engines (`node >=22`, aktualnie `20.x`), mimo ze wszystkie checki przechodza.
+  - Zmiana aktywnego profilu przeladowuje backend (chwilowe odswiezenie stanu UI jest oczekiwane).
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`72/72`, w tym nowe testy profile-manager + rozszerzone IPC).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Faza 9: Import + Enrichment + Search (CSV import + walidacja + trigger pipeline + FTS5 search z snippet/relevance).
+
+## 2026-02-13 (v20)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/desktop/scripts/build-desktop.mjs`
+  - `scripts/dev-desktop.mjs`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Naprawiono preload desktop w dev:
+    - build `main.ts` zostal jako `esm`,
+    - build `preload.ts` zostal przelaczony na `cjs`, zeby preload byl ladowany poprawnie przez Electron sandbox.
+  - Ujednolicono host dev servera w launcherze desktop:
+    - `127.0.0.1:5173` dla UI i `VITE_DEV_SERVER_URL`.
+  - Ujednolicono dokumentacje uruchamiania:
+    - rekomendowane komendy przez `corepack pnpm ...` (README + PLAN + NEXT_STEP).
+  - Dopisano aktualny stan techniczny i handoff do kolejnej sesji w `NEXT_STEP.md`.
+- Dlaczego:
+  - Aplikacja uruchamiala tylko webowy fallback, bo preload nie ladowal sie poprawnie (`Cannot use import statement outside a module`).
+  - Dodatkowo wystepowal rozjazd hosta (`localhost` vs `127.0.0.1`) oraz ryzyko ABI mismatch przy globalnym `pnpm` odpalanym na Node 20.
+- Ryzyko/regresja:
+  - Niskie; zmiana dotyczy sposobu bundlowania preload i skryptu dev.
+  - W trybie dev trzeba utrzymac spojnosc hosta (`127.0.0.1`) przy ewentualnych przyszlych zmianach.
+- Jak zweryfikowano:
+  - `corepack pnpm lint` - PASS.
+  - `corepack pnpm typecheck` - PASS.
+  - `corepack pnpm test` - PASS (72/72).
+  - `corepack pnpm build` - PASS.
+  - Manualnie: uruchomienie UI (`http://127.0.0.1:5173` -> 200) i desktop (okno Electron z dzialajacym IPC).
+- Nastepny krok:
+  - Rozpoczac Faze 9 (Import + Enrichment + Search) na stabilnym runtime desktop.
+
+## 2026-02-13 (v21)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `docs/runbooks/test-plan-faza-0-8.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Dodano nowy runbook testowy obejmujacy funkcje dostepne po Fazie 8:
+    - scenariusze manualne,
+    - gotowe prompty LLM do audytu,
+    - kryteria PASS/FAIL,
+    - kryterium gotowosci do rozpoczecia Fazy 9.
+  - Zaktualizowano README o link do runbooka testowego.
+  - Zaktualizowano NEXT_STEP o aktualny stan sesji i rekomendacje: najpierw domkniecie testow funkcji 0-8.
+- Dlaczego:
+  - Potrzebny byl szeroki, operacyjny plan testow (manual + AI) przed rozpoczeciem Fazy 9.
+- Ryzyko/regresja:
+  - Niskie; zmiany tylko dokumentacyjne.
+  - Ryzyko operacyjne: bez konsekwentnego wykonania runbooka mozna przeniesc defekty do Fazy 9.
+- Jak zweryfikowano:
+  - Przeglad dokumentacji i spojnosc linkow w README.
+  - `corepack pnpm lint` - PASS.
+  - `corepack pnpm typecheck` - PASS.
+  - `corepack pnpm test` - PASS.
+  - `corepack pnpm build` - PASS.
+- Nastepny krok:
+  - Wykonac runbook `docs/runbooks/test-plan-faza-0-8.md`, zebrac bugi/P0-P1 i dopiero potem wejsc w implementacje Fazy 9.
+
+## 2026-02-13 (v22)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `docs/runbooks/test-plan-faza-0-8.md`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Doprecyzowano runbook testowy po feedbacku uzytkownika:
+    - dodano sekcje `0. Instrukcja krok po kroku (dla osoby bez doswiadczenia)`,
+    - dodano jednoznaczna kolejnosc dzialan,
+    - dodano gotowy szablon raportu testow (PASS/FAIL + buglista + decyzja GO/NO-GO).
+  - Zaktualizowano `NEXT_STEP.md` o stan sesji i rekomendacje operacyjna.
+- Dlaczego:
+  - Wczesniejsza wersja runbooka nie dawala wystarczajaco jasnej odpowiedzi "co mam zrobic" dla poczatkujacego uzytkownika.
+- Ryzyko/regresja:
+  - Niskie; zmiany dokumentacyjne.
+  - Ryzyko operacyjne: pomijanie sekcji 0 moze ponownie utrudnic przeprowadzenie testow.
+- Jak zweryfikowano:
+  - Przeglad runbooka pod katem krokow wykonywalnych przez osobe poczatkujaca.
+  - `corepack pnpm lint` - PASS.
+  - `corepack pnpm typecheck` - PASS.
+  - `corepack pnpm test` - PASS.
+  - `corepack pnpm build` - PASS.
+- Nastepny krok:
+  - Uzytkownik wykonuje testy wedlug sekcji 0 i raportuje wynik szablonem z runbooka; po zamknieciu P0/P1 rozpoczynamy Faze 9.
+
+## 2026-02-13 (v23)
+
+- Data: 2026-02-13
+- Autor (model): GPT-5.2-Codex
+- Zakres plikow:
+  - `docs/runbooks/test-plan-faza-0-8.md`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Przepisano runbook testow funkcjonalnych Faz 0-8 na wersje ultra-prosta dla osob nietechnicznych.
+  - Uproszczono instrukcje do krotkiej listy krokow, dodano jasna regule GO/NO-GO i skrocony szablon raportu.
+  - Zaktualizowano README (opis runbooka), NEXT_STEP (stan sesji) oraz checklistĂ„â„˘ w PLAN_REALIZACJI (sekcja 14).
+- Dlaczego:
+  - Uzytkownik poprosil o jeszcze prostsze wyjasnienie runbooka "jak dla laika".
+- Ryzyko/regresja:
+  - Niskie; zmiany tylko w dokumentacji.
+  - Ryzyko operacyjne: zbyt duze uproszczenie moze pominac niuanse diagnostyczne, dlatego zostawiono sekcje o twardej regresji technicznej i priorytetach P0/P1.
+- Jak zweryfikowano:
+  - Przeglad tresci dokumentow i spojnosc odwolan.
+  - `corepack pnpm lint` - PASS.
+  - `corepack pnpm typecheck` - PASS.
+  - `corepack pnpm test` - PASS.
+  - `corepack pnpm build` - PASS.
+- Nastepny krok:
+  - Wykonac runbook w nowej, uproszczonej wersji i podjac decyzje GO/NO-GO przed startem Fazy 9.
+
+## 2026-02-15 (v24)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `apps/ui/src/App.tsx`
+  - `apps/ui/src/components/studio-forecast-chart.tsx`
+  - `apps/ui/package.json`
+  - `packages/core/src/queries/metrics-queries.ts`
+  - `pnpm-lock.yaml`
+  - `NEXT_STEP.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Przywrocono zakladki dashboardu:
+    - `Statystyki`, `Raporty i eksport`, `Ustawienia`.
+  - W sekcji `Statystyki` wdrozono layout Studio:
+    - kafle KPI,
+    - panel szeregu czasowego + prognoza ML,
+    - lista najblizszych predykcji (p50).
+  - Ujednolicono kolorystyke dark na poziomie calego UI.
+  - Wydzielono wykres Recharts do osobnego komponentu i podlaczono lazy loading:
+    - dynamiczny import przez `React.lazy` + `Suspense`,
+    - osobny chunk `studio-forecast-chart`.
+  - Naprawiono drobny problem lint w `metrics-queries` (warunek `undefined`).
+  - Naprawiono lokalny problem testowy z ABI natywnego modulu:
+    - zatrzymanie procesow `node/electron`,
+    - `pnpm --filter @moze/core rebuild better-sqlite3`.
+- Dlaczego:
+  - Celem bylo utrzymanie uzgodnionego UX (zakladki + podzial sekcji) oraz podniesienie czytelnosci i spojnosc UI.
+  - Dodatkowo celem bylo zmniejszenie rozmiaru startowego bundla przez odroczenie ladowania ciezkiego modulu wykresu.
+- Ryzyko/regresja:
+  - Wykres jest ladowany leniwie; przy slabym IO pojawi sie krotki fallback "Ladowanie modulu wykresu...".
+  - Natywne moduly (`better-sqlite3`) pozostaja wrazliwe na zmiane wersji Node; po zmianie runtime moze byc potrzebny rebuild.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (`76/76`).
+  - `pnpm build` - PASS.
+  - Build UI po optymalizacji:
+    - `assets/index-*.js` ~265.75 kB,
+    - `assets/studio-forecast-chart-*.js` ~350.61 kB.
+- Nastepny krok:
+  - Kontynuowac Faze 9 (`Import + Enrichment + Search`) z zachowaniem obecnego podzialu zakladek i stylu dark.
+
+## 2026-02-15 (v25)
+
+- Data: 2026-02-15
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `packages/shared/src/ipc/contracts.ts`
+  - `packages/shared/src/ipc/contracts.test.ts`
+  - `packages/shared/src/dto/index.ts`
+  - `packages/shared/src/index.ts`
+  - `packages/core/src/migrations/004-import-search-schema.ts`
+  - `packages/core/src/migrations/index.ts`
+  - `packages/core/src/queries/import-search-queries.ts`
+  - `packages/core/src/queries/index.ts`
+  - `packages/core/src/index.ts`
+  - `packages/core/src/import-search.integration.test.ts`
+  - `apps/desktop/src/ipc-handlers.ts`
+  - `apps/desktop/src/main.ts`
+  - `apps/desktop/src/preload.ts`
+  - `apps/desktop/src/ipc-handlers.integration.test.ts`
+  - `apps/desktop/package.json`
+  - `apps/ui/src/lib/electron-api.types.ts`
+  - `apps/ui/src/lib/electron-api.ts`
+  - `apps/ui/src/hooks/use-dashboard-data.ts`
+  - `apps/ui/src/App.tsx`
+  - `README.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `pnpm-lock.yaml`
+- Co zmieniono:
+  - Domknieto Faze 9 end-to-end:
+    - nowe kontrakty IPC/DTO dla importu CSV i wyszukiwania FTS,
+    - nowe komendy IPC: `import:previewCsv`, `import:runCsv`, `search:content`.
+  - Dodano migracje `004-import-search-schema`:
+    - tabela `raw_csv_imports`,
+    - tabela `dim_content_documents`,
+    - indeks FTS5 `fts_content_documents` + triggery synchronizujace indeks.
+  - Dodano `createImportSearchQueries` w `core`:
+    - parser CSV (delimiter auto/comma/semicolon/tab, quoted values),
+    - podglad CSV + sugerowane mapowanie,
+    - walidacja wiersz/kolumna z raportem problemow,
+    - import danych dziennych do `fact_channel_day`,
+    - zapis dokumentow tresci do indeksu FTS,
+    - wyszukiwanie z `snippet` i rankingiem `bm25`.
+  - W runtime desktop:
+    - podlaczono nowe handlery/bridge preload,
+    - po imporcie automatycznie uruchamiany `runDataPipeline`.
+  - W UI:
+    - dodano zakladke `Import i wyszukiwanie`,
+    - podglad CSV, mapowanie kolumn, import + wynik walidacji,
+    - wyszukiwarka FTS i prezentacja wynikow.
+  - Dodano testy integracyjne fazy:
+    - `packages/core/src/import-search.integration.test.ts`,
+    - rozszerzone `packages/shared/src/ipc/contracts.test.ts`,
+    - rozszerzone `apps/desktop/src/ipc-handlers.integration.test.ts`.
+- Dlaczego:
+  - Celem bylo zakonczone wdrozenie Fazy 9 (Import + Enrichment + Search) zgodnie z planem i DoD:
+    import CSV musi zasilac analityke, a wyszukiwarka ma dzialac na tytulach/opisach/transkrypcjach.
+- Ryzyko/regresja:
+  - Import oczekuje poprawnego mapowania wymaganych kolumn (`date`, `views`, `subscribers`, `videos`).
+  - Dane tekstowe z importu sa wyswietlane jako zwykly tekst (bez renderowania HTML) dla bezpieczenstwa.
+  - FTS opiera sie na SQLite FTS5; w razie niestandardowego buildu SQLite bez FTS5 funkcja wyszukiwania nie bedzie dostepna.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS
+  - `pnpm typecheck` - PASS
+  - `pnpm test` - PASS (`80/80`)
+  - `pnpm build` - PASS
+- Nastepny krok:
+  - Rozpoczac Faze 10: `Anomaly Detection + Trend Analysis`.
+
+
+
+## 2026-02-17 (v26)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `docs/reviews/2026-02-17-audyt-kodu-i-plan-poprawek-llm.md`
+  - `NEXT_STEP.md`
+  - `README.md`
+  - `docs/PLAN_REALIZACJI.md`
+  - `CHANGELOG_AI.md`
+- Co zmieniono:
+  - Wykonano doglebny audyt kodu calej aplikacji (apps + packages + CI).
+  - Przygotowano szczegolowy raport i uporzadkowany backlog poprawek dla kolejnego LLM (priorytety P0/P1/P2, DoD, ryzyka, plan 2 sprintow).
+  - Zaktualizowano `NEXT_STEP.md` o nowa Faze 20 jako **NASTEPNA** oraz precyzyjny zakres refaktoru stabilizacyjnego.
+  - Zaktualizowano tabele postepu w `README.md` o Faze 20 (`**NASTĘPNA**`).
+  - Odhaczono w `docs/PLAN_REALIZACJI.md` pozycje dotyczaca wykonanego audytu technicznego.
+- Dlaczego:
+  - Uzytkownik poprosil o doglebna recenzje calego kodu i liste poprawek gotowa do realizacji przez kolejny model.
+- Ryzyko/regresja:
+  - Zmiany są dokumentacyjne (brak zmian runtime), ryzyko regresji funkcjonalnej niskie.
+  - Ryzyko projektowe: backlog refaktoryzacji jest obszerny i wymaga realizacji etapami, aby uniknac naruszenia kontraktow IPC.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS (116/116).
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Rozpoczac Faze 20 od modularyzacji `apps/ui/src/App.tsx` (P0.1) w malych commitach bez zmian funkcjonalnych.
+
+## 2026-02-17 (v27)
+
+- Data: 2026-02-17
+- Autor (model): GPT-5 Codex
+- Zakres plikow:
+  - `CHANGELOG_AI.md`
+  - `NEXT_STEP.md`
+  - `docs/PLAN_REALIZACJI.md`
+- Co zmieniono:
+  - Poprawiono nitpick jezykowy w `CHANGELOG_AI.md`: `sa` -> `są` w zdaniu o ryzyku/regresji.
+  - W `NEXT_STEP.md` (sekcja „Co zostało zrobione (Sesja audytu 2026-02-17)`) przywrocono wskazane polskie znaki diakrytyczne.
+  - Usunieto BOM z `docs/PLAN_REALIZACJI.md` (UTF-8 bez BOM), aby pierwsza linia zaczynala sie od `# Plan realizacji projektu (AI-first)`.
+- Dlaczego:
+  - Uzytkownik zglosil uwagi inline do poprzedniego commita i poprosil o precyzyjne poprawki redakcyjne/encoding.
+- Ryzyko/regresja:
+  - Zmiany dokumentacyjne i encoding-only; brak zmian runtime i kontraktow.
+- Jak zweryfikowano:
+  - `pnpm lint` - PASS.
+  - `pnpm typecheck` - PASS.
+  - `pnpm test` - PASS.
+  - `pnpm build` - PASS.
+- Nastepny krok:
+  - Kontynuowac Faze 20 zgodnie z backlogiem z audytu (modularyzacja UI/IPC + testy).

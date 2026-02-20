@@ -1,0 +1,42 @@
+{
+  "name": "mozetobedzieto",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Analityczna maszyna AI dla twórców YouTube",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:snapshots": "vitest run apps/desktop/src/analytics-snapshots.integration.test.ts",
+    "test:snapshots:update": "vitest run apps/desktop/src/analytics-snapshots.integration.test.ts -u",
+    "test:watch": "vitest",
+    "check:boundaries": "node scripts/check-dependency-boundaries.mjs",
+    "check:loc": "node scripts/check-loc-budget.mjs",
+    "check:perf": "node scripts/check-ui-performance-budget.mjs",
+    "fixtures:golden": "node --experimental-strip-types scripts/generate-insight-golden-db.ts",
+    "dev": "node scripts/dev-desktop.mjs",
+    "dev:ui": "pnpm --filter @moze/ui exec vite --host localhost --port 5173",
+    "dev:desktop": "pnpm --filter @moze/desktop run dev",
+    "dev:treadmill": "pnpm --filter treadmill-tracker exec vite --host localhost --port 5174"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.29.2",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.2.3",
+    "eslint": "^10.0.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.0",
+    "vitest": "^4.0.18",
+    "zod": "^4.3.6"
+  }
+}
